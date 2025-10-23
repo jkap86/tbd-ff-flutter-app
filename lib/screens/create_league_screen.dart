@@ -17,7 +17,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
   final _seasonController =
       TextEditingController(text: DateTime.now().year.toString());
 
-  String _seasonType = 'regular';
+  String _seasonType = 'dynasty';
   int _totalRosters = 12;
   bool _isPublic = false;
 
@@ -143,20 +143,22 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Season type
+                  // League type
                   DropdownButtonFormField<String>(
                     value: _seasonType,
                     decoration: const InputDecoration(
-                      labelText: 'Season Type',
+                      labelText: 'League Type',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
                     ),
                     items: const [
                       DropdownMenuItem(
-                          value: 'regular', child: Text('Regular')),
+                          value: 'redraft', child: Text('Redraft')),
                       DropdownMenuItem(
                           value: 'dynasty', child: Text('Dynasty')),
                       DropdownMenuItem(value: 'keeper', child: Text('Keeper')),
+                      DropdownMenuItem(
+                          value: 'betting', child: Text('Betting')),
                     ],
                     onChanged: (value) {
                       setState(() {

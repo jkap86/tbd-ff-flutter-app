@@ -132,52 +132,93 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: leagueProvider.userLeagues.length,
-      itemBuilder: (context, index) {
-        final league = leagueProvider.userLeagues[index];
-        return ResponsiveContainer(
-          maxWidth: 800,
-          child: Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.sports_football,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
-              title: Text(
-                league.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text('Season: ${league.season}'),
-                  Text('Teams: ${league.totalRosters}'),
-                  const SizedBox(height: 4),
-                  _buildStatusChip(league.status),
-                ],
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        LeagueDetailsScreen(leagueId: league.id),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final currentUserId = authProvider.user?.id;
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: leagueProvider.userLeagues.length,
+          itemBuilder: (context, index) {
+            final league = leagueProvider.userLeagues[index];
+            final isCommissioner = league.commissionerId == currentUserId;
+
+            return ResponsiveContainer(
+              maxWidth: 800,
+              child: Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(
+                      Icons.sports_football,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
-                );
-              },
-            ),
-          ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          league.name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (isCommissioner)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'C',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text('Season: ${league.season}'),
+                      Text(
+                        'Teams: ${league.currentRosters ?? league.totalRosters}/${league.totalRosters}',
+                      ),
+                      const SizedBox(height: 4),
+                      _buildLeagueTypeChip(league.seasonType),
+                      const SizedBox(height: 4),
+                      _buildStatusChip(league.status),
+                    ],
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            LeagueDetailsScreen(leagueId: league.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -207,6 +248,44 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
       default:
         color = Colors.grey;
         label = status;
+    }
+
+    return Chip(
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12),
+      ),
+      backgroundColor: color.withOpacity(0.2),
+      side: BorderSide.none,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  Widget _buildLeagueTypeChip(String type) {
+    Color color;
+    String label;
+
+    switch (type) {
+      case 'redraft':
+        color = Colors.blue;
+        label = 'Redraft';
+        break;
+      case 'dynasty':
+        color = Colors.purple;
+        label = 'Dynasty';
+        break;
+      case 'keeper':
+        color = Colors.orange;
+        label = 'Keeper';
+        break;
+      case 'betting':
+        color = Colors.red;
+        label = 'Betting';
+        break;
+      default:
+        color = Colors.grey;
+        label = type;
     }
 
     return Chip(

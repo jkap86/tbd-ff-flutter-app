@@ -213,4 +213,123 @@ class LeagueProvider with ChangeNotifier {
     _selectedLeagueRosters = [];
     notifyListeners();
   }
+
+  bool _isCommissioner = false;
+  Map<String, dynamic>? _leagueStats;
+
+  // Getters
+  bool get isCommissioner => _isCommissioner;
+  Map<String, dynamic>? get leagueStats => _leagueStats;
+
+  // Check if user is commissioner
+  Future<void> checkIsCommissioner({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      _isCommissioner = await _leagueService.isUserCommissioner(
+        token: token,
+        leagueId: leagueId,
+      );
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Error checking commissioner status: ${e.toString()}';
+      notifyListeners();
+    }
+  }
+
+  // Transfer commissioner role
+  Future<bool> transferCommissioner({
+    required String token,
+    required int leagueId,
+    required int newCommissionerId,
+  }) async {
+    _status = LeagueStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updatedLeague = await _leagueService.transferCommissioner(
+        token: token,
+        leagueId: leagueId,
+        newCommissionerId: newCommissionerId,
+      );
+
+      if (updatedLeague != null) {
+        // Update selected league
+        if (_selectedLeague?.id == leagueId) {
+          _selectedLeague = updatedLeague;
+          _isCommissioner = false; // User is no longer commissioner
+        }
+
+        _status = LeagueStatus.loaded;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Failed to transfer commissioner';
+        _status = LeagueStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Error transferring commissioner: ${e.toString()}';
+      _status = LeagueStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Remove league member
+  Future<bool> removeLeagueMember({
+    required String token,
+    required int leagueId,
+    required int userIdToRemove,
+  }) async {
+    _status = LeagueStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _leagueService.removeLeagueMember(
+        token: token,
+        leagueId: leagueId,
+        userIdToRemove: userIdToRemove,
+      );
+
+      if (success) {
+        // Remove from rosters list
+        _selectedLeagueRosters.removeWhere((r) => r.userId == userIdToRemove);
+        _status = LeagueStatus.loaded;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Failed to remove member';
+        _status = LeagueStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Error removing member: ${e.toString()}';
+      _status = LeagueStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Load league stats
+  Future<void> loadLeagueStats({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      _leagueStats = await _leagueService.getLeagueStats(
+        token: token,
+        leagueId: leagueId,
+      );
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Error loading league stats: ${e.toString()}';
+      notifyListeners();
+    }
+  }
 }

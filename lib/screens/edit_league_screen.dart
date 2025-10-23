@@ -20,17 +20,53 @@ class EditLeagueScreen extends StatefulWidget {
 class _EditLeagueScreenState extends State<EditLeagueScreen> {
   late TextEditingController _nameController;
   bool _isPublic = false;
+  int _totalRosters = 12;
+  late Map<String, dynamic> _scoringSettings;
+
+  // Scoring settings fields
+  late TextEditingController _passingTouchdownsController;
+  late TextEditingController _passingYardsController;
+  late TextEditingController _rushingTouchdownsController;
+  late TextEditingController _rushingYardsController;
+  late TextEditingController _receivingTouchdownsController;
+  late TextEditingController _receivingYardsController;
+  late TextEditingController _receivingReceptionsController;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.league.name);
     _isPublic = widget.league.settings?['is_public'] ?? false;
+    _totalRosters = widget.league.totalRosters;
+    _scoringSettings = widget.league.scoringSettings ?? {};
+
+    // Initialize scoring settings controllers
+    _passingTouchdownsController = TextEditingController(
+        text: (_scoringSettings['passing_touchdowns'] ?? 4).toString());
+    _passingYardsController = TextEditingController(
+        text: (_scoringSettings['passing_yards'] ?? 0.04).toString());
+    _rushingTouchdownsController = TextEditingController(
+        text: (_scoringSettings['rushing_touchdowns'] ?? 6).toString());
+    _rushingYardsController = TextEditingController(
+        text: (_scoringSettings['rushing_yards'] ?? 0.1).toString());
+    _receivingTouchdownsController = TextEditingController(
+        text: (_scoringSettings['receiving_touchdowns'] ?? 6).toString());
+    _receivingYardsController = TextEditingController(
+        text: (_scoringSettings['receiving_yards'] ?? 0.1).toString());
+    _receivingReceptionsController = TextEditingController(
+        text: (_scoringSettings['receiving_receptions'] ?? 1).toString());
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _passingTouchdownsController.dispose();
+    _passingYardsController.dispose();
+    _rushingTouchdownsController.dispose();
+    _rushingYardsController.dispose();
+    _receivingTouchdownsController.dispose();
+    _receivingYardsController.dispose();
+    _receivingReceptionsController.dispose();
     super.dispose();
   }
 
@@ -55,6 +91,21 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       return;
     }
 
+    // Build scoring settings from controllers
+    final updatedScoringSettings = {
+      'passing_touchdowns':
+          double.tryParse(_passingTouchdownsController.text) ?? 4,
+      'passing_yards': double.tryParse(_passingYardsController.text) ?? 0.04,
+      'rushing_touchdowns':
+          double.tryParse(_rushingTouchdownsController.text) ?? 6,
+      'rushing_yards': double.tryParse(_rushingYardsController.text) ?? 0.1,
+      'receiving_touchdowns':
+          double.tryParse(_receivingTouchdownsController.text) ?? 6,
+      'receiving_yards': double.tryParse(_receivingYardsController.text) ?? 0.1,
+      'receiving_receptions':
+          double.tryParse(_receivingReceptionsController.text) ?? 1,
+    };
+
     final success = await leagueProvider.updateLeagueSettings(
       token: authProvider.token!,
       leagueId: widget.league.id,
@@ -62,6 +113,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       settings: {
         'is_public': _isPublic,
       },
+      scoringSettings: updatedScoringSettings,
     );
 
     if (mounted) {
@@ -112,6 +164,13 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Section 1: Basic Settings
+                Text(
+                  'Basic Settings',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+
                 // League name
                 TextField(
                   controller: _nameController,
@@ -120,6 +179,26 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.group),
                   ),
+                ),
+                const SizedBox(height: 16),
+
+                // Total rosters
+                DropdownButtonFormField<int>(
+                  value: _totalRosters,
+                  decoration: const InputDecoration(
+                    labelText: 'Number of Teams',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.people),
+                  ),
+                  items: [
+                    for (int i = 4; i <= 16; i += 2)
+                      DropdownMenuItem(value: i, child: Text('$i Teams')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _totalRosters = value!;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -150,6 +229,104 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 32),
 
+                // Section 2: Scoring Settings
+                Text(
+                  'Scoring Settings',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+
+                // Passing Touchdowns
+                TextFormField(
+                  controller: _passingTouchdownsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Passing Touchdowns',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per passing TD',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Passing Yards
+                TextFormField(
+                  controller: _passingYardsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Passing Yards',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per passing yard',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Rushing Touchdowns
+                TextFormField(
+                  controller: _rushingTouchdownsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Rushing Touchdowns',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per rushing TD',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Rushing Yards
+                TextFormField(
+                  controller: _rushingYardsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Rushing Yards',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per rushing yard',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Receiving Touchdowns
+                TextFormField(
+                  controller: _receivingTouchdownsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Receiving Touchdowns',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per receiving TD',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Receiving Yards
+                TextFormField(
+                  controller: _receivingYardsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Receiving Yards',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per receiving yard',
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Receiving Receptions
+                TextFormField(
+                  controller: _receivingReceptionsController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Receiving Receptions',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.sports),
+                    helperText: 'Points per reception',
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // Info message
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -158,7 +335,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Note: As the commissioner, you can edit the league name and privacy settings. Other league settings cannot be changed after creation.',
+                    'Note: As the commissioner, you can edit league settings. Some settings may be locked once the season starts.',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onPrimaryContainer,

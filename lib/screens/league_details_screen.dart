@@ -6,6 +6,7 @@ import '../models/roster_model.dart';
 import '../widgets/responsive_container.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
+import 'commissioner_settings_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -27,8 +28,21 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
   }
 
   Future<void> _loadLeagueDetails() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+
     await leagueProvider.loadLeagueDetails(widget.leagueId);
+
+    if (authProvider.token != null) {
+      await leagueProvider.checkIsCommissioner(
+        token: authProvider.token!,
+        leagueId: widget.leagueId,
+      );
+      await leagueProvider.loadLeagueStats(
+        token: authProvider.token!,
+        leagueId: widget.leagueId,
+      );
+    }
   }
 
   @override
@@ -37,24 +51,29 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
       appBar: AppBar(
         title: const Text('League Details'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: () {
-              final leagueProvider =
-                  Provider.of<LeagueProvider>(context, listen: false);
-              final league = leagueProvider.selectedLeague;
-              if (league != null) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => InviteMembersScreen(
-                      leagueId: league.id,
-                      leagueName: league.name,
-                    ),
-                  ),
+          Consumer2<LeagueProvider, AuthProvider>(
+            builder: (context, leagueProvider, authProvider, child) {
+              if (leagueProvider.isCommissioner) {
+                return IconButton(
+                  icon: const Icon(Icons.person_add),
+                  onPressed: () {
+                    final league = leagueProvider.selectedLeague;
+                    if (league != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => InviteMembersScreen(
+                            leagueId: league.id,
+                            leagueName: league.name,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  tooltip: 'Invite Members',
                 );
               }
+              return const SizedBox.shrink();
             },
-            tooltip: 'Invite Members',
           ),
         ],
       ),
@@ -89,7 +108,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
           final league = leagueProvider.selectedLeague;
           final rosters = leagueProvider.selectedLeagueRosters;
           final currentUserId = authProvider.user?.id;
-          final isCommissioner = league?.commissionerId == currentUserId;
+          final isCommissioner = leagueProvider.isCommissioner;
 
           if (league == null) {
             return const Center(child: Text('League not found'));
@@ -120,28 +139,88 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    league.name,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        league.name,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (isCommissioner)
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 4),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primaryContainer,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'Commissioner',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onPrimaryContainer,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 if (isCommissioner)
-                                  IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              EditLeagueScreen(
-                                            league: league,
-                                          ),
+                                  PopupMenuButton(
+                                    itemBuilder: (context) => [
+                                      PopupMenuItem(
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.edit, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Edit League'),
+                                          ],
                                         ),
-                                      );
-                                    },
-                                    tooltip: 'Edit League',
+                                        onTap: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  EditLeagueScreen(
+                                                league: league,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      PopupMenuItem(
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.settings, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('Commissioner Settings'),
+                                          ],
+                                        ),
+                                        onTap: () {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  CommissionerSettingsScreen(
+                                                leagueId: league.id,
+                                                leagueName: league.name,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
                                   ),
                               ],
                             ),
@@ -151,8 +230,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                             const SizedBox(height: 8),
                             _buildInfoRow(
                               Icons.category,
-                              'Type',
-                              league.seasonType.toUpperCase(),
+                              'League Type',
+                              _formatLeagueType(league.seasonType),
                             ),
                             const SizedBox(height: 8),
                             _buildInfoRow(
@@ -166,14 +245,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                               'Status',
                               _formatStatus(league.status),
                             ),
-                            if (isCommissioner) ...[
-                              const SizedBox(height: 8),
-                              _buildInfoRow(
-                                Icons.shield,
-                                'Role',
-                                'Commissioner',
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -220,7 +291,24 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                         itemCount: rosters.length,
                         itemBuilder: (context, index) {
                           final roster = rosters[index];
-                          return _buildRosterCard(roster);
+                          final isCurrentUser = roster.userId == currentUserId;
+                          final isRosterCommissioner =
+                              roster.userId == league.commissionerId;
+
+                          return _buildRosterCard(
+                            roster,
+                            isCurrentUser: isCurrentUser,
+                            isRosterCommissioner: isRosterCommissioner,
+                            canRemove: isCommissioner && !isCurrentUser,
+                            onRemove: () {
+                              _showRemoveConfirmation(
+                                context,
+                                roster,
+                                leagueProvider,
+                                authProvider,
+                              );
+                            },
+                          );
                         },
                       ),
                   ],
@@ -256,7 +344,13 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
     );
   }
 
-  Widget _buildRosterCard(Roster roster) {
+  Widget _buildRosterCard(
+    Roster roster, {
+    required bool isCurrentUser,
+    required bool isRosterCommissioner,
+    required bool canRemove,
+    required VoidCallback onRemove,
+  }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -266,28 +360,139 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
           ),
         ),
-        title: Text(
-          roster.username ?? 'Unknown User',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(roster.email ?? ''),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        title: Row(
           children: [
-            Text(
-              'Roster ${roster.rosterId}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                roster.username ?? 'Unknown User',
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            Text(
-              '${roster.starters.length + roster.bench.length} players',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
+            if (isRosterCommissioner)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  'C',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            if (isCurrentUser)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  'You',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
           ],
         ),
+        subtitle: Text(roster.email ?? ''),
+        trailing: canRemove
+            ? IconButton(
+                icon:
+                    const Icon(Icons.remove_circle_outline, color: Colors.red),
+                onPressed: onRemove,
+                tooltip: 'Remove Member',
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Roster ${roster.rosterId}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${roster.starters.length + roster.bench.length} players',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  void _showRemoveConfirmation(
+    BuildContext context,
+    Roster roster,
+    LeagueProvider leagueProvider,
+    AuthProvider authProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Member'),
+        content: Text(
+          'Are you sure you want to remove ${roster.username} from the league?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+
+              if (authProvider.token != null) {
+                final success = await leagueProvider.removeLeagueMember(
+                  token: authProvider.token!,
+                  leagueId: widget.leagueId,
+                  userIdToRemove: roster.userId,
+                );
+
+                if (mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${roster.username} removed from league'),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          leagueProvider.errorMessage ??
+                              'Failed to remove member',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
       ),
     );
   }
@@ -304,6 +509,21 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
         return 'Complete';
       default:
         return status;
+    }
+  }
+
+  String _formatLeagueType(String type) {
+    switch (type) {
+      case 'redraft':
+        return 'Redraft';
+      case 'dynasty':
+        return 'Dynasty';
+      case 'keeper':
+        return 'Keeper';
+      case 'betting':
+        return 'Betting';
+      default:
+        return type;
     }
   }
 }

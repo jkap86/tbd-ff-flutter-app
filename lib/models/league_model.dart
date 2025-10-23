@@ -11,6 +11,7 @@ class League {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int? commissionerId;
+  final int? currentRosters;
 
   League({
     required this.id,
@@ -25,9 +26,22 @@ class League {
     required this.createdAt,
     required this.updatedAt,
     this.commissionerId,
+    this.currentRosters,
   });
 
   factory League.fromJson(Map<String, dynamic> json) {
+    int? extractedCommissionerId;
+
+    // Try to get commissioner_id from top level first
+    if (json['commissioner_id'] != null) {
+      extractedCommissionerId = json['commissioner_id'] as int;
+    }
+    // Then try to get it from settings
+    else if (json['settings'] != null &&
+        json['settings']['commissioner_id'] != null) {
+      extractedCommissionerId = json['settings']['commissioner_id'] as int;
+    }
+
     return League(
       id: json['id'] as int,
       name: json['name'] as String,
@@ -40,11 +54,8 @@ class League {
       totalRosters: json['total_rosters'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      commissionerId: json['commissioner_id'] as int? ??
-          (json['settings'] != null &&
-                  json['settings']['commissioner_id'] != null
-              ? json['settings']['commissioner_id'] as int
-              : null),
+      commissionerId: extractedCommissionerId,
+      currentRosters: json['current_rosters'] as int?,
     );
   }
 
@@ -62,6 +73,24 @@ class League {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'commissioner_id': commissionerId,
+      'current_rosters': currentRosters,
     };
+  }
+
+  // Check if user is commissioner
+  bool isUserCommissioner(int userId) {
+    return commissionerId == userId;
+  }
+
+  // Get available spots
+  int getAvailableSpots() {
+    final current = currentRosters ?? 0;
+    return totalRosters - current;
+  }
+
+  // Check if league is full
+  bool isFull() {
+    final current = currentRosters ?? 0;
+    return current >= totalRosters;
   }
 }

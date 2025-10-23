@@ -292,6 +292,11 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
                             Icons.calendar_today, league['season'] ?? 'N/A'),
                         const SizedBox(width: 8),
                         _buildInfoChip(
+                          Icons.category,
+                          _formatLeagueType(league['season_type'] ?? 'redraft'),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildInfoChip(
                           Icons.people,
                           '$currentRosters/$totalRosters teams',
                         ),
@@ -447,6 +452,21 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
         );
       },
     );
+  }
+
+  String _formatLeagueType(String type) {
+    switch (type) {
+      case 'redraft':
+        return 'Redraft';
+      case 'dynasty':
+        return 'Dynasty';
+      case 'keeper':
+        return 'Keeper';
+      case 'betting':
+        return 'Betting';
+      default:
+        return type;
+    }
   }
 
   Widget _buildInfoChip(IconData icon, String label) {

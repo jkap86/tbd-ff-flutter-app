@@ -146,4 +146,97 @@ class LeagueService {
       return null;
     }
   }
+
+  // Check if user is commissioner
+  Future<bool> isUserCommissioner({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/is-commissioner'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data']['isCommissioner'] as bool? ?? false;
+      }
+      return false;
+    } catch (e) {
+      print('Is commissioner check error: $e');
+      return false;
+    }
+  }
+
+  // Transfer commissioner role
+  Future<League?> transferCommissioner({
+    required String token,
+    required int leagueId,
+    required int newCommissionerId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${ApiConfig.baseUrl}/api/leagues/$leagueId/transfer-commissioner'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode({
+          'newCommissionerId': newCommissionerId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return League.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      print('Transfer commissioner error: $e');
+      return null;
+    }
+  }
+
+  // Remove league member
+  Future<bool> removeLeagueMember({
+    required String token,
+    required int leagueId,
+    required int userIdToRemove,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/remove-member'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode({
+          'userIdToRemove': userIdToRemove,
+        }),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Remove league member error: $e');
+      return false;
+    }
+  }
+
+  // Get league stats
+  Future<Map<String, dynamic>?> getLeagueStats({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/stats'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] as Map<String, dynamic>?;
+      }
+      return null;
+    } catch (e) {
+      print('Get league stats error: $e');
+      return null;
+    }
+  }
 }
