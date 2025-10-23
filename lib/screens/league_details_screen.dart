@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../models/roster_model.dart';
 import '../widgets/responsive_container.dart';
 import 'invite_members_screen.dart';
+import 'edit_league_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -56,8 +58,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
           ),
         ],
       ),
-      body: Consumer<LeagueProvider>(
-        builder: (context, leagueProvider, child) {
+      body: Consumer2<LeagueProvider, AuthProvider>(
+        builder: (context, leagueProvider, authProvider, child) {
           if (leagueProvider.status == LeagueStatus.loading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -86,6 +88,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
 
           final league = leagueProvider.selectedLeague;
           final rosters = leagueProvider.selectedLeagueRosters;
+          final currentUserId = authProvider.user?.id;
+          final isCommissioner = league?.commissionerId == currentUserId;
 
           if (league == null) {
             return const Center(child: Text('League not found'));
@@ -124,6 +128,21 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                                     ),
                                   ),
                                 ),
+                                if (isCommissioner)
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              EditLeagueScreen(
+                                            league: league,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    tooltip: 'Edit League',
+                                  ),
                               ],
                             ),
                             const Divider(height: 24),
@@ -147,6 +166,14 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                               'Status',
                               _formatStatus(league.status),
                             ),
+                            if (isCommissioner) ...[
+                              const SizedBox(height: 8),
+                              _buildInfoRow(
+                                Icons.shield,
+                                'Role',
+                                'Commissioner',
+                              ),
+                            ],
                           ],
                         ),
                       ),

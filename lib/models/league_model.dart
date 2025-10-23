@@ -10,6 +10,7 @@ class League {
   final int totalRosters;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int? commissionerId;
 
   League({
     required this.id,
@@ -23,6 +24,7 @@ class League {
     required this.totalRosters,
     required this.createdAt,
     required this.updatedAt,
+    this.commissionerId,
   });
 
   factory League.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,11 @@ class League {
       totalRosters: json['total_rosters'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      commissionerId: json['commissioner_id'] as int? ??
+          (json['settings'] != null &&
+                  json['settings']['commissioner_id'] != null
+              ? json['settings']['commissioner_id'] as int
+              : null),
     );
   }
 
@@ -54,6 +61,7 @@ class League {
       'total_rosters': totalRosters,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'commissioner_id': commissionerId,
     };
   }
 }

@@ -151,6 +151,56 @@ class LeagueProvider with ChangeNotifier {
     }
   }
 
+  // Update league settings
+  Future<bool> updateLeagueSettings({
+    required String token,
+    required int leagueId,
+    String? name,
+    Map<String, dynamic>? settings,
+    Map<String, dynamic>? scoringSettings,
+  }) async {
+    _status = LeagueStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updatedLeague = await _leagueService.updateLeagueSettings(
+        token: token,
+        leagueId: leagueId,
+        name: name,
+        settings: settings,
+        scoringSettings: scoringSettings,
+      );
+
+      if (updatedLeague != null) {
+        // Update the league in the list
+        final index = _userLeagues.indexWhere((l) => l.id == leagueId);
+        if (index != -1) {
+          _userLeagues[index] = updatedLeague;
+        }
+
+        // Update selected league if it's the one being edited
+        if (_selectedLeague?.id == leagueId) {
+          _selectedLeague = updatedLeague;
+        }
+
+        _status = LeagueStatus.loaded;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Failed to update league settings';
+        _status = LeagueStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Error updating league settings: ${e.toString()}';
+      _status = LeagueStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Clear error message
   void clearError() {
     _errorMessage = null;

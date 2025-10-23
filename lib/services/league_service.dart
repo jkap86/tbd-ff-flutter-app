@@ -114,4 +114,36 @@ class LeagueService {
       return null;
     }
   }
+
+  // Update league settings
+  Future<League?> updateLeagueSettings({
+    required String token,
+    required int leagueId,
+    String? name,
+    Map<String, dynamic>? settings,
+    Map<String, dynamic>? scoringSettings,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+
+      if (name != null) body['name'] = name;
+      if (settings != null) body['settings'] = settings;
+      if (scoringSettings != null) body['scoring_settings'] = scoringSettings;
+
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return League.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      print('Update league settings error: $e');
+      return null;
+    }
+  }
 }
