@@ -228,7 +228,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       'Time Remaining',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ),
+                  ],
                 ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
