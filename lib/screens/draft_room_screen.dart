@@ -186,6 +186,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     final draft = draftProvider.currentDraft!;
     final timeRemaining = draftProvider.timeRemaining;
 
+    // Find the roster on the clock from draft order
+    final currentRoster = draftProvider.draftOrder.firstWhere(
+      (order) => order.rosterId == draft.currentRosterId,
+      orElse: () => draftProvider.draftOrder.first,
+    );
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Theme.of(context).colorScheme.primaryContainer,
@@ -222,7 +228,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       'Time Remaining',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ],
+                  ),
                 ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -232,7 +238,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   Text(
-                    'Team ${draft.currentRosterId ?? "?"}',
+                    currentRoster.displayName,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ],
