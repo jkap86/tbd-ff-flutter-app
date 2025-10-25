@@ -118,9 +118,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     }
   }
 
-  void _filterPlayers() {
+  Future<void> _filterPlayers() async {
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-    draftProvider.filterPlayers(
+    await draftProvider.filterPlayers(
       position: _selectedPosition,
       search: _searchController.text.trim().isEmpty
           ? null
