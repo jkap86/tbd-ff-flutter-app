@@ -288,6 +288,34 @@ class DraftProvider with ChangeNotifier {
     }
   }
 
+  // Reset draft
+  Future<bool> resetDraft({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      final draft = await _draftService.resetDraft(
+        token: token,
+        draftId: draftId,
+      );
+
+      if (draft != null) {
+        _currentDraft = draft;
+        _draftPicks.clear();
+        _stopTimer();
+        // Reload available players since all players are now available again
+        await _loadAvailablePlayers(draftId);
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = 'Error resetting draft: ${e.toString()}';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Make a draft pick
   Future<bool> makePick({
     required String token,

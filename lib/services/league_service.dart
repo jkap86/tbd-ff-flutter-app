@@ -10,6 +10,7 @@ class LeagueService {
     required String token,
     required String name,
     required String season,
+    String? seasonType,
     String leagueType = 'redraft',
     int totalRosters = 12,
     Map<String, dynamic>? settings,
@@ -17,18 +18,24 @@ class LeagueService {
     List<dynamic>? rosterPositions,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'name': name,
+        'season': season,
+        'league_type': leagueType,
+        'total_rosters': totalRosters,
+        'settings': settings ?? {},
+        'scoring_settings': scoringSettings ?? {},
+        'roster_positions': rosterPositions ?? [],
+      };
+
+      if (seasonType != null) {
+        body['season_type'] = seasonType;
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/create'),
         headers: ApiConfig.getAuthHeaders(token),
-        body: jsonEncode({
-          'name': name,
-          'season': season,
-          'league_type': leagueType,
-          'total_rosters': totalRosters,
-          'settings': settings ?? {},
-          'scoring_settings': scoringSettings ?? {},
-          'roster_positions': rosterPositions ?? [],
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 201) {
@@ -120,15 +127,21 @@ class LeagueService {
     required String token,
     required int leagueId,
     String? name,
+    String? seasonType,
+    int? totalRosters,
     Map<String, dynamic>? settings,
     Map<String, dynamic>? scoringSettings,
+    List<dynamic>? rosterPositions,
   }) async {
     try {
       final body = <String, dynamic>{};
 
       if (name != null) body['name'] = name;
+      if (seasonType != null) body['season_type'] = seasonType;
+      if (totalRosters != null) body['total_rosters'] = totalRosters;
       if (settings != null) body['settings'] = settings;
       if (scoringSettings != null) body['scoring_settings'] = scoringSettings;
+      if (rosterPositions != null) body['roster_positions'] = rosterPositions;
 
       final response = await http.put(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),

@@ -22,7 +22,7 @@ class DraftLobbyScreen extends StatefulWidget {
 class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
   bool _isLoading = true;
   bool _isStarting = false;
-  bool _hasOrder = false;
+  bool _isResetting = false;
 
   @override
   void initState() {
@@ -30,15 +30,42 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
     _loadDraft();
   }
 
+  @override
+  void dispose() {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Leave WebSocket room when leaving the screen
+    if (draftProvider.currentDraft != null && authProvider.user != null) {
+      draftProvider.leaveDraftRoom(
+        draftId: draftProvider.currentDraft!.id,
+        userId: authProvider.user!.id,
+        username: authProvider.user!.username,
+      );
+    }
+
+    super.dispose();
+  }
+
   Future<void> _loadDraft() async {
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     await draftProvider.loadDraftByLeague(widget.leagueId);
 
     if (mounted) {
       setState(() {
         _isLoading = false;
-        _hasOrder = draftProvider.draftOrder.isNotEmpty;
       });
+
+      // Join WebSocket room if draft exists
+      if (draftProvider.currentDraft != null && authProvider.user != null) {
+        draftProvider.joinDraftRoom(
+          draftId: draftProvider.currentDraft!.id,
+          userId: authProvider.user!.id,
+          username: authProvider.user!.username,
+        );
+      }
 
       // If draft is already in progress, navigate to draft room
       if (draftProvider.currentDraft?.isInProgress == true) {
@@ -51,8 +78,7 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
-    if (authProvider.token == null ||
-        draftProvider.currentDraft == null) {
+    if (authProvider.token == null || draftProvider.currentDraft == null) {
       return;
     }
 
@@ -62,25 +88,21 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
       randomize: true,
     );
 
-    if (mounted) {
-      if (success) {
-        setState(() => _hasOrder = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft order randomized!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to randomize draft order'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (mounted && !success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to randomize draft order'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _startDraft() async {
-    if (!_hasOrder) {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final hasOrder = draftProvider.draftOrder.isNotEmpty;
+
+    if (!hasOrder) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please set draft order first'),
@@ -93,10 +115,8 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
     setState(() => _isStarting = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
-    if (authProvider.token == null ||
-        draftProvider.currentDraft == null) {
+    if (authProvider.token == null || draftProvider.currentDraft == null) {
       setState(() => _isStarting = false);
       return;
     }
@@ -114,8 +134,69 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            content:
+                Text(draftProvider.errorMessage ?? 'Failed to start draft'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _resetDraft() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Draft'),
+        content: const Text(
+          'Are you sure you want to reset the draft? This will clear all picks and reset the draft to not started.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isResetting = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    if (authProvider.token == null || draftProvider.currentDraft == null) {
+      setState(() => _isResetting = false);
+      return;
+    }
+
+    final success = await draftProvider.resetDraft(
+      token: authProvider.token!,
+      draftId: draftProvider.currentDraft!.id,
+    );
+
+    if (mounted) {
+      setState(() => _isResetting = false);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Draft reset successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
             content: Text(
-                draftProvider.errorMessage ?? 'Failed to start draft'),
+                draftProvider.errorMessage ?? 'Failed to reset draft'),
             backgroundColor: Colors.red,
           ),
         );
@@ -139,12 +220,6 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Draft Lobby - ${widget.leagueName}'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadDraft,
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -173,9 +248,8 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                                   children: [
                                     Icon(
                                       Icons.info_outline,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
@@ -191,8 +265,8 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                                     'Type', draft.draftType.toUpperCase()),
                                 if (draft.isSnake && draft.thirdRoundReversal)
                                   _buildInfoRow('3rd Round Reversal', 'Yes'),
-                                _buildInfoRow('Pick Timer',
-                                    '${draft.pickTimeSeconds}s'),
+                                _buildInfoRow(
+                                    'Pick Timer', '${draft.pickTimeSeconds}s'),
                                 _buildInfoRow('Rounds', '${draft.rounds}'),
                                 _buildInfoRow(
                                   'Status',
@@ -223,18 +297,21 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                                             .textTheme
                                             .titleLarge,
                                       ),
-                                      if (!_hasOrder)
+                                      if (draft.status == 'not_started')
                                         FilledButton.icon(
                                           onPressed: _randomizeDraftOrder,
                                           icon: const Icon(Icons.shuffle),
-                                          label: const Text('Randomize'),
+                                          label: Text(draftProvider
+                                                  .draftOrder.isEmpty
+                                              ? 'Randomize'
+                                              : 'Re-randomize'),
                                         ),
                                     ],
                                   ),
                                 ),
                                 const Divider(),
                                 Expanded(
-                                  child: _hasOrder
+                                  child: draftProvider.draftOrder.isNotEmpty
                                       ? ListView.builder(
                                           itemCount:
                                               draftProvider.draftOrder.length,
@@ -292,7 +369,8 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: FilledButton(
-                            onPressed: (_isStarting || !_hasOrder)
+                            onPressed: (_isStarting ||
+                                    draftProvider.draftOrder.isEmpty)
                                 ? null
                                 : _startDraft,
                             child: Padding(
@@ -310,7 +388,7 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                                       children: [
                                         const Icon(Icons.play_arrow),
                                         const SizedBox(width: 8),
-                                        Text(_hasOrder
+                                        Text(draftProvider.draftOrder.isNotEmpty
                                             ? 'Start Draft'
                                             : 'Set Draft Order First'),
                                       ],

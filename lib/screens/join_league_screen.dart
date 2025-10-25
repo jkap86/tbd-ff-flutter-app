@@ -462,8 +462,6 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
         return 'Dynasty';
       case 'keeper':
         return 'Keeper';
-      case 'betting':
-        return 'Betting';
       default:
         return type;
     }

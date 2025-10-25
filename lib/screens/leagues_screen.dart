@@ -14,11 +14,27 @@ class LeaguesScreen extends StatefulWidget {
   State<LeaguesScreen> createState() => _LeaguesScreenState();
 }
 
-class _LeaguesScreenState extends State<LeaguesScreen> {
+class _LeaguesScreenState extends State<LeaguesScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadLeagues();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload leagues when app comes back to foreground
+      _loadLeagues();
+    }
   }
 
   Future<void> _loadLeagues() async {
@@ -201,7 +217,7 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
                         'Teams: ${league.currentRosters ?? league.totalRosters}/${league.totalRosters}',
                       ),
                       const SizedBox(height: 4),
-                      _buildLeagueTypeChip(league.seasonType),
+                      _buildLeagueTypeChip(league.leagueType),
                       const SizedBox(height: 4),
                       _buildStatusChip(league.status),
                     ],
@@ -278,10 +294,6 @@ class _LeaguesScreenState extends State<LeaguesScreen> {
       case 'keeper':
         color = Colors.orange;
         label = 'Keeper';
-        break;
-      case 'betting':
-        color = Colors.red;
-        label = 'Betting';
         break;
       default:
         color = Colors.grey;

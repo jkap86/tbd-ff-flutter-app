@@ -5,7 +5,8 @@ class League {
   final Map<String, dynamic>? settings;
   final Map<String, dynamic>? scoringSettings;
   final String season;
-  final String seasonType;
+  final String seasonType; // pre, regular, post
+  final String leagueType; // redraft, keeper, dynasty
   final List<dynamic>? rosterPositions;
   final int totalRosters;
   final DateTime createdAt;
@@ -21,6 +22,7 @@ class League {
     this.scoringSettings,
     required this.season,
     required this.seasonType,
+    required this.leagueType,
     this.rosterPositions,
     required this.totalRosters,
     required this.createdAt,
@@ -49,7 +51,8 @@ class League {
       settings: json['settings'] as Map<String, dynamic>?,
       scoringSettings: json['scoring_settings'] as Map<String, dynamic>?,
       season: json['season'] as String,
-      seasonType: json['season_type'] as String,
+      seasonType: json['season_type'] as String? ?? 'regular',
+      leagueType: json['league_type'] as String? ?? 'redraft',
       rosterPositions: json['roster_positions'] as List<dynamic>?,
       totalRosters: json['total_rosters'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -68,6 +71,7 @@ class League {
       'scoring_settings': scoringSettings,
       'season': season,
       'season_type': seasonType,
+      'league_type': leagueType,
       'roster_positions': rosterPositions,
       'total_rosters': totalRosters,
       'created_at': createdAt.toIso8601String(),

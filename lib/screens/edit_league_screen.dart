@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
+import '../providers/draft_provider.dart';
 import '../models/league_model.dart';
+import '../models/roster_model.dart';
+import '../services/draft_service.dart';
 import '../widgets/responsive_container.dart';
 
 class EditLeagueScreen extends StatefulWidget {
@@ -21,7 +24,21 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   late TextEditingController _nameController;
   bool _isPublic = false;
   int _totalRosters = 12;
+  String _seasonType = 'regular';
+  int _startWeek = 1;
+  int _endWeek = 17;
   late Map<String, dynamic> _scoringSettings;
+  late Map<String, int> _rosterPositions;
+  bool _isResetting = false;
+
+  // Draft settings
+  String _draftType = 'snake';
+  bool _thirdRoundReversal = false;
+  int _pickTimeSeconds = 90;
+  int _draftRounds = 15;
+
+  // Commissioner
+  int? _commissionerId;
 
   // Scoring settings fields
   late TextEditingController _passingTouchdownsController;
@@ -38,7 +55,44 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     _nameController = TextEditingController(text: widget.league.name);
     _isPublic = widget.league.settings?['is_public'] ?? false;
     _totalRosters = widget.league.totalRosters;
+    _seasonType = widget.league.seasonType;
+    _startWeek = widget.league.settings?['start_week'] ?? 1;
+    _endWeek = widget.league.settings?['end_week'] ?? 17;
     _scoringSettings = widget.league.scoringSettings ?? {};
+
+    // Initialize commissioner
+    _commissionerId = widget.league.settings?['commissioner_id'];
+
+    // Initialize draft settings (will be loaded separately)
+    _loadDraftSettings();
+
+    // Initialize roster positions from league data
+    _rosterPositions = {
+      'QB': 0,
+      'RB': 0,
+      'WR': 0,
+      'TE': 0,
+      'FLEX': 0,
+      'SUPER_FLEX': 0,
+      'K': 0,
+      'DEF': 0,
+      'DL': 0,
+      'LB': 0,
+      'DB': 0,
+      'IDP_FLEX': 0,
+      'BN': 0,
+    };
+
+    // Load existing roster positions if available
+    if (widget.league.rosterPositions != null) {
+      for (var position in widget.league.rosterPositions!) {
+        final posKey = position['position'] as String;
+        final count = position['count'] as int;
+        if (_rosterPositions.containsKey(posKey)) {
+          _rosterPositions[posKey] = count;
+        }
+      }
+    }
 
     // Initialize scoring settings controllers
     _passingTouchdownsController = TextEditingController(
@@ -55,6 +109,20 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         text: (_scoringSettings['receiving_yards'] ?? 0.1).toString());
     _receivingReceptionsController = TextEditingController(
         text: (_scoringSettings['receiving_receptions'] ?? 1).toString());
+  }
+
+  Future<void> _loadDraftSettings() async {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    await draftProvider.loadDraftByLeague(widget.league.id);
+
+    if (mounted && draftProvider.currentDraft != null) {
+      setState(() {
+        _draftType = draftProvider.currentDraft!.draftType;
+        _thirdRoundReversal = draftProvider.currentDraft!.thirdRoundReversal;
+        _pickTimeSeconds = draftProvider.currentDraft!.pickTimeSeconds;
+        _draftRounds = draftProvider.currentDraft!.rounds;
+      });
+    }
   }
 
   @override
@@ -91,37 +159,70 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       return;
     }
 
-    // Build scoring settings from controllers (only for non-betting leagues)
-    Map<String, dynamic>? updatedScoringSettings;
-    if (widget.league.seasonType != 'betting') {
-      updatedScoringSettings = {
-        'passing_touchdowns':
-            double.tryParse(_passingTouchdownsController.text) ?? 4,
-        'passing_yards': double.tryParse(_passingYardsController.text) ?? 0.04,
-        'rushing_touchdowns':
-            double.tryParse(_rushingTouchdownsController.text) ?? 6,
-        'rushing_yards': double.tryParse(_rushingYardsController.text) ?? 0.1,
-        'receiving_touchdowns':
-            double.tryParse(_receivingTouchdownsController.text) ?? 6,
-        'receiving_yards':
-            double.tryParse(_receivingYardsController.text) ?? 0.1,
-        'receiving_receptions':
-            double.tryParse(_receivingReceptionsController.text) ?? 1,
-      };
-    }
+    // Build scoring settings from controllers
+    Map<String, dynamic>? updatedScoringSettings = {
+      'passing_touchdowns':
+          double.tryParse(_passingTouchdownsController.text) ?? 4,
+      'passing_yards': double.tryParse(_passingYardsController.text) ?? 0.04,
+      'rushing_touchdowns':
+          double.tryParse(_rushingTouchdownsController.text) ?? 6,
+      'rushing_yards': double.tryParse(_rushingYardsController.text) ?? 0.1,
+      'receiving_touchdowns':
+          double.tryParse(_receivingTouchdownsController.text) ?? 6,
+      'receiving_yards': double.tryParse(_receivingYardsController.text) ?? 0.1,
+      'receiving_receptions':
+          double.tryParse(_receivingReceptionsController.text) ?? 1,
+    };
+
+    // Convert roster positions map to list format for backend
+    final rosterPositionsList = _rosterPositions.entries
+        .where(
+            (entry) => entry.value > 0) // Only include positions with count > 0
+        .map((entry) => {
+              'position': entry.key,
+              'count': entry.value,
+            })
+        .toList();
 
     final success = await leagueProvider.updateLeagueSettings(
       token: authProvider.token!,
       leagueId: widget.league.id,
       name: _nameController.text.trim(),
+      seasonType: _seasonType,
+      totalRosters: _totalRosters,
       settings: {
         'is_public': _isPublic,
+        'start_week': _startWeek,
+        'end_week': _endWeek,
       },
       scoringSettings: updatedScoringSettings,
+      rosterPositions: rosterPositionsList,
     );
 
     if (mounted) {
       if (success) {
+        // Update draft settings if draft exists
+        final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+        if (draftProvider.currentDraft != null) {
+          final draftSuccess = await DraftService().updateDraftSettings(
+            token: authProvider.token!,
+            draftId: draftProvider.currentDraft!.id,
+            draftType: _draftType,
+            thirdRoundReversal: _thirdRoundReversal,
+            pickTimeSeconds: _pickTimeSeconds,
+            rounds: _draftRounds,
+          );
+
+          if (draftSuccess == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Draft settings update failed'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('League updated successfully!')),
         );
@@ -136,6 +237,166 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         );
       }
     }
+  }
+
+  Future<void> _handleResetDraft() async {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    // First load the draft for this league
+    await draftProvider.loadDraftByLeague(widget.league.id);
+
+    if (draftProvider.currentDraft == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No draft found for this league'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if draft can be reset (not 'not_started')
+    if (draftProvider.currentDraft!.status == 'not_started') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft has not been started yet'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Draft'),
+        content: const Text(
+          'Are you sure you want to reset the draft? This will clear all picks and reset the draft to not started. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isResetting = true);
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      setState(() => _isResetting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Not authenticated')),
+        );
+      }
+      return;
+    }
+
+    final success = await draftProvider.resetDraft(
+      token: authProvider.token!,
+      draftId: draftProvider.currentDraft!.id,
+    );
+
+    if (mounted) {
+      setState(() => _isResetting = false);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Draft reset successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                draftProvider.errorMessage ?? 'Failed to reset draft'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showTransferConfirmation(
+    BuildContext context,
+    Roster roster,
+    LeagueProvider leagueProvider,
+    AuthProvider authProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Transfer Commissioner Role'),
+        content: Text(
+          'Are you sure you want to transfer the commissioner role to ${roster.username}?\n\nYou will no longer be the commissioner.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+
+              if (authProvider.token != null) {
+                final success = await leagueProvider.transferCommissioner(
+                  token: authProvider.token!,
+                  leagueId: widget.league.id,
+                  newCommissionerId: roster.userId,
+                );
+
+                if (mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Commissioner role transferred to ${roster.username}',
+                        ),
+                      ),
+                    );
+                    // Reload league data to refresh the page
+                    await leagueProvider.loadLeagueDetails(widget.league.id);
+                    if (mounted) {
+                      Navigator.of(context).pop(); // Close edit screen
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          leagueProvider.errorMessage ??
+                              'Failed to transfer commissioner',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Transfer'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -206,6 +467,82 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Season type
+                DropdownButtonFormField<String>(
+                  value: _seasonType,
+                  decoration: const InputDecoration(
+                    labelText: 'Season Type',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.event),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'pre',
+                      child: Text('Preseason'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'regular',
+                      child: Text('Regular Season'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'post',
+                      child: Text('Postseason'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _seasonType = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Start week
+                DropdownButtonFormField<int>(
+                  value: _startWeek,
+                  decoration: const InputDecoration(
+                    labelText: 'Start Week',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.play_arrow),
+                    helperText: 'Week the season starts',
+                  ),
+                  items: [
+                    for (int i = 1; i <= 17; i++)
+                      DropdownMenuItem(value: i, child: Text('Week $i')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _startWeek = value!;
+                      // Ensure end week is not before start week
+                      if (_endWeek < _startWeek) {
+                        _endWeek = _startWeek;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // End week
+                DropdownButtonFormField<int>(
+                  value: _endWeek,
+                  decoration: const InputDecoration(
+                    labelText: 'End Week',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.stop),
+                    helperText: 'Week the season ends',
+                  ),
+                  items: [
+                    for (int i = _startWeek; i <= 17; i++)
+                      DropdownMenuItem(value: i, child: Text('Week $i')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _endWeek = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 // Public/Private toggle
                 Card(
                   child: SwitchListTile(
@@ -233,136 +570,403 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Section 2: Scoring Settings (hidden for betting leagues)
-                if (widget.league.seasonType != 'betting') ...[
-                  Text(
-                    'Scoring Settings',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
+                // Section 2: Scoring Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Scoring Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Configure points for each stat'),
+                    initiallyExpanded: false,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Passing Touchdowns
+                            TextFormField(
+                              controller: _passingTouchdownsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Passing Touchdowns',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per passing TD',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Passing Touchdowns
-                  TextFormField(
-                    controller: _passingTouchdownsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Passing Touchdowns',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per passing TD',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                            // Passing Yards
+                            TextFormField(
+                              controller: _passingYardsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Passing Yards',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per passing yard',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Passing Yards
-                  TextFormField(
-                    controller: _passingYardsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Passing Yards',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per passing yard',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                            // Rushing Touchdowns
+                            TextFormField(
+                              controller: _rushingTouchdownsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Rushing Touchdowns',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per rushing TD',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Rushing Touchdowns
-                  TextFormField(
-                    controller: _rushingTouchdownsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Rushing Touchdowns',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per rushing TD',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                            // Rushing Yards
+                            TextFormField(
+                              controller: _rushingYardsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Rushing Yards',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per rushing yard',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Rushing Yards
-                  TextFormField(
-                    controller: _rushingYardsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Rushing Yards',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per rushing yard',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                            // Receiving Touchdowns
+                            TextFormField(
+                              controller: _receivingTouchdownsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Receiving Touchdowns',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per receiving TD',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Receiving Touchdowns
-                  TextFormField(
-                    controller: _receivingTouchdownsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Receiving Touchdowns',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per receiving TD',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                            // Receiving Yards
+                            TextFormField(
+                              controller: _receivingYardsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Receiving Yards',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per receiving yard',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                  // Receiving Yards
-                  TextFormField(
-                    controller: _receivingYardsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Receiving Yards',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per receiving yard',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Receiving Receptions
-                  TextFormField(
-                    controller: _receivingReceptionsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Receiving Receptions',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.sports),
-                      helperText: 'Points per reception',
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ] else ...[
-                  // Betting league message
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
-                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info,
-                          color: Colors.orange,
-                          size: 24,
+                            // Receiving Receptions
+                            TextFormField(
+                              controller: _receivingReceptionsController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Receiving Receptions',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.sports),
+                                helperText: 'Points per reception',
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Betting leagues do not use scoring settings. Teams compete using Vegas-style betting mechanics.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.orange,
-                              height: 1.4,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Section 3: Roster Positions (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Roster Positions',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Set lineup positions and bench size'),
+                    initiallyExpanded: false,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Offensive Positions
+                            Text(
+                              'Offense',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildRosterPositionRow('QB', 'Quarterback'),
+                            _buildRosterPositionRow('RB', 'Running Back'),
+                            _buildRosterPositionRow('WR', 'Wide Receiver'),
+                            _buildRosterPositionRow('TE', 'Tight End'),
+                            _buildRosterPositionRow('FLEX', 'Flex (RB/WR/TE)'),
+                            _buildRosterPositionRow(
+                                'SUPER_FLEX', 'Super Flex (QB/RB/WR/TE)'),
+                            const SizedBox(height: 16),
+
+                            // Special Teams
+                            Text(
+                              'Special Teams',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildRosterPositionRow('K', 'Kicker'),
+                            _buildRosterPositionRow('DEF', 'Team Defense'),
+                            const SizedBox(height: 16),
+
+                            // IDP Positions
+                            Text(
+                              'IDP (Individual Defensive Players)',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildRosterPositionRow('DL', 'Defensive Line'),
+                            _buildRosterPositionRow('LB', 'Linebacker'),
+                            _buildRosterPositionRow('DB', 'Defensive Back'),
+                            _buildRosterPositionRow('IDP_FLEX', 'IDP Flex'),
+                            const SizedBox(height: 16),
+
+                            // Bench
+                            Text(
+                              'Bench',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildRosterPositionRow('BN', 'Bench'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 4: Draft Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Draft Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Configure draft type and timer'),
+                    initiallyExpanded: false,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Draft Type
+                            DropdownButtonFormField<String>(
+                              value: _draftType,
+                              decoration: const InputDecoration(
+                                labelText: 'Draft Type',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.swap_vert),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'snake',
+                                  child: Text('Snake Draft'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'linear',
+                                  child: Text('Linear Draft'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _draftType = value!);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Third Round Reversal (only for snake)
+                            if (_draftType == 'snake')
+                              SwitchListTile(
+                                title: const Text('3rd Round Reversal'),
+                                subtitle: const Text(
+                                    'Reverse order in 3rd round (like NFL)'),
+                                value: _thirdRoundReversal,
+                                onChanged: (value) {
+                                  setState(() => _thirdRoundReversal = value);
+                                },
+                              ),
+                            const SizedBox(height: 12),
+
+                            // Pick Time
+                            DropdownButtonFormField<int>(
+                              value: _pickTimeSeconds,
+                              decoration: const InputDecoration(
+                                labelText: 'Pick Timer',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.timer),
+                                helperText: 'Seconds per pick',
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 10, child: Text('10 seconds')),
+                                DropdownMenuItem(value: 30, child: Text('30 seconds')),
+                                DropdownMenuItem(value: 60, child: Text('1 minute')),
+                                DropdownMenuItem(value: 90, child: Text('1.5 minutes')),
+                                DropdownMenuItem(value: 120, child: Text('2 minutes')),
+                                DropdownMenuItem(value: 180, child: Text('3 minutes')),
+                                DropdownMenuItem(value: 300, child: Text('5 minutes')),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _pickTimeSeconds = value!);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Draft Rounds
+                            DropdownButtonFormField<int>(
+                              value: _draftRounds,
+                              decoration: const InputDecoration(
+                                labelText: 'Number of Rounds',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.format_list_numbered),
+                              ),
+                              items: List.generate(
+                                20,
+                                (index) => DropdownMenuItem(
+                                  value: index + 1,
+                                  child: Text('${index + 1} rounds'),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                setState(() => _draftRounds = value!);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 5: Commissioner Settings (Collapsible)
+                Consumer<LeagueProvider>(
+                  builder: (context, leagueProvider, child) {
+                    final rosters = leagueProvider.selectedLeagueRosters;
+                    final authProvider =
+                        Provider.of<AuthProvider>(context, listen: false);
+
+                    return Card(
+                      child: ExpansionTile(
+                        title: Text(
+                          'Commissioner Settings',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        subtitle: const Text('Transfer commissioner role'),
+                        initiallyExpanded: false,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Transfer Commissioner',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Transfer your commissioner role to another league member',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Members list for transfer
+                                if (rosters.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Center(
+                                      child: Text(
+                                        'No other members in league',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: rosters.length,
+                                    itemBuilder: (context, index) {
+                                      final roster = rosters[index];
+                                      final currentUserId = authProvider.user?.id;
+
+                                      // Skip current user
+                                      if (roster.userId == currentUserId) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      return Card(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        child: ListTile(
+                                          leading: CircleAvatar(
+                                            child: Text(
+                                              'R${roster.rosterId}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          title: Text(
+                                            roster.username ?? 'Unknown User',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                          subtitle: Text(roster.email ?? ''),
+                                          trailing: ElevatedButton.icon(
+                                            onPressed: () {
+                                              _showTransferConfirmation(
+                                                context,
+                                                roster,
+                                                leagueProvider,
+                                                authProvider,
+                                              );
+                                            },
+                                            icon: const Icon(Icons.person,
+                                                size: 16),
+                                            label: const Text('Transfer'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
 
                 // Info message
                 Container(
@@ -404,10 +1008,81 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                     );
                   },
                 ),
+
+                const SizedBox(height: 16),
+
+                // Reset Draft button (Commissioner only)
+                OutlinedButton(
+                  onPressed: _isResetting ? null : _handleResetDraft,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  child: _isResetting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.restart_alt),
+                            SizedBox(width: 8),
+                            Text(
+                              'Reset Draft',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRosterPositionRow(String positionKey, String positionName) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              positionName,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: DropdownButtonFormField<int>(
+              value: _rosterPositions[positionKey],
+              decoration: InputDecoration(
+                labelText: 'Count',
+                border: const OutlineInputBorder(),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: [
+                for (int i = 0; i <= 6; i++)
+                  DropdownMenuItem(value: i, child: Text('$i')),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _rosterPositions[positionKey] = value!;
+                });
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

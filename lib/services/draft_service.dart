@@ -196,6 +196,60 @@ class DraftService {
     }
   }
 
+  // Reset draft
+  Future<Draft?> resetDraft({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/reset'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return Draft.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      print('Reset draft error: $e');
+      return null;
+    }
+  }
+
+  // Update draft settings
+  Future<Draft?> updateDraftSettings({
+    required String token,
+    required int draftId,
+    String? draftType,
+    bool? thirdRoundReversal,
+    int? pickTimeSeconds,
+    int? rounds,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/settings'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode({
+          if (draftType != null) 'draft_type': draftType,
+          if (thirdRoundReversal != null) 'third_round_reversal': thirdRoundReversal,
+          if (pickTimeSeconds != null) 'pick_time_seconds': pickTimeSeconds,
+          if (rounds != null) 'rounds': rounds,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return Draft.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      print('Update draft settings error: $e');
+      return null;
+    }
+  }
+
   // Make a draft pick
   Future<Map<String, dynamic>?> makePick({
     required String token,

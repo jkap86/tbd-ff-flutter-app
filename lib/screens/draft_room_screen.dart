@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../models/player_model.dart';
+import '../models/draft_order_model.dart';
 import '../widgets/draft_board_widget.dart';
-import '../widgets/draft_chat_widget.dart';
+import '../widgets/league_chat_tab_widget.dart';
 
 class DraftRoomScreen extends StatefulWidget {
   final int leagueId;
@@ -26,12 +27,80 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   final TextEditingController _searchController = TextEditingController();
   String? _selectedPosition;
   Player? _selectedPlayer;
+  bool _hasShownCompletionDialog = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadDraftAndJoinRoom();
+
+    // Listen for draft completion
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupDraftListener();
+    });
+  }
+
+  void _setupDraftListener() {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    draftProvider.addListener(_checkDraftCompletion);
+  }
+
+  void _checkDraftCompletion() {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    if (draftProvider.currentDraft?.status == 'completed' &&
+        !_hasShownCompletionDialog) {
+      _hasShownCompletionDialog = true;
+      // Show completion dialog
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showDraftCompletionDialog();
+        }
+      });
+    }
+  }
+
+  void _showDraftCompletionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 32),
+            const SizedBox(width: 12),
+            const Text('Draft Complete!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The draft has been completed. All picks have been made.',
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Your league is now in season!',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop(); // Return to league details
+            },
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Back to League'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadDraftAndJoinRoom() async {
@@ -55,9 +124,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     _tabController.dispose();
     _searchController.dispose();
 
+    // Remove draft listener
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    draftProvider.removeListener(_checkDraftCompletion);
+
     // Leave WebSocket room
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
     if (draftProvider.currentDraft != null && authProvider.user != null) {
       draftProvider.leaveDraftRoom(
@@ -167,14 +239,36 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                     const DraftBoardWidget(),
 
                     // Chat Tab
-                    const DraftChatWidget(),
+                    LeagueChatTabWidget(leagueId: widget.leagueId),
                   ],
                 ),
               ),
 
-              // Pick Button (if it's user's turn)
-              if (draft.isInProgress && _selectedPlayer != null)
-                _buildPickButton(draftProvider),
+              // Pick Button (only if it's user's turn and player selected)
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, child) {
+                  if (!draft.isInProgress) return const SizedBox.shrink();
+
+                  // Check if it's the current user's turn
+                  DraftOrder? currentRoster;
+                  try {
+                    currentRoster = draftProvider.draftOrder.firstWhere(
+                      (order) => order.rosterId == draft.currentRosterId,
+                    );
+                  } catch (e) {
+                    currentRoster = null;
+                  }
+
+                  final isUsersTurn = authProvider.user != null &&
+                      currentRoster != null &&
+                      currentRoster.userId == authProvider.user!.id;
+
+                  if (isUsersTurn && _selectedPlayer != null) {
+                    return _buildPickButton(draftProvider);
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           );
         },
@@ -185,6 +279,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   Widget _buildStatusBar(DraftProvider draftProvider) {
     final draft = draftProvider.currentDraft!;
     final timeRemaining = draftProvider.timeRemaining;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     // Find the roster on the clock from draft order
     final currentRoster = draftProvider.draftOrder.firstWhere(
@@ -192,11 +287,41 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       orElse: () => draftProvider.draftOrder.first,
     );
 
+    // Check if it's the current user's turn
+    final isUsersTurn = authProvider.user != null &&
+        currentRoster.userId == authProvider.user!.id;
+
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.primaryContainer,
+      color: isUsersTurn
+          ? Colors.green.shade700
+          : Theme.of(context).colorScheme.primaryContainer,
       child: Column(
         children: [
+          // "YOU'RE ON THE CLOCK" banner
+          if (isUsersTurn)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.alarm, color: Colors.black),
+                  const SizedBox(width: 8),
+                  Text(
+                    "YOU'RE ON THE CLOCK!",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+            ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -205,11 +330,15 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                 children: [
                   Text(
                     'Round ${draft.currentRound}',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: isUsersTurn ? Colors.white : null,
+                        ),
                   ),
                   Text(
                     'Pick ${draft.currentPick}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isUsersTurn ? Colors.white70 : null,
+                        ),
                   ),
                 ],
               ),
@@ -221,12 +350,18 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             color: timeRemaining.inSeconds < 10
                                 ? Colors.red
-                                : Theme.of(context).colorScheme.onPrimaryContainer,
+                                : isUsersTurn
+                                    ? Colors.white
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onPrimaryContainer,
                           ),
                     ),
                     Text(
                       'Time Remaining',
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: isUsersTurn ? Colors.white70 : null,
+                          ),
                     ),
                   ],
                 ),
@@ -235,11 +370,15 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                 children: [
                   Text(
                     'On the Clock',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isUsersTurn ? Colors.white70 : null,
+                        ),
                   ),
                   Text(
                     currentRoster.displayName,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: isUsersTurn ? Colors.white : null,
+                        ),
                   ),
                 ],
               ),
@@ -255,8 +394,43 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   }
 
   Widget _buildPlayersTab(DraftProvider draftProvider) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draft = draftProvider.currentDraft;
+
+    // Check if it's the current user's turn
+    DraftOrder? currentRoster;
+    try {
+      currentRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.rosterId == draft?.currentRosterId,
+      );
+    } catch (e) {
+      currentRoster = null;
+    }
+
+    final isUsersTurn = authProvider.user != null &&
+        currentRoster != null &&
+        currentRoster.userId == authProvider.user!.id;
+
     return Column(
       children: [
+        // Not your turn banner
+        if (!isUsersTurn && draft != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.grey.shade300,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.lock, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Waiting for ${currentRoster?.displayName ?? "other team"} to pick...',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+
         // Search and Filter
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -264,8 +438,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
             children: [
               TextField(
                 controller: _searchController,
+                enabled: isUsersTurn,
                 decoration: InputDecoration(
-                  hintText: 'Search players...',
+                  hintText: isUsersTurn
+                      ? 'Search players...'
+                      : 'Wait for your turn...',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -288,10 +465,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                     FilterChip(
                       label: const Text('All'),
                       selected: _selectedPosition == null,
-                      onSelected: (selected) {
-                        setState(() => _selectedPosition = null);
-                        _filterPlayers();
-                      },
+                      onSelected: isUsersTurn
+                          ? (selected) {
+                              setState(() => _selectedPosition = null);
+                              _filterPlayers();
+                            }
+                          : null,
                     ),
                     const SizedBox(width: 8),
                     ...['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((pos) {
@@ -300,11 +479,13 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                         child: FilterChip(
                           label: Text(pos),
                           selected: _selectedPosition == pos,
-                          onSelected: (selected) {
-                            setState(() =>
-                                _selectedPosition = selected ? pos : null);
-                            _filterPlayers();
-                          },
+                          onSelected: isUsersTurn
+                              ? (selected) {
+                                  setState(() => _selectedPosition =
+                                      selected ? pos : null);
+                                  _filterPlayers();
+                                }
+                              : null,
                         ),
                       );
                     }).toList(),
@@ -327,6 +508,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
                     return ListTile(
                       selected: isSelected,
+                      enabled: isUsersTurn,
                       leading: CircleAvatar(
                         child: Text(player.position),
                       ),
@@ -338,11 +520,13 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                               color: Theme.of(context).colorScheme.primary,
                             )
                           : null,
-                      onTap: () {
-                        setState(() {
-                          _selectedPlayer = isSelected ? null : player;
-                        });
-                      },
+                      onTap: isUsersTurn
+                          ? () {
+                              setState(() {
+                                _selectedPlayer = isSelected ? null : player;
+                              });
+                            }
+                          : null,
                     );
                   },
                 ),

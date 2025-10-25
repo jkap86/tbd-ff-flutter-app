@@ -4,12 +4,14 @@ import '../models/draft_model.dart';
 import '../models/draft_pick_model.dart';
 import '../models/draft_order_model.dart';
 import '../models/draft_chat_message_model.dart';
+import '../models/league_chat_message_model.dart';
 
 class SocketService {
   IO.Socket? _socket;
   int? _currentDraftId;
+  int? _currentLeagueId;
 
-  // Event callbacks
+  // Draft event callbacks
   Function(Map<String, dynamic>)? onPickMade;
   Function(Map<String, dynamic>)? onStatusChanged;
   Function(List<DraftOrder>)? onOrderUpdated;
@@ -19,6 +21,11 @@ class SocketService {
   Function(Map<String, dynamic>)? onTimerTick;
   Function(Draft)? onDraftState;
   Function(String)? onError;
+
+  // League event callbacks
+  Function(LeagueChatMessage)? onLeagueChatMessage;
+  Function(Map<String, dynamic>)? onUserJoinedLeague;
+  Function(Map<String, dynamic>)? onUserLeftLeague;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -144,6 +151,34 @@ class SocketService {
     _socket!.on('auto_pick_made', (data) {
       print('Auto-pick made: $data');
     });
+
+    // League chat message
+    _socket!.on('league_chat_message', (data) {
+      print('League chat message received: $data');
+      try {
+        final message = LeagueChatMessage.fromJson(data);
+        onLeagueChatMessage?.call(message);
+      } catch (e) {
+        print('Error parsing league chat message: $e');
+      }
+    });
+
+    // User joined league
+    _socket!.on('user_joined_league', (data) {
+      print('User joined league: $data');
+      onUserJoinedLeague?.call(data);
+    });
+
+    // User left league
+    _socket!.on('user_left_league', (data) {
+      print('User left league: $data');
+      onUserLeftLeague?.call(data);
+    });
+
+    // Joined league confirmation
+    _socket!.on('joined_league', (data) {
+      print('Joined league: $data');
+    });
   }
 
   // Join a draft room
@@ -218,6 +253,69 @@ class SocketService {
     });
   }
 
+  // Join a league room
+  void joinLeague({
+    required int leagueId,
+    required int userId,
+    required String username,
+  }) {
+    if (_socket == null || !_socket!.connected) {
+      print('Socket not connected, connecting now...');
+      connect();
+
+      // Wait for connection before joining
+      _socket!.onConnect((_) {
+        _emitJoinLeague(leagueId, userId, username);
+      });
+    } else {
+      _emitJoinLeague(leagueId, userId, username);
+    }
+  }
+
+  void _emitJoinLeague(int leagueId, int userId, String username) {
+    _currentLeagueId = leagueId;
+    _socket!.emit('join_league', {
+      'league_id': leagueId,
+      'user_id': userId,
+      'username': username,
+    });
+    print('Emitted join_league for league $leagueId');
+  }
+
+  // Leave a league room
+  void leaveLeague({
+    required int leagueId,
+    required int userId,
+    required String username,
+  }) {
+    if (_socket == null || !_socket!.connected) return;
+
+    _socket!.emit('leave_league', {
+      'league_id': leagueId,
+      'user_id': userId,
+      'username': username,
+    });
+    _currentLeagueId = null;
+    print('Left league $leagueId');
+  }
+
+  // Send league chat message
+  void sendLeagueChatMessage({
+    required int leagueId,
+    required int userId,
+    required String username,
+    required String message,
+  }) {
+    if (_socket == null || !_socket!.connected) return;
+
+    _socket!.emit('send_league_chat_message', {
+      'league_id': leagueId,
+      'user_id': userId,
+      'username': username,
+      'message': message,
+    });
+  }
+
   // Disconnect from WebSocket
   void disconnect() {
     if (_socket == null) return;
@@ -229,10 +327,18 @@ class SocketService {
       });
     }
 
+    if (_currentLeagueId != null) {
+      // Leave current league before disconnecting
+      _socket!.emit('leave_league', {
+        'league_id': _currentLeagueId,
+      });
+    }
+
     _socket!.disconnect();
     _socket!.dispose();
     _socket = null;
     _currentDraftId = null;
+    _currentLeagueId = null;
     print('Socket disconnected and disposed');
   }
 
@@ -247,5 +353,8 @@ class SocketService {
     onTimerTick = null;
     onDraftState = null;
     onError = null;
+    onLeagueChatMessage = null;
+    onUserJoinedLeague = null;
+    onUserLeftLeague = null;
   }
 }

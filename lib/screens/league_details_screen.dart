@@ -5,9 +5,9 @@ import '../providers/league_provider.dart';
 import '../providers/draft_provider.dart';
 import '../models/roster_model.dart';
 import '../widgets/responsive_container.dart';
+import '../widgets/league_chat_widget.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
-import 'commissioner_settings_screen.dart';
 import 'draft_setup_screen.dart';
 import 'draft_lobby_screen.dart';
 import 'draft_room_screen.dart';
@@ -24,11 +24,27 @@ class LeagueDetailsScreen extends StatefulWidget {
   State<LeagueDetailsScreen> createState() => _LeagueDetailsScreenState();
 }
 
-class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
+class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadLeagueDetails();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reload league details when app comes back to foreground
+      _loadLeagueDetails();
+    }
   }
 
   Future<void> _loadLeagueDetails() async {
@@ -118,16 +134,18 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
             return const Center(child: Text('League not found'));
           }
 
-          return RefreshIndicator(
-            onRefresh: _loadLeagueDetails,
-            child: ResponsiveContainer(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // League info card
+          return Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: _loadLeagueDetails,
+                child: ResponsiveContainer(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // League info card
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -204,26 +222,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                                           );
                                         },
                                       ),
-                                      PopupMenuItem(
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.settings, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Commissioner Settings'),
-                                          ],
-                                        ),
-                                        onTap: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  CommissionerSettingsScreen(
-                                                leagueId: league.id,
-                                                leagueName: league.name,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
                                     ],
                                   ),
                               ],
@@ -235,7 +233,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                             _buildInfoRow(
                               Icons.category,
                               'League Type',
-                              _formatLeagueType(league.seasonType),
+                              _formatLeagueType(league.leagueType),
                             ),
                             const SizedBox(height: 8),
                             _buildInfoRow(
@@ -252,68 +250,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Draft Button
-                    Consumer<DraftProvider>(
-                      builder: (context, draftProvider, child) {
-                        return FilledButton.icon(
-                          onPressed: () async {
-                            // Load draft for this league
-                            await draftProvider.loadDraftByLeague(league.id);
-
-                            final draft = draftProvider.currentDraft;
-
-                            if (!mounted) return;
-
-                            if (draft == null) {
-                              // No draft exists - go to setup (commissioner only)
-                              if (isCommissioner) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => DraftSetupScreen(
-                                      leagueId: league.id,
-                                      leagueName: league.name,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Draft not set up yet. Contact commissioner.'),
-                                  ),
-                                );
-                              }
-                            } else if (draft.isInProgress || draft.isCompleted) {
-                              // Draft in progress or completed - go to draft room
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => DraftRoomScreen(
-                                    leagueId: league.id,
-                                    leagueName: league.name,
-                                  ),
-                                ),
-                              );
-                            } else {
-                              // Draft exists but not started - go to lobby
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => DraftLobbyScreen(
-                                    leagueId: league.id,
-                                    leagueName: league.name,
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.list_alt),
-                          label: const Text('Draft'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
-                          ),
-                        );
-                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -377,10 +313,94 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                           );
                         },
                       ),
-                  ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              // Floating Draft Button
+              Positioned(
+                    bottom: 80,
+                    right: 16,
+                    child: Consumer<DraftProvider>(
+                      builder: (context, draftProvider, child) {
+                        final isDrafting = league.status == 'drafting';
+
+                        return FloatingActionButton.extended(
+                          onPressed: () async {
+                            // Load draft for this league
+                            await draftProvider.loadDraftByLeague(league.id);
+
+                            final draft = draftProvider.currentDraft;
+
+                            if (!mounted) return;
+
+                            if (draft == null) {
+                              // No draft exists - go to setup (commissioner only)
+                              if (isCommissioner) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => DraftSetupScreen(
+                                      leagueId: league.id,
+                                      leagueName: league.name,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Draft not set up yet. Contact commissioner.'),
+                                  ),
+                                );
+                              }
+                            } else if (draft.isInProgress || draft.isCompleted) {
+                              // Draft in progress or completed - go to draft room
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => DraftRoomScreen(
+                                    leagueId: league.id,
+                                    leagueName: league.name,
+                                  ),
+                                ),
+                              );
+                              // Reload league details when returning
+                              await _loadLeagueDetails();
+                            } else {
+                              // Draft exists but not started - go to lobby
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => DraftLobbyScreen(
+                                    leagueId: league.id,
+                                    leagueName: league.name,
+                                  ),
+                                ),
+                              );
+                              // Reload league details when returning
+                              await _loadLeagueDetails();
+                            }
+                          },
+                          icon: Icon(
+                            Icons.list_alt,
+                            color: isDrafting ? Colors.white : null,
+                          ),
+                          label: Text(
+                            'Draft',
+                            style: TextStyle(
+                              color: isDrafting ? Colors.white : null,
+                              fontWeight: isDrafting ? FontWeight.bold : null,
+                            ),
+                          ),
+                          backgroundColor: isDrafting
+                              ? Colors.orange
+                              : Theme.of(context).colorScheme.primaryContainer,
+                          elevation: isDrafting ? 8 : 2,
+                        );
+                      },
+                    ),
+              ),
+              // League Chat Widget
+              LeagueChatWidget(leagueId: league.id),
+            ],
           );
         },
       ),
@@ -586,8 +606,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
         return 'Dynasty';
       case 'keeper':
         return 'Keeper';
-      case 'betting':
-        return 'Betting';
       default:
         return type;
     }

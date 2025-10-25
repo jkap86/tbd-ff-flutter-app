@@ -31,6 +31,7 @@ class LeagueProvider with ChangeNotifier {
     required String token,
     required String name,
     required String season,
+    String? seasonType,
     String leagueType = 'redraft',
     int totalRosters = 12,
     Map<String, dynamic>? settings,
@@ -46,6 +47,7 @@ class LeagueProvider with ChangeNotifier {
         token: token,
         name: name,
         season: season,
+        seasonType: seasonType,
         leagueType: leagueType,
         totalRosters: totalRosters,
         settings: settings,
@@ -156,8 +158,11 @@ class LeagueProvider with ChangeNotifier {
     required String token,
     required int leagueId,
     String? name,
+    String? seasonType,
+    int? totalRosters,
     Map<String, dynamic>? settings,
     Map<String, dynamic>? scoringSettings,
+    List<dynamic>? rosterPositions,
   }) async {
     _status = LeagueStatus.loading;
     _errorMessage = null;
@@ -168,8 +173,11 @@ class LeagueProvider with ChangeNotifier {
         token: token,
         leagueId: leagueId,
         name: name,
+        seasonType: seasonType,
+        totalRosters: totalRosters,
         settings: settings,
         scoringSettings: scoringSettings,
+        rosterPositions: rosterPositions,
       );
 
       if (updatedLeague != null) {
