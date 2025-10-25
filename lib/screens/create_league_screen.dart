@@ -17,7 +17,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
   final _seasonController =
       TextEditingController(text: DateTime.now().year.toString());
 
-  String _seasonType = 'dynasty';
+  String _leagueType = 'redraft';
   int _totalRosters = 12;
   bool _isPublic = false;
 
@@ -45,7 +45,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
         token: authProvider.token!,
         name: _nameController.text.trim(),
         season: _seasonController.text.trim(),
-        seasonType: _seasonType,
+        leagueType: _leagueType,
         totalRosters: _totalRosters,
         settings: {
           'is_public': _isPublic,
@@ -143,29 +143,86 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // League type
+                  // League type - WITH DESCRIPTIONS
                   DropdownButtonFormField<String>(
-                    value: _seasonType,
+                    value: _leagueType,
                     decoration: const InputDecoration(
-                      labelText: 'League Type',
+                      labelText: 'League Format',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
-                          value: 'redraft', child: Text('Redraft')),
+                        value: 'redraft',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text('Redraft'),
+                            Text(
+                              'Start fresh each season',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
                       DropdownMenuItem(
-                          value: 'dynasty', child: Text('Dynasty')),
-                      DropdownMenuItem(value: 'keeper', child: Text('Keeper')),
+                        value: 'keeper',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text('Keeper'),
+                            Text(
+                              'Keep a few players yearly',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
                       DropdownMenuItem(
-                          value: 'betting', child: Text('Betting')),
+                        value: 'dynasty',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text('Dynasty'),
+                            Text(
+                              'Keep most players long-term',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'betting',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text('Betting'),
+                            Text(
+                              'Vegas-style betting format',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                     onChanged: (value) {
                       setState(() {
-                        _seasonType = value!;
+                        _leagueType = value!;
                       });
                     },
                   ),
+                  const SizedBox(height: 16),
+
+                  // League type info
+                  _buildLeagueTypeInfo(),
                   const SizedBox(height: 16),
 
                   // Total rosters
@@ -244,6 +301,68 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLeagueTypeInfo() {
+    String description;
+    IconData icon;
+    Color color;
+
+    switch (_leagueType) {
+      case 'redraft':
+        description =
+            'All players return to the draft pool each season. Perfect for casual leagues.';
+        icon = Icons.refresh;
+        color = Colors.blue;
+        break;
+      case 'keeper':
+        description =
+            'Keep a small number of players (typically 1-3) each season while drafting new ones.';
+        icon = Icons.person;
+        color = Colors.orange;
+        break;
+      case 'dynasty':
+        description =
+            'Keep most or all of your roster year to year. Emphasizes long-term team building.';
+        icon = Icons.trending_up;
+        color = Colors.purple;
+        break;
+      case 'betting':
+        description =
+            'Vegas-style betting format. Teams start with money and place bets. No scoring required.';
+        icon = Icons.money;
+        color = Colors.red;
+        break;
+      default:
+        description = '';
+        icon = Icons.info;
+        color = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                color: color,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

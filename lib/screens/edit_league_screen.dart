@@ -91,20 +91,24 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       return;
     }
 
-    // Build scoring settings from controllers
-    final updatedScoringSettings = {
-      'passing_touchdowns':
-          double.tryParse(_passingTouchdownsController.text) ?? 4,
-      'passing_yards': double.tryParse(_passingYardsController.text) ?? 0.04,
-      'rushing_touchdowns':
-          double.tryParse(_rushingTouchdownsController.text) ?? 6,
-      'rushing_yards': double.tryParse(_rushingYardsController.text) ?? 0.1,
-      'receiving_touchdowns':
-          double.tryParse(_receivingTouchdownsController.text) ?? 6,
-      'receiving_yards': double.tryParse(_receivingYardsController.text) ?? 0.1,
-      'receiving_receptions':
-          double.tryParse(_receivingReceptionsController.text) ?? 1,
-    };
+    // Build scoring settings from controllers (only for non-betting leagues)
+    Map<String, dynamic>? updatedScoringSettings;
+    if (widget.league.seasonType != 'betting') {
+      updatedScoringSettings = {
+        'passing_touchdowns':
+            double.tryParse(_passingTouchdownsController.text) ?? 4,
+        'passing_yards': double.tryParse(_passingYardsController.text) ?? 0.04,
+        'rushing_touchdowns':
+            double.tryParse(_rushingTouchdownsController.text) ?? 6,
+        'rushing_yards': double.tryParse(_rushingYardsController.text) ?? 0.1,
+        'receiving_touchdowns':
+            double.tryParse(_receivingTouchdownsController.text) ?? 6,
+        'receiving_yards':
+            double.tryParse(_receivingYardsController.text) ?? 0.1,
+        'receiving_receptions':
+            double.tryParse(_receivingReceptionsController.text) ?? 1,
+      };
+    }
 
     final success = await leagueProvider.updateLeagueSettings(
       token: authProvider.token!,
@@ -229,103 +233,136 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Section 2: Scoring Settings
-                Text(
-                  'Scoring Settings',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-
-                // Passing Touchdowns
-                TextFormField(
-                  controller: _passingTouchdownsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Passing Touchdowns',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per passing TD',
+                // Section 2: Scoring Settings (hidden for betting leagues)
+                if (widget.league.seasonType != 'betting') ...[
+                  Text(
+                    'Scoring Settings',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
-                // Passing Yards
-                TextFormField(
-                  controller: _passingYardsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Passing Yards',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per passing yard',
+                  // Passing Touchdowns
+                  TextFormField(
+                    controller: _passingTouchdownsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Passing Touchdowns',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per passing TD',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Rushing Touchdowns
-                TextFormField(
-                  controller: _rushingTouchdownsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Rushing Touchdowns',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per rushing TD',
+                  // Passing Yards
+                  TextFormField(
+                    controller: _passingYardsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Passing Yards',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per passing yard',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Rushing Yards
-                TextFormField(
-                  controller: _rushingYardsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Rushing Yards',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per rushing yard',
+                  // Rushing Touchdowns
+                  TextFormField(
+                    controller: _rushingTouchdownsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Rushing Touchdowns',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per rushing TD',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Receiving Touchdowns
-                TextFormField(
-                  controller: _receivingTouchdownsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Receiving Touchdowns',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per receiving TD',
+                  // Rushing Yards
+                  TextFormField(
+                    controller: _rushingYardsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Rushing Yards',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per rushing yard',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Receiving Yards
-                TextFormField(
-                  controller: _receivingYardsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Receiving Yards',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per receiving yard',
+                  // Receiving Touchdowns
+                  TextFormField(
+                    controller: _receivingTouchdownsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Receiving Touchdowns',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per receiving TD',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Receiving Receptions
-                TextFormField(
-                  controller: _receivingReceptionsController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Receiving Receptions',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.sports),
-                    helperText: 'Points per reception',
+                  // Receiving Yards
+                  TextFormField(
+                    controller: _receivingYardsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Receiving Yards',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per receiving yard',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+
+                  // Receiving Receptions
+                  TextFormField(
+                    controller: _receivingReceptionsController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Receiving Receptions',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.sports),
+                      helperText: 'Points per reception',
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  // Betting league message
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info,
+                          color: Colors.orange,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Betting leagues do not use scoring settings. Teams compete using Vegas-style betting mechanics.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.orange,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
 
                 // Info message
                 Container(

@@ -10,7 +10,7 @@ class LeagueService {
     required String token,
     required String name,
     required String season,
-    String seasonType = 'regular',
+    String leagueType = 'redraft',
     int totalRosters = 12,
     Map<String, dynamic>? settings,
     Map<String, dynamic>? scoringSettings,
@@ -23,7 +23,7 @@ class LeagueService {
         body: jsonEncode({
           'name': name,
           'season': season,
-          'season_type': seasonType,
+          'league_type': leagueType,
           'total_rosters': totalRosters,
           'settings': settings ?? {},
           'scoring_settings': scoringSettings ?? {},
