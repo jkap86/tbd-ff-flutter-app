@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
+import '../providers/draft_provider.dart';
 import '../models/roster_model.dart';
 import '../widgets/responsive_container.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
 import 'commissioner_settings_screen.dart';
+import 'draft_setup_screen.dart';
+import 'draft_lobby_screen.dart';
+import 'draft_room_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -248,6 +252,68 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen> {
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Draft Button
+                    Consumer<DraftProvider>(
+                      builder: (context, draftProvider, child) {
+                        return FilledButton.icon(
+                          onPressed: () async {
+                            // Load draft for this league
+                            await draftProvider.loadDraftByLeague(league.id);
+
+                            final draft = draftProvider.currentDraft;
+
+                            if (!mounted) return;
+
+                            if (draft == null) {
+                              // No draft exists - go to setup (commissioner only)
+                              if (isCommissioner) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => DraftSetupScreen(
+                                      leagueId: league.id,
+                                      leagueName: league.name,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Draft not set up yet. Contact commissioner.'),
+                                  ),
+                                );
+                              }
+                            } else if (draft.isInProgress || draft.isCompleted) {
+                              // Draft in progress or completed - go to draft room
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => DraftRoomScreen(
+                                    leagueId: league.id,
+                                    leagueName: league.name,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              // Draft exists but not started - go to lobby
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => DraftLobbyScreen(
+                                    leagueId: league.id,
+                                    leagueName: league.name,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.list_alt),
+                          label: const Text('Draft'),
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
 

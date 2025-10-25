@@ -4,10 +4,15 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
 import 'providers/invite_provider.dart';
+import 'providers/draft_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'config/api_config.dart';
 
 void main() {
+  // Print API configuration in debug mode
+  ApiConfig.printConfig();
+
   runApp(const MyApp());
 }
 
@@ -22,6 +27,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => LeagueProvider()),
         ChangeNotifierProvider(create: (_) => InviteProvider()),
+        ChangeNotifierProvider(create: (_) => DraftProvider()),
       ],
       child: const MyAppContent(),
     );

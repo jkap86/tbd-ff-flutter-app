@@ -74,13 +74,19 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Create League'),
       ),
       body: SafeArea(
         child: ResponsiveContainer(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.only(
+              left: 24.0,
+              right: 24.0,
+              top: 24.0,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 24.0,
+            ),
             child: Form(
               key: _formKey,
               child: Column(
@@ -143,7 +149,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // League type - WITH DESCRIPTIONS
+                  // League type
                   DropdownButtonFormField<String>(
                     value: _leagueType,
                     decoration: const InputDecoration(
@@ -151,66 +157,22 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
                     ),
-                    items: [
+                    items: const [
                       DropdownMenuItem(
                         value: 'redraft',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Text('Redraft'),
-                            Text(
-                              'Start fresh each season',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                        child: Text('Redraft'),
                       ),
                       DropdownMenuItem(
                         value: 'keeper',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Text('Keeper'),
-                            Text(
-                              'Keep a few players yearly',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                        child: Text('Keeper'),
                       ),
                       DropdownMenuItem(
                         value: 'dynasty',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Text('Dynasty'),
-                            Text(
-                              'Keep most players long-term',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                        child: Text('Dynasty'),
                       ),
                       DropdownMenuItem(
                         value: 'betting',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Text('Betting'),
-                            Text(
-                              'Vegas-style betting format',
-                              style:
-                                  TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                        child: Text('Betting'),
                       ),
                     ],
                     onChanged: (value) {
@@ -219,10 +181,6 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
-
-                  // League type info
-                  _buildLeagueTypeInfo(),
                   const SizedBox(height: 16),
 
                   // Total rosters
@@ -301,68 +259,6 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLeagueTypeInfo() {
-    String description;
-    IconData icon;
-    Color color;
-
-    switch (_leagueType) {
-      case 'redraft':
-        description =
-            'All players return to the draft pool each season. Perfect for casual leagues.';
-        icon = Icons.refresh;
-        color = Colors.blue;
-        break;
-      case 'keeper':
-        description =
-            'Keep a small number of players (typically 1-3) each season while drafting new ones.';
-        icon = Icons.person;
-        color = Colors.orange;
-        break;
-      case 'dynasty':
-        description =
-            'Keep most or all of your roster year to year. Emphasizes long-term team building.';
-        icon = Icons.trending_up;
-        color = Colors.purple;
-        break;
-      case 'betting':
-        description =
-            'Vegas-style betting format. Teams start with money and place bets. No scoring required.';
-        icon = Icons.money;
-        color = Colors.red;
-        break;
-      default:
-        description = '';
-        icon = Icons.info;
-        color = Colors.grey;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        border: Border.all(color: color.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              description,
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
