@@ -52,19 +52,27 @@ class LeagueService {
   // Get all leagues for a user
   Future<List<League>> getUserLeagues(int userId) async {
     try {
+      print('[LeagueService] Fetching leagues for user $userId');
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/user/$userId'),
         headers: ApiConfig.headers,
       );
 
+      print('[LeagueService] Response status: ${response.statusCode}');
+      print('[LeagueService] Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final leaguesData = data['data'] as List;
+        print('[LeagueService] Found ${leaguesData.length} leagues');
         return leaguesData.map((json) => League.fromJson(json)).toList();
+      } else {
+        print('[LeagueService] Error response: ${response.body}');
+        return [];
       }
-      return [];
-    } catch (e) {
-      print('Get user leagues error: $e');
+    } catch (e, stackTrace) {
+      print('[LeagueService] Exception getting user leagues: $e');
+      print('[LeagueService] Stack trace: $stackTrace');
       return [];
     }
   }

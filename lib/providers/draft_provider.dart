@@ -430,6 +430,11 @@ class DraftProvider with ChangeNotifier {
     if (_currentDraft != null &&
         _currentDraft!.isInProgress &&
         _currentDraft!.pickDeadline != null) {
+      print('[Timer] Starting timer. Draft status: ${_currentDraft!.status}, Pick deadline: ${_currentDraft!.pickDeadline}');
+
+      // Set initial time remaining
+      _timeRemaining = _currentDraft!.timeRemaining ?? Duration.zero;
+
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         final remaining = _currentDraft!.timeRemaining;
         if (remaining != null && remaining.inSeconds > 0) {
@@ -441,6 +446,9 @@ class DraftProvider with ChangeNotifier {
           notifyListeners();
         }
       });
+    } else {
+      print('[Timer] NOT starting timer. Draft: ${_currentDraft != null}, InProgress: ${_currentDraft?.isInProgress}, Deadline: ${_currentDraft?.pickDeadline}');
+      _timeRemaining = Duration.zero;
     }
   }
 

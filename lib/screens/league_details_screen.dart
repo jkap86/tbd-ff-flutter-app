@@ -11,6 +11,7 @@ import 'edit_league_screen.dart';
 import 'draft_setup_screen.dart';
 import 'draft_lobby_screen.dart';
 import 'draft_room_screen.dart';
+import 'roster_details_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -504,23 +505,45 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                 onPressed: onRemove,
                 tooltip: 'Remove Member',
               )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
+            : Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Roster ${roster.rosterId}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Roster ${roster.rosterId}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${roster.starters.length + roster.bench.length} players',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '${roster.starters.length + roster.bench.length} players',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: Colors.grey.shade400,
                   ),
                 ],
               ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RosterDetailsScreen(
+                rosterId: roster.id,
+                rosterName: roster.username ?? 'Roster ${roster.rosterId}',
+              ),
+            ),
+          );
+        },
       ),
     );
   }
