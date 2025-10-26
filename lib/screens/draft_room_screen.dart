@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' as math;
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
@@ -24,23 +25,115 @@ class DraftRoomScreen extends StatefulWidget {
 }
 
 class _DraftRoomScreenState extends State<DraftRoomScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String? _selectedPosition;
   Player? _selectedPlayer;
   bool _hasShownCompletionDialog = false;
+  late AnimationController _timerAnimationController;
+  final List<Player> _draftQueue = [];
+  List<String> _positions = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    _timerAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
     _loadDraftAndJoinRoom();
+    _initializePositionFilters();
 
     // Listen for draft completion
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupDraftListener();
     });
+
+    // Listen to search changes
+    _searchController.addListener(() {
+      setState(() {
+        _filterPlayers();
+      });
+    });
+  }
+
+  void _initializePositionFilters() {
+    final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+    final league = leagueProvider.selectedLeague;
+
+    if (league?.rosterPositions != null && league!.rosterPositions!.isNotEmpty) {
+      final Set<String> positions = {'ALL'};
+
+      for (var positionData in league.rosterPositions!) {
+        final position = positionData['position'] as String?;
+        if (position != null && position != 'BN') {
+          // Add the position slot itself
+          positions.add(position);
+
+          // Expand multi-position slots into individual positions
+          switch (position) {
+            case 'FLEX':
+              positions.addAll(['RB', 'WR', 'TE']);
+              break;
+            case 'SUPER_FLEX':
+              positions.addAll(['QB', 'RB', 'WR', 'TE']);
+              break;
+            case 'IDP_FLEX':
+              positions.addAll(['DL', 'LB', 'DB']);
+              break;
+            case 'REC_FLEX':
+              positions.addAll(['WR', 'TE']);
+              break;
+            case 'WRT':
+              positions.addAll(['WR', 'RB', 'TE']);
+              break;
+          }
+        }
+      }
+
+      // Order positions logically
+      final List<String> orderedPositions = ['ALL'];
+      final positionOrder = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPER_FLEX', 'WRT', 'REC_FLEX',
+                             'K', 'DEF', 'DL', 'LB', 'DB', 'IDP_FLEX'];
+
+      for (var pos in positionOrder) {
+        if (positions.contains(pos)) {
+          orderedPositions.add(pos);
+        }
+      }
+
+      setState(() {
+        _positions = orderedPositions;
+      });
+    } else {
+      // Fallback to default positions
+      setState(() {
+        _positions = ['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    _timerAnimationController.dispose();
+
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Leave WebSocket room
+    if (draftProvider.currentDraft != null && authProvider.user != null) {
+      draftProvider.leaveDraftRoom(
+        draftId: draftProvider.currentDraft!.id,
+        userId: authProvider.user!.id,
+        username: authProvider.user!.username,
+      );
+    }
+
+    super.dispose();
   }
 
   void _setupDraftListener() {
@@ -53,7 +146,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     if (draftProvider.currentDraft?.status == 'completed' &&
         !_hasShownCompletionDialog) {
       _hasShownCompletionDialog = true;
-      // Show completion dialog
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _showDraftCompletionDialog();
@@ -74,28 +166,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
             const Text('Draft Complete!'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'The draft has been completed. All picks have been made.',
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Your league is now in season!',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
+        content: const Text('The draft has been completed. All picks have been made.'),
         actions: [
           FilledButton.icon(
             onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(); // Return to league details
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
             },
             icon: const Icon(Icons.arrow_back),
             label: const Text('Back to League'),
@@ -106,13 +182,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   }
 
   Future<void> _loadDraftAndJoinRoom() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     await draftProvider.loadDraftByLeague(widget.leagueId);
 
-    if (draftProvider.currentDraft != null && authProvider.user != null) {
-      // Join WebSocket room
+    if (mounted && draftProvider.currentDraft != null && authProvider.user != null) {
       draftProvider.joinDraftRoom(
         draftId: draftProvider.currentDraft!.id,
         userId: authProvider.user!.id,
@@ -121,70 +196,35 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _searchController.dispose();
-
-    // Remove draft listener
-    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-    draftProvider.removeListener(_checkDraftCompletion);
-
-    // Leave WebSocket room
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    if (draftProvider.currentDraft != null && authProvider.user != null) {
-      draftProvider.leaveDraftRoom(
-        draftId: draftProvider.currentDraft!.id,
-        userId: authProvider.user!.id,
-        username: authProvider.user!.username,
-      );
-    }
-
-    super.dispose();
-  }
-
   Future<void> _makePick() async {
-    if (_selectedPlayer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a player first')),
-      );
-      return;
-    }
+    if (_selectedPlayer == null) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
-    if (authProvider.token == null ||
-        draftProvider.currentDraft == null) {
-      return;
-    }
+    if (authProvider.token == null || draftProvider.currentDraft == null) return;
 
-    // TODO: Get actual roster ID for current user
-    final rosterId = draftProvider.currentDraft!.currentRosterId;
-    if (rosterId == null) return;
+    // Get current roster making the pick
+    final currentRoster = draftProvider.draftOrder.firstWhere(
+      (order) => order.rosterId == draftProvider.currentDraft!.currentRosterId,
+    );
 
     final success = await draftProvider.makePick(
       token: authProvider.token!,
       draftId: draftProvider.currentDraft!.id,
-      rosterId: rosterId,
       playerId: _selectedPlayer!.id,
+      rosterId: currentRoster.rosterId,
     );
 
     if (mounted) {
       if (success) {
-        setState(() => _selectedPlayer = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Picked ${_selectedPlayer!.fullName}!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        setState(() {
+          _selectedPlayer = null;
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                draftProvider.errorMessage ?? 'Failed to make pick'),
+          const SnackBar(
+            content: Text('Failed to make pick'),
             backgroundColor: Colors.red,
           ),
         );
@@ -192,100 +232,88 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     }
   }
 
-  Future<void> _filterPlayers() async {
-    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-    await draftProvider.filterPlayers(
-      position: _selectedPosition,
-      search: _searchController.text.trim().isEmpty
-          ? null
-          : _searchController.text.trim(),
-    );
+  void _filterPlayers() {
+    // Filtering is handled by the provider internally
+    // Just trigger a rebuild
+    setState(() {});
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Consumer2<DraftProvider, AuthProvider>(
-      builder: (context, draftProvider, authProvider, _) {
-        final draft = draftProvider.currentDraft;
+  List<Player> _getFilteredPlayers(DraftProvider draftProvider) {
+    var players = draftProvider.availablePlayers;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Draft - ${widget.leagueName}'),
-            actions: [
-              if (draft != null)
-                _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
-            ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(icon: Icon(Icons.list), text: 'Players'),
-                Tab(icon: Icon(Icons.grid_on), text: 'Board'),
-                Tab(icon: Icon(Icons.chat), text: 'Chat'),
-              ],
-            ),
-          ),
-          body: _buildBody(draftProvider),
-        );
-      },
-    );
-  }
+    // Filter by position
+    if (_selectedPosition != null && _selectedPosition != 'ALL') {
+      // Handle multi-position slots
+      List<String> eligiblePositions = [];
 
-  Widget _buildBody(DraftProvider draftProvider) {
-    final draft = draftProvider.currentDraft;
+      switch (_selectedPosition) {
+        case 'FLEX':
+          eligiblePositions = ['RB', 'WR', 'TE'];
+          break;
+        case 'SUPER_FLEX':
+          eligiblePositions = ['QB', 'RB', 'WR', 'TE'];
+          break;
+        case 'WRT':
+          eligiblePositions = ['WR', 'RB', 'TE'];
+          break;
+        case 'REC_FLEX':
+          eligiblePositions = ['WR', 'TE'];
+          break;
+        case 'IDP_FLEX':
+          eligiblePositions = ['DL', 'LB', 'DB'];
+          break;
+        default:
+          // Single position filter
+          eligiblePositions = [_selectedPosition!];
+      }
 
-    if (draft == null) {
-      return const Center(child: CircularProgressIndicator());
+      players = players.where((p) => eligiblePositions.contains(p.position)).toList();
     }
 
-    return Column(
-      children: [
-        // Draft Status Bar
-        _buildStatusBar(draftProvider),
+    // Filter by search
+    final searchText = _searchController.text.trim().toLowerCase();
+    if (searchText.isNotEmpty) {
+      players = players.where((p) =>
+        p.fullName.toLowerCase().contains(searchText) ||
+        (p.team?.toLowerCase().contains(searchText) ?? false)
+      ).toList();
+    }
 
-        // Tab Views
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              // Players Tab
-              _buildPlayersTab(draftProvider),
+    return players;
+  }
 
-              // Draft Board Tab
-              const DraftBoardWidget(),
-
-              // Chat Tab
-              LeagueChatTabWidget(leagueId: widget.leagueId),
-            ],
-          ),
-        ),
-
-        // Pick Button (only if it's user's turn and player selected)
-        Consumer<AuthProvider>(
-          builder: (context, authProvider, child) {
-            if (!draft.isInProgress) return const SizedBox.shrink();
-
-            // Check if it's the current user's turn
-            DraftOrder? currentRoster;
-            try {
-              currentRoster = draftProvider.draftOrder.firstWhere(
-                (order) => order.rosterId == draft.currentRosterId,
-              );
-            } catch (e) {
-              currentRoster = null;
-            }
-
-            final isUsersTurn = authProvider.user != null &&
-                currentRoster != null &&
-                currentRoster.userId == authProvider.user!.id;
-
-            if (isUsersTurn && _selectedPlayer != null) {
-              return _buildPickButton(draftProvider);
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-      ],
-    );
+  Color _getPositionColor(String position) {
+    switch (position) {
+      case 'QB':
+        return Colors.red.shade400;
+      case 'RB':
+        return Colors.green.shade400;
+      case 'WR':
+        return Colors.blue.shade400;
+      case 'TE':
+        return Colors.orange.shade400;
+      case 'FLEX':
+      case 'SUPER_FLEX':
+      case 'WRT':
+      case 'REC_FLEX':
+        return Colors.teal.shade400;
+      case 'K':
+        return Colors.purple.shade400;
+      case 'DEF':
+        return Colors.brown.shade400;
+      case 'DL':
+        return Colors.indigo.shade400;
+      case 'LB':
+        return Colors.cyan.shade400;
+      case 'DB':
+        return Colors.pink.shade400;
+      case 'IDP_FLEX':
+        return Colors.deepPurple.shade400;
+      case 'ALL':
+        return Colors.grey.shade600;
+      default:
+        return Colors.grey.shade400;
+    }
   }
 
   void _showPlayerStats(Player player) {
@@ -299,11 +327,10 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         expand: false,
         builder: (context, scrollController) => Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
+                color: _getPositionColor(player.position),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
                 ),
@@ -311,7 +338,14 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
               child: Row(
                 children: [
                   CircleAvatar(
-                    child: Text(player.position),
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      player.position,
+                      style: TextStyle(
+                        color: _getPositionColor(player.position),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -320,33 +354,81 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       children: [
                         Text(
                           player.fullName,
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                         Text(
                           player.positionTeam,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
             ),
-            // Stats Widget
             Expanded(
               child: PlayerStatsWidget(
                 playerId: player.playerId,
                 currentSeason: 2024,
-                currentWeek: null, // Will show full season stats
+                currentWeek: null,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isWideScreen = MediaQuery.of(context).size.width > 900;
+
+    return Consumer2<DraftProvider, AuthProvider>(
+      builder: (context, draftProvider, authProvider, _) {
+        final draft = draftProvider.currentDraft;
+
+        return Scaffold(
+          appBar: _buildAppBar(context, draft, draftProvider, authProvider),
+          body: draft == null
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    _buildStickyStatusBar(draftProvider, authProvider),
+                    Expanded(
+                      child: isWideScreen
+                          ? _buildSplitScreenLayout(draftProvider, authProvider)
+                          : _buildTabLayout(draftProvider),
+                    ),
+                    _buildBottomPickButton(draftProvider, authProvider),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    draft,
+    DraftProvider draftProvider,
+    AuthProvider authProvider,
+  ) {
+    return AppBar(
+      title: Text('Draft - ${widget.leagueName}'),
+      actions: [
+        if (draft != null) _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
+      ],
     );
   }
 
@@ -356,7 +438,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     DraftProvider draftProvider,
     AuthProvider authProvider,
   ) {
-    // Only show for commissioner during active draft
     final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
     if (!leagueProvider.isCommissioner) {
       return const SizedBox.shrink();
@@ -399,128 +480,191 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     );
   }
 
-  Widget _buildStatusBar(DraftProvider draftProvider) {
+  Widget _buildStickyStatusBar(DraftProvider draftProvider, AuthProvider authProvider) {
     final draft = draftProvider.currentDraft!;
-    final timeRemaining = draftProvider.timeRemaining;
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final timeRemaining = draftProvider.timeRemaining ?? Duration.zero;
 
-    // Find the roster on the clock from draft order
-    final currentRoster = draftProvider.draftOrder.firstWhere(
-      (order) => order.rosterId == draft.currentRosterId,
-      orElse: () => draftProvider.draftOrder.first,
-    );
+    DraftOrder? currentRoster;
+    try {
+      currentRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.rosterId == draft.currentRosterId,
+      );
+    } catch (e) {
+      currentRoster = null;
+    }
 
-    // Check if it's the current user's turn
     final isUsersTurn = authProvider.user != null &&
+        currentRoster != null &&
         currentRoster.userId == authProvider.user!.id;
+
+    final progress = timeRemaining.inSeconds / draft.pickTimeSeconds;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      color: isUsersTurn
-          ? Colors.green.shade700
-          : Theme.of(context).colorScheme.primaryContainer,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isUsersTurn
+              ? [Colors.green.shade700, Colors.green.shade900]
+              : [
+                  Theme.of(context).colorScheme.primaryContainer,
+                  Theme.of(context).colorScheme.primary,
+                ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         children: [
-          // "YOU'RE ON THE CLOCK" banner
           if (isUsersTurn)
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: Colors.amber,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withOpacity(0.5),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.alarm, color: Colors.black),
-                  const SizedBox(width: 8),
-                  Text(
+                  AnimatedBuilder(
+                    animation: _timerAnimationController,
+                    builder: (context, child) => Transform.scale(
+                      scale: 1.0 + (math.sin(_timerAnimationController.value * 2 * math.pi) * 0.1),
+                      child: const Icon(Icons.alarm, color: Colors.black, size: 24),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
                     "YOU'RE ON THE CLOCK!",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
             ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Round ${draft.currentRound}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: isUsersTurn ? Colors.white : null,
-                        ),
-                  ),
-                  Text(
-                    'Pick ${draft.currentPick}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isUsersTurn ? Colors.white70 : null,
-                        ),
-                  ),
-                ],
-              ),
-              if (timeRemaining != null)
-                Column(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: timeRemaining.inSeconds < 10
-                                ? Colors.red
-                                : isUsersTurn
-                                    ? Colors.white
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer,
-                          ),
+                      'Round ${draft.currentRound} • Pick ${draft.currentPick}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isUsersTurn ? Colors.white : null,
+                      ),
                     ),
                     Text(
-                      'Time Remaining',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isUsersTurn ? Colors.white70 : null,
-                          ),
+                      currentRoster?.displayName ?? 'Unknown',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isUsersTurn ? Colors.white70 : null,
+                      ),
                     ),
                   ],
                 ),
+              ),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'On the Clock',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isUsersTurn ? Colors.white70 : null,
-                        ),
+                    '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: timeRemaining.inSeconds < 10
+                          ? Colors.red
+                          : (isUsersTurn ? Colors.white : null),
+                    ),
                   ),
                   Text(
-                    currentRoster.displayName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: isUsersTurn ? Colors.white : null,
-                        ),
+                    'Time Remaining',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isUsersTurn ? Colors.white70 : null,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: draft.progressPercentage,
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor: Colors.white30,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                timeRemaining.inSeconds < 10 ? Colors.red : Colors.amber,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPlayersTab(DraftProvider draftProvider) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  Widget _buildSplitScreenLayout(DraftProvider draftProvider, AuthProvider authProvider) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: _buildPlayersPanel(draftProvider, authProvider),
+        ),
+        Expanded(
+          flex: 3,
+          child: const DraftBoardWidget(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabLayout(DraftProvider draftProvider) {
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.list), text: 'Players'),
+            Tab(icon: Icon(Icons.grid_on), text: 'Board'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildPlayersPanel(
+                draftProvider,
+                Provider.of<AuthProvider>(context, listen: false),
+              ),
+              const DraftBoardWidget(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlayersPanel(DraftProvider draftProvider, AuthProvider authProvider) {
     final draft = draftProvider.currentDraft;
 
-    // Check if it's the current user's turn
     DraftOrder? currentRoster;
     try {
       currentRoster = draftProvider.draftOrder.firstWhere(
@@ -536,83 +680,177 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
     return Column(
       children: [
-        // Not your turn banner
-        if (!isUsersTurn && draft != null)
+        // Draft Queue Section
+        if (_draftQueue.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(12),
-            color: Colors.grey.shade300,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outline,
+                  width: 2,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.lock, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Waiting for ${currentRoster?.displayName ?? "other team"} to pick...',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.playlist_play,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Draft Queue (${_draftQueue.length})',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _draftQueue.clear();
+                        });
+                      },
+                      icon: const Icon(Icons.clear_all, size: 16),
+                      label: const Text('Clear'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 60,
+                  child: ReorderableListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _draftQueue.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) newIndex--;
+                        final player = _draftQueue.removeAt(oldIndex);
+                        _draftQueue.insert(newIndex, player);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final player = _draftQueue[index];
+                      return Container(
+                        key: ValueKey(player.id),
+                        margin: const EdgeInsets.only(right: 8),
+                        child: Chip(
+                          backgroundColor: _getPositionColor(player.position).withOpacity(0.2),
+                          avatar: CircleAvatar(
+                            backgroundColor: _getPositionColor(player.position),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                player.fullName,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _getPositionColor(player.position),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  player.position,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          deleteIcon: const Icon(Icons.close, size: 18),
+                          onDeleted: () {
+                            setState(() {
+                              _draftQueue.removeAt(index);
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
           ),
-
-        // Search and Filter
-        Padding(
-          padding: const EdgeInsets.all(16.0),
+        // Search and Filters
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Theme.of(context).colorScheme.surfaceVariant,
           child: Column(
             children: [
               TextField(
                 controller: _searchController,
-                enabled: isUsersTurn,
                 decoration: InputDecoration(
-                  hintText: isUsersTurn
-                      ? 'Search players...'
-                      : 'Wait for your turn...',
+                  hintText: 'Search players...',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchController.clear();
-                            _filterPlayers();
                           },
                         )
                       : null,
-                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-                onChanged: (value) => _filterPlayers(),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: [
-                    FilterChip(
-                      label: const Text('All'),
-                      selected: _selectedPosition == null,
-                      onSelected: isUsersTurn
-                          ? (selected) {
-                              setState(() => _selectedPosition = null);
-                              _filterPlayers();
-                            }
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    ...['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].map((pos) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(pos),
-                          selected: _selectedPosition == pos,
-                          onSelected: isUsersTurn
-                              ? (selected) {
-                                  setState(() => _selectedPosition =
-                                      selected ? pos : null);
-                                  _filterPlayers();
-                                }
-                              : null,
+                  children: _positions.map((position) {
+                    final isSelected = _selectedPosition == position ||
+                        (_selectedPosition == null && position == 'ALL');
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        selected: isSelected,
+                        label: Text(position),
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedPosition = position == 'ALL' ? null : position;
+                            _filterPlayers();
+                          });
+                        },
+                        backgroundColor: _getPositionColor(position).withOpacity(0.1),
+                        selectedColor: _getPositionColor(position),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : _getPositionColor(position),
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
-                      );
-                    }).toList(),
-                  ],
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
             ],
@@ -621,53 +859,132 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
         // Players List
         Expanded(
-          child: draftProvider.availablePlayers.isEmpty
-              ? const Center(child: Text('No players available'))
-              : ListView.builder(
-                  itemCount: draftProvider.availablePlayers.length,
-                  itemBuilder: (context, index) {
-                    final player = draftProvider.availablePlayers[index];
-                    final isSelected = _selectedPlayer?.id == player.id;
+          child: Builder(
+            builder: (context) {
+              final filteredPlayers = _getFilteredPlayers(draftProvider);
 
-                    return ListTile(
-                      selected: isSelected,
-                      enabled: isUsersTurn,
-                      leading: CircleAvatar(
-                        child: Text(player.position),
-                      ),
-                      title: Text(player.fullName),
-                      subtitle: Text(player.positionTeam),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.info_outline),
-                            onPressed: () => _showPlayerStats(player),
-                            tooltip: 'View Stats',
-                          ),
-                          if (isSelected)
-                            Icon(
-                              Icons.check_circle,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                        ],
-                      ),
-                      onTap: isUsersTurn
-                          ? () {
-                              setState(() {
-                                _selectedPlayer = isSelected ? null : player;
-                              });
-                            }
+              if (filteredPlayers.isEmpty) {
+                return const Center(child: Text('No players available'));
+              }
+
+              return ListView.builder(
+                itemCount: filteredPlayers.length,
+                itemBuilder: (context, index) {
+                  final player = filteredPlayers[index];
+                  final isSelected = _selectedPlayer?.id == player.id;
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      elevation: isSelected ? 4 : 1,
+                      color: isSelected
+                          ? _getPositionColor(player.position).withOpacity(0.2)
                           : null,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: _getPositionColor(player.position),
+                          child: Text(
+                            player.position,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          player.fullName,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Text(player.team ?? 'FA'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.info_outline),
+                              onPressed: () => _showPlayerStats(player),
+                              tooltip: 'View Stats',
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                _draftQueue.any((p) => p.id == player.id)
+                                    ? Icons.playlist_add_check
+                                    : Icons.playlist_add,
+                                color: _draftQueue.any((p) => p.id == player.id)
+                                    ? _getPositionColor(player.position)
+                                    : null,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (_draftQueue.any((p) => p.id == player.id)) {
+                                    _draftQueue.removeWhere((p) => p.id == player.id);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('${player.fullName} removed from queue'),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  } else {
+                                    _draftQueue.add(player);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('${player.fullName} added to queue'),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  }
+                                });
+                              },
+                              tooltip: _draftQueue.any((p) => p.id == player.id)
+                                  ? 'Remove from queue'
+                                  : 'Add to queue',
+                            ),
+                            if (isSelected)
+                              Icon(
+                                Icons.check_circle,
+                                color: _getPositionColor(player.position),
+                                size: 28,
+                              ),
+                          ],
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _selectedPlayer = isSelected ? null : player;
+                          });
+                        },
+                      ),
                     );
                   },
-                ),
-        ),
+                );
+              },
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildPickButton(DraftProvider draftProvider) {
+  Widget _buildBottomPickButton(DraftProvider draftProvider, AuthProvider authProvider) {
+    final draft = draftProvider.currentDraft!;
+
+    if (!draft.isInProgress) return const SizedBox.shrink();
+
+    DraftOrder? currentRoster;
+    try {
+      currentRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.rosterId == draft.currentRosterId,
+      );
+    } catch (e) {
+      currentRoster = null;
+    }
+
+    final isUsersTurn = authProvider.user != null &&
+        currentRoster != null &&
+        currentRoster.userId == authProvider.user!.id;
+
+    if (!isUsersTurn || _selectedPlayer == null) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -683,42 +1000,59 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_selectedPlayer != null)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      child: Text(_selectedPlayer!.position),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _selectedPlayer!.fullName,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            _selectedPlayer!.positionTeam,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+          Card(
+            color: _getPositionColor(_selectedPlayer!.position).withOpacity(0.2),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: _getPositionColor(_selectedPlayer!.position),
+                    radius: 28,
+                    child: Text(
+                      _selectedPlayer!.position,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedPlayer!.fullName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(
+                          _selectedPlayer!.positionTeam,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 8),
-          FilledButton(
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
             onPressed: _makePick,
             style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(50),
+              minimumSize: const Size.fromHeight(56),
+              backgroundColor: Colors.green.shade700,
             ),
-            child: Text('Draft ${_selectedPlayer!.fullName}'),
+            icon: const Icon(Icons.add_circle, size: 28),
+            label: Text(
+              'DRAFT ${_selectedPlayer!.fullName.toUpperCase()}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),

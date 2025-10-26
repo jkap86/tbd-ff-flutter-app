@@ -332,10 +332,18 @@ class DraftProvider with ChangeNotifier {
       );
 
       if (result != null) {
+        // Don't add the pick here - let the WebSocket handle it
+        // The WebSocket pick will have all the extended fields (player_name, etc.)
+        // _draftPicks.add(result['pick']);
+
+        // Update draft state
         _currentDraft = result['draft'];
-        _draftPicks.add(result['pick']);
+
+        // Remove player from available list
         _availablePlayers.removeWhere((player) => player.id == playerId);
-        _resetTimer();
+
+        // Note: WebSocket will trigger notifyListeners() when pick_made event arrives
+        // But we call it here too to update UI immediately with draft state
         notifyListeners();
         return true;
       }
