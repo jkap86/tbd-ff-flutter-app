@@ -76,13 +76,32 @@ class DraftBoardWidget extends StatelessWidget {
                               label: Container(
                                 width: 100,
                                 child: Center(
-                                  child: Text(
-                                    team.displayName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          team.displayName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                            color: team.isAutodrafting
+                                                ? Colors.amber.shade700
+                                                : null,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (team.isAutodrafting) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.auto_mode,
+                                          size: 12,
+                                          color: Colors.amber.shade700,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                               ),

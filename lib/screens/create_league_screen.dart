@@ -22,18 +22,19 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
   int _totalRosters = 12;
   int _startWeek = 1;
   int _endWeek = 17;
+  int _playoffWeekStart = 15;
   bool _isPublic = false;
 
   // Roster positions with default values
   final Map<String, int> _rosterPositions = {
     'QB': 1,
     'RB': 2,
-    'WR': 2,
+    'WR': 3,
     'TE': 1,
-    'FLEX': 1,
-    'SUPER_FLEX': 0,
-    'K': 1,
-    'DEF': 1,
+    'FLEX': 3,
+    'SUPER_FLEX': 1,
+    'K': 0,
+    'DEF': 0,
     'DL': 0,
     'LB': 0,
     'DB': 0,
@@ -110,6 +111,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
           'is_public': _isPublic,
           'start_week': _startWeek,
           'end_week': _endWeek,
+          'playoff_week_start': _playoffWeekStart,
         },
         scoringSettings: {
           'passing_touchdowns':
@@ -348,6 +350,27 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                     onChanged: (value) {
                       setState(() {
                         _endWeek = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Playoff week start
+                  DropdownButtonFormField<int>(
+                    value: _playoffWeekStart,
+                    decoration: const InputDecoration(
+                      labelText: 'Playoff Week Start',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.emoji_events),
+                      helperText: 'Week when playoffs begin',
+                    ),
+                    items: [
+                      for (int i = _startWeek + 1; i <= 18; i++)
+                        DropdownMenuItem(value: i, child: Text('Week $i')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _playoffWeekStart = value!;
                       });
                     },
                   ),

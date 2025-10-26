@@ -97,4 +97,12 @@ class League {
     final current = currentRosters ?? 0;
     return current >= totalRosters;
   }
+
+  // Helper methods to access settings
+  int get startWeek => (settings?['start_week'] as int?) ?? 1;
+  int get endWeek => (settings?['end_week'] as int?) ?? 17;
+  int get playoffWeekStart => (settings?['playoff_week_start'] as int?) ?? 15;
+
+  // Get number of regular season weeks
+  int get regularSeasonWeeks => playoffWeekStart - startWeek;
 }

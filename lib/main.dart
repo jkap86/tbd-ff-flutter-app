@@ -5,6 +5,7 @@ import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
 import 'providers/invite_provider.dart';
 import 'providers/draft_provider.dart';
+import 'providers/matchup_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'config/api_config.dart';
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LeagueProvider()),
         ChangeNotifierProvider(create: (_) => InviteProvider()),
         ChangeNotifierProvider(create: (_) => DraftProvider()),
+        ChangeNotifierProvider(create: (_) => MatchupProvider()),
       ],
       child: const MyAppContent(),
     );

@@ -34,6 +34,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   late AnimationController _timerAnimationController;
   final List<Player> _draftQueue = [];
   List<String> _positions = [];
+  int? _lastAutoPickNumber; // Track which pick number we last auto-picked for
 
   @override
   void initState() {
@@ -139,6 +140,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   void _setupDraftListener() {
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     draftProvider.addListener(_checkDraftCompletion);
+    draftProvider.addListener(_checkAutoDraft);
   }
 
   void _checkDraftCompletion() {
@@ -151,6 +153,107 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
           _showDraftCompletionDialog();
         }
       });
+    }
+  }
+
+  void _checkAutoDraft() {
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draft = draftProvider.currentDraft;
+
+    if (draft == null || draft.status != 'in_progress') return;
+
+    final currentPickNumber = draft.currentPick;
+    final currentRosterId = draft.currentRosterId;
+
+    // Find the roster that's currently on the clock
+    DraftOrder? currentRoster;
+    try {
+      currentRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.rosterId == currentRosterId,
+      );
+    } catch (e) {
+      return;
+    }
+
+    // Check if this roster has autodraft enabled
+    if (currentRoster == null || !currentRoster.isAutodrafting) {
+      _lastAutoPickNumber = null;
+      return;
+    }
+
+    // Check if it's the current user's roster (only the user can make picks for their roster)
+    final isUsersTurn = authProvider.user != null &&
+        currentRoster.userId == authProvider.user!.id;
+
+    if (!isUsersTurn) return;
+
+    // Check if we've already auto-picked for this specific pick number
+    if (_lastAutoPickNumber == currentPickNumber) return;
+
+    print('[AutoDraft] Triggering auto-pick for pick #$currentPickNumber (roster $currentRosterId)');
+
+    // Mark that we're auto-picking for this pick number
+    _lastAutoPickNumber = currentPickNumber;
+
+    // Auto-pick the first player in queue, or best available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && currentRoster?.isAutodrafting == true) {
+        Player? playerToPick;
+
+        if (_draftQueue.isNotEmpty) {
+          // Pick from queue
+          playerToPick = _draftQueue.first;
+        } else {
+          // Pick best available (first in filtered list)
+          final filteredPlayers = _getFilteredPlayers(draftProvider);
+          if (filteredPlayers.isNotEmpty) {
+            playerToPick = filteredPlayers.first;
+          }
+        }
+
+        if (playerToPick != null) {
+          _makeAutoPick(playerToPick);
+        }
+      }
+    });
+  }
+
+  Future<void> _makeAutoPick(Player player) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final token = authProvider.token;
+    final draft = draftProvider.currentDraft;
+    final draftId = draft?.id;
+    final rosterId = draft?.currentRosterId;
+
+    if (token == null || draftId == null || rosterId == null) return;
+
+    // Remove from queue if it was queued
+    setState(() {
+      _draftQueue.remove(player);
+      _selectedPlayer = null;
+    });
+
+    final success = await draftProvider.makePick(
+      token: token,
+      draftId: draftId,
+      rosterId: rosterId,
+      playerId: player.id,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Auto-picked ${player.fullName}'
+                : 'Failed to auto-pick ${player.fullName}',
+          ),
+          backgroundColor: success ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -398,21 +501,28 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       builder: (context, draftProvider, authProvider, _) {
         final draft = draftProvider.currentDraft;
 
+        // Check autodraft on every rebuild
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkAutoDraft();
+        });
+
         return Scaffold(
           appBar: _buildAppBar(context, draft, draftProvider, authProvider),
           body: draft == null
               ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    _buildStickyStatusBar(draftProvider, authProvider),
-                    Expanded(
-                      child: isWideScreen
-                          ? _buildSplitScreenLayout(draftProvider, authProvider)
-                          : _buildTabLayout(draftProvider),
+              : draft.isNotStarted
+                  ? _buildNotStartedScreen(draftProvider, authProvider)
+                  : Column(
+                      children: [
+                        _buildStickyStatusBar(draftProvider, authProvider),
+                        Expanded(
+                          child: isWideScreen
+                              ? _buildSplitScreenLayout(draftProvider, authProvider)
+                              : _buildTabLayout(draftProvider),
+                        ),
+                        _buildBottomPickButton(draftProvider, authProvider),
+                      ],
                     ),
-                    _buildBottomPickButton(draftProvider, authProvider),
-                  ],
-                ),
         );
       },
     );
@@ -427,8 +537,234 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     return AppBar(
       title: Text('Draft - ${widget.leagueName}'),
       actions: [
-        if (draft != null) _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
+        if (draft != null && !draft.isNotStarted) ...[
+          _buildAutoDraftButton(context, draftProvider, authProvider),
+          _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
+        ],
       ],
+    );
+  }
+
+  Widget _buildNotStartedScreen(DraftProvider draftProvider, AuthProvider authProvider) {
+    final leagueProvider = Provider.of<LeagueProvider>(context);
+    final isCommissioner = leagueProvider.isCommissioner;
+    final hasOrder = draftProvider.draftOrder.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.sports_football,
+              size: 80,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Draft Not Started',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              hasOrder
+                  ? 'Draft order is set and ready to begin'
+                  : 'Waiting for commissioner to set draft order',
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+
+            // Show draft order if set
+            if (hasOrder) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Draft Order',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 200),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: draftProvider.draftOrder.length,
+                          itemBuilder: (context, index) {
+                            final order = draftProvider.draftOrder[index];
+                            return ListTile(
+                              dense: true,
+                              leading: CircleAvatar(
+                                radius: 16,
+                                child: Text(
+                                  '${order.draftPosition}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              title: Text(order.displayName),
+                              subtitle: Text('Team ${order.rosterNumber ?? "?"}'),
+                              trailing: order.isAutodrafting
+                                  ? const Tooltip(
+                                      message: 'Autodraft enabled',
+                                      child: Icon(
+                                        Icons.auto_mode,
+                                        color: Colors.green,
+                                        size: 20,
+                                      ),
+                                    )
+                                  : null,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Start Draft button (commissioner only, order must be set)
+            if (isCommissioner && hasOrder)
+              FilledButton.icon(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Start Draft'),
+                      content: const Text(
+                        'Are you ready to start the draft? Once started, managers can begin making picks.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Start Draft'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed != true || !mounted) return;
+
+                  final success = await draftProvider.startDraft(
+                    token: authProvider.token!,
+                    draftId: draftProvider.currentDraft!.id,
+                  );
+
+                  if (mounted) {
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Draft started!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            draftProvider.errorMessage ?? 'Failed to start draft',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start Draft'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  backgroundColor: Colors.green,
+                  textStyle: const TextStyle(fontSize: 18),
+                ),
+              )
+            else if (isCommissioner && !hasOrder)
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Go to Settings to Set Draft Order'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                ),
+              )
+            else
+              Text(
+                'Waiting for commissioner to start the draft...',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutoDraftButton(
+    BuildContext context,
+    DraftProvider draftProvider,
+    AuthProvider authProvider,
+  ) {
+    // Find the user's roster
+    DraftOrder? userRoster;
+    try {
+      userRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.userId == authProvider.user?.id,
+      );
+    } catch (e) {
+      userRoster = null;
+    }
+
+    // Use the roster's autodraft status if available
+    final isAutodrafting = userRoster?.isAutodrafting ?? false;
+
+    return IconButton(
+      icon: Icon(
+        isAutodrafting ? Icons.auto_mode : Icons.auto_mode_outlined,
+        color: isAutodrafting ? Colors.green : null,
+      ),
+      tooltip: isAutodrafting ? 'Autodraft ON' : 'Autodraft OFF',
+      onPressed: () {
+        final draft = draftProvider.currentDraft;
+        if (draft == null || userRoster == null) return;
+
+        final newStatus = !isAutodrafting;
+
+        // Emit WebSocket event to toggle autodraft
+        draftProvider.toggleAutodraft(
+          draftId: draft.id,
+          rosterId: userRoster.rosterId,
+          isAutodrafting: newStatus,
+          username: authProvider.user?.username ?? 'Unknown',
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              newStatus
+                  ? 'Autodraft enabled - best available player will be picked automatically'
+                  : 'Autodraft disabled',
+            ),
+            backgroundColor: newStatus ? Colors.green : Colors.grey,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
     );
   }
 
@@ -571,12 +907,27 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                         color: isUsersTurn ? Colors.white : null,
                       ),
                     ),
-                    Text(
-                      currentRoster?.displayName ?? 'Unknown',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isUsersTurn ? Colors.white70 : null,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          currentRoster?.displayName ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isUsersTurn ? Colors.white70 : null,
+                          ),
+                        ),
+                        if (currentRoster?.isAutodrafting == true) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: 'Autodraft enabled',
+                            child: Icon(
+                              Icons.auto_mode,
+                              color: isUsersTurn ? Colors.white70 : Colors.green,
+                              size: 16,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

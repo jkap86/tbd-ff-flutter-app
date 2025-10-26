@@ -91,6 +91,21 @@ class DraftProvider with ChangeNotifier {
       _status = DraftStatus.error;
       notifyListeners();
     };
+
+    _socketService.onAutodraftToggled = (data) {
+      final rosterId = data['roster_id'] as int;
+      final isAutodrafting = data['is_autodrafting'] as bool;
+
+      // Update draft order list with new autodraft status
+      _draftOrder = _draftOrder.map((order) {
+        if (order.rosterId == rosterId) {
+          return order.copyWith(isAutodrafting: isAutodrafting);
+        }
+        return order;
+      }).toList();
+
+      notifyListeners();
+    };
   }
 
   // Create a new draft
@@ -155,7 +170,13 @@ class DraftProvider with ChangeNotifier {
         _resetTimer();
         _status = DraftStatus.loaded;
       } else {
-        _status = DraftStatus.loaded; // No draft exists yet
+        // No draft exists for this league - clear the current draft
+        _currentDraft = null;
+        _draftOrder = [];
+        _draftPicks = [];
+        _availablePlayers = [];
+        _chatMessages = [];
+        _status = DraftStatus.loaded;
       }
       notifyListeners();
     } catch (e) {
@@ -419,6 +440,21 @@ class DraftProvider with ChangeNotifier {
     _socketService.leaveDraft(
       draftId: draftId,
       userId: userId,
+      username: username,
+    );
+  }
+
+  // Toggle autodraft (WebSocket)
+  void toggleAutodraft({
+    required int draftId,
+    required int rosterId,
+    required bool isAutodrafting,
+    required String username,
+  }) {
+    _socketService.toggleAutodraft(
+      draftId: draftId,
+      rosterId: rosterId,
+      isAutodrafting: isAutodrafting,
       username: username,
     );
   }

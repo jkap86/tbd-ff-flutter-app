@@ -20,6 +20,7 @@ class SocketService {
   Function(Map<String, dynamic>)? onUserLeft;
   Function(Map<String, dynamic>)? onTimerTick;
   Function(Draft)? onDraftState;
+  Function(Map<String, dynamic>)? onAutodraftToggled;
   Function(String)? onError;
 
   // League event callbacks
@@ -134,6 +135,12 @@ class SocketService {
           print('Error parsing draft state: $e');
         }
       }
+    });
+
+    // Autodraft toggled
+    _socket!.on('autodraft_toggled', (data) {
+      print('Autodraft toggled: $data');
+      onAutodraftToggled?.call(data);
     });
 
     // Joined draft confirmation
@@ -313,6 +320,23 @@ class SocketService {
       'user_id': userId,
       'username': username,
       'message': message,
+    });
+  }
+
+  // Toggle autodraft
+  void toggleAutodraft({
+    required int draftId,
+    required int rosterId,
+    required bool isAutodrafting,
+    required String username,
+  }) {
+    if (_socket == null || !_socket!.connected) return;
+
+    _socket!.emit('toggle_autodraft', {
+      'draft_id': draftId,
+      'roster_id': rosterId,
+      'is_autodrafting': isAutodrafting,
+      'username': username,
     });
   }
 

@@ -6,6 +6,7 @@ import '../providers/draft_provider.dart';
 import '../models/league_model.dart';
 import '../models/roster_model.dart';
 import '../services/draft_service.dart';
+import '../services/league_service.dart';
 import '../widgets/responsive_container.dart';
 
 class EditLeagueScreen extends StatefulWidget {
@@ -27,6 +28,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   String _seasonType = 'regular';
   int _startWeek = 1;
   int _endWeek = 17;
+  int _playoffWeekStart = 15;
   late Map<String, dynamic> _scoringSettings;
   late Map<String, int> _rosterPositions;
   bool _isResetting = false;
@@ -58,6 +60,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     _seasonType = widget.league.seasonType;
     _startWeek = widget.league.settings?['start_week'] ?? 1;
     _endWeek = widget.league.settings?['end_week'] ?? 17;
+    _playoffWeekStart = widget.league.settings?['playoff_week_start'] ?? 15;
     _scoringSettings = widget.league.scoringSettings ?? {};
 
     // Initialize commissioner
@@ -194,6 +197,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         'is_public': _isPublic,
         'start_week': _startWeek,
         'end_week': _endWeek,
+        'playoff_week_start': _playoffWeekStart,
       },
       scoringSettings: updatedScoringSettings,
       rosterPositions: rosterPositionsList,
@@ -213,13 +217,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             rounds: _draftRounds,
           );
 
+          // Only show draft error if update actually failed (don't show for league-only updates)
           if (draftSuccess == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Draft settings update failed'),
-                backgroundColor: Colors.orange,
-              ),
-            );
+            print('Draft settings update failed, but league settings updated successfully');
           }
         }
 
@@ -239,44 +239,92 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     }
   }
 
-  Future<void> _handleResetDraft() async {
+  Future<void> _handleCreateDraft() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
-    // First load the draft for this league
-    await draftProvider.loadDraftByLeague(widget.league.id);
+    if (authProvider.token == null) return;
 
-    if (draftProvider.currentDraft == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No draft found for this league'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+    final draft = await DraftService().createDraft(
+      token: authProvider.token!,
+      leagueId: widget.league.id,
+      draftType: _draftType,
+      thirdRoundReversal: _thirdRoundReversal,
+      pickTimeSeconds: _pickTimeSeconds,
+      rounds: _draftRounds,
+    );
+
+    if (draft != null && mounted) {
+      // Reload draft provider
+      await draftProvider.loadDraftByLeague(widget.league.id);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Draft created successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      setState(() {
+        // Trigger rebuild to show draft settings
+      });
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to create draft'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _randomizeDraftOrder() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    if (authProvider.token == null || draftProvider.currentDraft == null) {
       return;
     }
 
-    // Check if draft can be reset (not 'not_started')
-    if (draftProvider.currentDraft!.status == 'not_started') {
-      if (mounted) {
+    final success = await draftProvider.setDraftOrder(
+      token: authProvider.token!,
+      draftId: draftProvider.currentDraft!.id,
+      randomize: true,
+    );
+
+    if (mounted) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Draft has not been started yet'),
-            backgroundColor: Colors.orange,
+            content: Text('Draft order randomized!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to randomize draft order'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-      return;
     }
+  }
 
+  Future<void> _handleResetLeague() async {
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Draft'),
+        title: const Text('Reset League'),
         content: const Text(
-          'Are you sure you want to reset the draft? This will clear all picks and reset the draft to not started. This action cannot be undone.',
+          'Are you sure you want to reset the league to pre-draft status?\n\n'
+          'This will:\n'
+          '• Delete the draft and all picks\n'
+          '• Remove all players from all rosters\n'
+          '• Keep all teams intact\n'
+          '• Set league status to pre-draft\n\n'
+          'This action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -288,7 +336,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Reset'),
+            child: const Text('Reset League'),
           ),
         ],
       ),
@@ -299,6 +347,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     setState(() => _isResetting = true);
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
 
     if (authProvider.token == null) {
       setState(() => _isResetting = false);
@@ -310,23 +359,31 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       return;
     }
 
-    final success = await draftProvider.resetDraft(
+    final success = await LeagueService().resetLeague(
       token: authProvider.token!,
-      draftId: draftProvider.currentDraft!.id,
+      leagueId: widget.league.id,
     );
 
     if (mounted) {
       setState(() => _isResetting = false);
 
       if (success) {
+        // Reload league data
+        await leagueProvider.loadLeagueDetails(widget.league.id);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Draft reset successfully!')),
+          const SnackBar(
+            content: Text('League reset to pre-draft status successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
+
+        // Navigate back to league details
+        Navigator.of(context).pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                draftProvider.errorMessage ?? 'Failed to reset draft'),
+          const SnackBar(
+            content: Text('Failed to reset league'),
             backgroundColor: Colors.red,
           ),
         );
@@ -543,6 +600,27 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Playoff week start
+                DropdownButtonFormField<int>(
+                  value: _playoffWeekStart,
+                  decoration: const InputDecoration(
+                    labelText: 'Playoff Week Start',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.emoji_events),
+                    helperText: 'Week when playoffs begin',
+                  ),
+                  items: [
+                    for (int i = _startWeek + 1; i <= 18; i++)
+                      DropdownMenuItem(value: i, child: Text('Week $i')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _playoffWeekStart = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 // Public/Private toggle
                 Card(
                   child: SwitchListTile(
@@ -749,19 +827,27 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 const SizedBox(height: 24),
 
                 // Section 4: Draft Settings (Collapsible)
-                Card(
-                  child: ExpansionTile(
-                    title: Text(
-                      'Draft Settings',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    subtitle: const Text('Configure draft type and timer'),
-                    initiallyExpanded: false,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
+                Consumer<DraftProvider>(
+                  builder: (context, draftProvider, child) {
+                    final hasDraft = draftProvider.currentDraft != null;
+
+                    return Card(
+                      child: ExpansionTile(
+                        title: Text(
+                          'Draft Settings',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        subtitle: Text(
+                          hasDraft
+                            ? 'Configure draft type and timer'
+                            : 'Create a draft to configure settings'
+                        ),
+                        initiallyExpanded: false,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
                             // Draft Type
                             DropdownButtonFormField<String>(
                               value: _draftType,
@@ -842,11 +928,109 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                 setState(() => _draftRounds = value!);
                               },
                             ),
-                          ],
-                        ),
+                            const SizedBox(height: 24),
+
+                            // Create Draft Button (only show if no draft exists)
+                            if (!hasDraft)
+                              FilledButton.icon(
+                                onPressed: _handleCreateDraft,
+                                icon: const Icon(Icons.add_circle),
+                                label: const Text('Create Draft with These Settings'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(50),
+                                  backgroundColor: Colors.green,
+                                ),
+                              ),
+
+                            // Draft Order Section (only show if draft exists and not started)
+                            if (hasDraft && draftProvider.currentDraft!.status == 'not_started') ...[
+                              const SizedBox(height: 24),
+                              const Divider(),
+                              const SizedBox(height: 16),
+
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Draft Order',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  FilledButton.icon(
+                                    onPressed: _randomizeDraftOrder,
+                                    icon: const Icon(Icons.shuffle),
+                                    label: Text(
+                                      draftProvider.draftOrder.isEmpty
+                                          ? 'Randomize'
+                                          : 'Re-randomize'
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Draft order list
+                              if (draftProvider.draftOrder.isNotEmpty)
+                                Container(
+                                  constraints: const BoxConstraints(maxHeight: 300),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: draftProvider.draftOrder.length,
+                                    itemBuilder: (context, index) {
+                                      final order = draftProvider.draftOrder[index];
+                                      return ListTile(
+                                        leading: CircleAvatar(
+                                          child: Text('${order.draftPosition}'),
+                                        ),
+                                        title: Text(order.displayName),
+                                        subtitle: Text('Team ${order.rosterNumber ?? "?"}'),
+                                      );
+                                    },
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.shuffle,
+                                        size: 48,
+                                        color: Theme.of(context).colorScheme.outline,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'No draft order set',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Click "Randomize" to set the draft order',
+                                        style: Theme.of(context).textTheme.bodySmall,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -1011,9 +1195,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
                 const SizedBox(height: 16),
 
-                // Reset Draft button (Commissioner only)
+                // Reset League button (Commissioner only)
                 OutlinedButton(
-                  onPressed: _isResetting ? null : _handleResetDraft,
+                  onPressed: _isResetting ? null : _handleResetLeague,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     foregroundColor: Colors.red,
@@ -1034,7 +1218,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                             Icon(Icons.restart_alt),
                             SizedBox(width: 8),
                             Text(
-                              'Reset Draft',
+                              'Reset League',
                               style: TextStyle(fontSize: 16),
                             ),
                           ],

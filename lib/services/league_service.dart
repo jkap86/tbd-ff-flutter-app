@@ -260,4 +260,26 @@ class LeagueService {
       return null;
     }
   }
+
+  /// Reset league to pre-draft status
+  /// Deletes draft, clears all rosters, keeps teams intact
+  Future<bool> resetLeague({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/reset'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Reset league error: $e');
+      return false;
+    }
+  }
 }

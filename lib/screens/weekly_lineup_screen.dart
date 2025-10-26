@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/weekly_lineup_service.dart';
 import '../services/roster_service.dart';
 
-class RosterDetailsScreen extends StatefulWidget {
+class WeeklyLineupScreen extends StatefulWidget {
   final int rosterId;
   final String rosterName;
+  final int week;
+  final String season;
 
-  const RosterDetailsScreen({
+  const WeeklyLineupScreen({
     super.key,
     required this.rosterId,
     required this.rosterName,
+    required this.week,
+    required this.season,
   });
 
   @override
-  State<RosterDetailsScreen> createState() => _RosterDetailsScreenState();
+  State<WeeklyLineupScreen> createState() => _WeeklyLineupScreenState();
 }
 
-class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
+class _WeeklyLineupScreenState extends State<WeeklyLineupScreen> {
+  final WeeklyLineupService _weeklyLineupService = WeeklyLineupService();
   final RosterService _rosterService = RosterService();
+  Map<String, dynamic>? _lineupData;
   Map<String, dynamic>? _rosterData;
   bool _isLoading = true;
   String? _errorMessage;
@@ -26,20 +33,79 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   bool _isSaving = false;
 
   // Temporary lists for editing
-  List<dynamic> _editStarters = []; // List of {slot: string, player: {player data} | null}
-  List<dynamic> _editBench = []; // List of player objects
+  List<dynamic> _editStarters = [];
+  List<dynamic> _editBench = [];
 
   @override
   void initState() {
     super.initState();
-    _loadRoster();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+
+    if (token == null) {
+      setState(() {
+        _errorMessage = 'Not authenticated';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Load weekly lineup and full roster data in parallel
+    final lineup = await _weeklyLineupService.getWeeklyLineup(
+      token: token,
+      rosterId: widget.rosterId,
+      week: widget.week,
+      season: widget.season,
+    );
+
+    final roster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
+
+    setState(() {
+      _lineupData = lineup;
+      _rosterData = roster;
+      _isLoading = false;
+      if (lineup == null || roster == null) {
+        _errorMessage = 'Failed to load lineup';
+      }
+    });
   }
 
   void _enterEditMode() {
+    if (_lineupData == null || _rosterData == null) return;
+
     setState(() {
       _isEditMode = true;
-      _editStarters = List.from(_rosterData!['starters'] as List<dynamic>);
-      _editBench = List.from(_rosterData!['bench'] as List<dynamic>);
+      // Start with the weekly lineup starters
+      _editStarters = List.from(_lineupData!['starters'] as List<dynamic>);
+
+      // Build bench from all roster players NOT in starters
+      final starterPlayerIds = _editStarters
+          .map((slot) => slot['player']?['id'])
+          .where((id) => id != null)
+          .toSet();
+
+      final allPlayers = List.from(_rosterData!['bench'] as List<dynamic>? ?? []);
+      final rosterStarters = _rosterData!['starters'] as List<dynamic>? ?? [];
+
+      // Add players from roster starters that aren't in weekly lineup
+      for (var slot in rosterStarters) {
+        final player = slot['player'];
+        if (player != null && !starterPlayerIds.contains(player['id'])) {
+          allPlayers.add(player);
+        }
+      }
+
+      // Add players from bench
+      _editBench = allPlayers.where((p) => p != null).toList();
     });
   }
 
@@ -52,7 +118,6 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   }
 
   Future<void> _saveLineup() async {
-    print('[RosterDetails] Starting lineup save...');
     setState(() {
       _isSaving = true;
     });
@@ -60,10 +125,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
 
-    print('[RosterDetails] Token: ${token != null ? "present" : "missing"}');
-
     if (token == null) {
-      print('[RosterDetails] No token, aborting');
       setState(() {
         _isSaving = false;
       });
@@ -78,24 +140,13 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
       };
     }).toList();
 
-    // Extract player IDs for bench
-    final benchIds = _editBench
-        .where((p) => p != null)
-        .map((p) => p['id'] as int)
-        .toList();
-
-    print('[RosterDetails] Starter slots: $starterSlots');
-    print('[RosterDetails] Bench IDs: $benchIds');
-    print('[RosterDetails] Calling roster service...');
-
-    final result = await _rosterService.updateRosterLineup(
-      token,
-      widget.rosterId,
+    final result = await _weeklyLineupService.updateWeeklyLineup(
+      token: token,
+      rosterId: widget.rosterId,
+      week: widget.week,
+      season: widget.season,
       starters: starterSlots,
-      bench: benchIds,
     );
-
-    print('[RosterDetails] Service result: ${result != null ? "success" : "null"}');
 
     setState(() {
       _isSaving = false;
@@ -103,7 +154,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
     if (result != null) {
       setState(() {
-        _rosterData = result;
+        _lineupData = result;
         _isEditMode = false;
         _editStarters = [];
         _editBench = [];
@@ -111,7 +162,10 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lineup updated successfully')),
+          SnackBar(
+            content: Text('Week ${widget.week} lineup updated! Go to Matchups and click "Update Scores" to recalculate.'),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } else {
@@ -150,41 +204,13 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     });
   }
 
-  Future<void> _loadRoster() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final token = authProvider.token;
-
-    if (token == null) {
-      setState(() {
-        _errorMessage = 'Not authenticated';
-        _isLoading = false;
-      });
-      return;
-    }
-
-    final roster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
-
-    setState(() {
-      _rosterData = roster;
-      _isLoading = false;
-      if (roster == null) {
-        _errorMessage = 'Failed to load roster';
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.rosterName),
+        title: Text('${widget.rosterName} - Week ${widget.week}'),
         actions: [
-          if (!_isEditMode && _rosterData != null)
+          if (!_isEditMode && _lineupData != null)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: _enterEditMode,
@@ -224,94 +250,50 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                       Text(_errorMessage!),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: _loadRoster,
+                        onPressed: _loadData,
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
                 )
-              : _buildRosterContent(),
+              : _buildLineupContent(),
     );
   }
 
-  Widget _buildRosterContent() {
-    if (_rosterData == null) return const SizedBox();
+  Widget _buildLineupContent() {
+    if (_lineupData == null) return const SizedBox();
 
-    // Use edit lists in edit mode, otherwise use actual data
-    final starters = _isEditMode ? _editStarters : (_rosterData!['starters'] as List<dynamic>? ?? []);
+    final starters = _isEditMode ? _editStarters : (_lineupData!['starters'] as List<dynamic>? ?? []);
     final bench = _isEditMode ? _editBench : (_rosterData!['bench'] as List<dynamic>? ?? []);
-    final taxi = _rosterData!['taxi'] as List<dynamic>? ?? [];
-    final ir = _rosterData!['ir'] as List<dynamic>? ?? [];
 
-    // Count total players - for starters in view mode, count non-null slots
-    int starterCount = _isEditMode
-        ? starters.where((s) => s['player'] != null).length
-        : starters.where((s) => s['player'] != null).length;
-    final totalPlayers = starterCount + bench.length + taxi.length + ir.length;
+    int starterCount = starters.where((s) => s['player'] != null).length;
 
     return RefreshIndicator(
-      onRefresh: _loadRoster,
+      onRefresh: _loadData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Roster Info Card
+            // Info Banner
             Card(
+              color: Colors.blue.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          child: Text(
-                            'R${_rosterData!['roster_id']}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                    Icon(Icons.calendar_today, color: Colors.blue.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Week ${widget.week} Lineup (${widget.season} Season)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _rosterData!['username'] ?? 'Unknown User',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                _rosterData!['email'] ?? '',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildStatChip('Total', totalPlayers.toString(), Colors.blue),
-                        _buildStatChip('Starters', starterCount.toString(), Colors.green),
-                        _buildStatChip('Bench', bench.length.toString(), Colors.orange),
-                        if (taxi.isNotEmpty || ir.isNotEmpty)
-                          _buildStatChip('Other', (taxi.length + ir.length).toString(), Colors.purple),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -324,18 +306,18 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: Colors.orange.shade200),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700),
+                    Icon(Icons.info_outline, color: Colors.orange.shade700),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Move players between starters and bench using the arrow buttons',
-                        style: TextStyle(color: Colors.blue.shade900),
+                        'Move players between starters and bench using the buttons',
+                        style: TextStyle(color: Colors.orange.shade900),
                       ),
                     ),
                   ],
@@ -344,7 +326,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
               const SizedBox(height: 24),
             ],
 
-            // Starters Section (Position Slots)
+            // Starters Section
             if (starters.isNotEmpty) ...[
               _buildSectionHeader('Starters', starterCount, Colors.green),
               const SizedBox(height: 8),
@@ -353,76 +335,13 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                 return _buildSlotCard(slotData, index);
               }),
               const SizedBox(height: 24),
-            ] else ...[
-              _buildSectionHeader('Starters', 0, Colors.green),
-              const SizedBox(height: 8),
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      'No starter slots configured',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
 
             // Bench Section
             if (bench.isNotEmpty) ...[
               _buildSectionHeader('Bench', bench.length, Colors.orange),
               const SizedBox(height: 8),
-              ...bench.map((player) => _buildPlayerCard(player, 'bench')),
-              const SizedBox(height: 24),
-            ],
-
-            // Taxi Section
-            if (taxi.isNotEmpty) ...[
-              _buildSectionHeader('Taxi Squad', taxi.length, Colors.purple),
-              const SizedBox(height: 8),
-              ...taxi.map((player) => _buildPlayerCard(player, 'taxi')),
-              const SizedBox(height: 24),
-            ],
-
-            // IR Section
-            if (ir.isNotEmpty) ...[
-              _buildSectionHeader('Injured Reserve', ir.length, Colors.red),
-              const SizedBox(height: 8),
-              ...ir.map((player) => _buildPlayerCard(player, 'ir')),
-            ],
-
-            // Empty roster message
-            if (totalPlayers == 0) ...[
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.group_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No players on roster',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Players will be added after the draft',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              ...bench.map((player) => _buildPlayerCard(player)),
             ],
           ],
         ),
@@ -469,47 +388,12 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     );
   }
 
-  Widget _buildStatChip(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlayerCard(dynamic player, String section) {
-    if (player == null) {
-      return Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: const CircleAvatar(
-            child: Icon(Icons.help_outline),
-          ),
-          title: const Text('Unknown Player'),
-          subtitle: const Text('Player data not available'),
-        ),
-      );
-    }
+  Widget _buildPlayerCard(dynamic player) {
+    if (player == null) return const SizedBox();
 
     final fullName = player['full_name'] ?? 'Unknown Player';
     final position = player['position'] ?? '?';
     final team = player['team'] ?? 'FA';
-    final age = player['age'];
-    final yearsExp = player['years_exp'];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -529,17 +413,53 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
           fullName,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          '$team${age != null ? ' • Age $age' : ''}${yearsExp != null ? ' • $yearsExp yr exp' : ''}',
-        ),
-        trailing: _isEditMode ? _buildMoveButtons(player, section) : Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey.shade400,
-        ),
-        onTap: _isEditMode ? null : () {
-          // TODO: Navigate to player details screen
-        },
+        subtitle: Text(team),
+        trailing: _isEditMode
+            ? PopupMenuButton<int>(
+                icon: const Icon(Icons.add_circle, color: Colors.green),
+                tooltip: 'Assign to slot',
+                onSelected: (slotIndex) => _assignPlayerToSlot(slotIndex, player),
+                itemBuilder: (context) {
+                  return List.generate(_editStarters.length, (index) {
+                    final slotData = _editStarters[index];
+                    final slot = slotData['slot'];
+                    final assignedPlayer = slotData['player'];
+                    final isEligible = _isPlayerEligibleForSlot(player, slot);
+
+                    return PopupMenuItem<int>(
+                      value: index,
+                      enabled: assignedPlayer == null && isEligible,
+                      child: Row(
+                        children: [
+                          Text(
+                            slot,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isEligible ? Colors.black : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            assignedPlayer != null
+                                ? '(${assignedPlayer['full_name']})'
+                                : '(Empty)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          if (!isEligible)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8),
+                              child: Icon(Icons.block, size: 16, color: Colors.red),
+                            ),
+                        ],
+                      ),
+                    );
+                  });
+                },
+              )
+            : null,
       ),
     );
   }
@@ -549,7 +469,6 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final player = slotData['player'];
 
     if (player == null) {
-      // Empty slot
       return Card(
         margin: const EdgeInsets.only(bottom: 8),
         color: Colors.grey.shade100,
@@ -587,12 +506,9 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
       );
     }
 
-    // Slot with player assigned
     final fullName = player['full_name'] ?? 'Unknown Player';
     final position = player['position'] ?? '?';
     final team = player['team'] ?? 'FA';
-    final age = player['age'];
-    final yearsExp = player['years_exp'];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -635,79 +551,15 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
           fullName,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          '$team${age != null ? ' • Age $age' : ''}${yearsExp != null ? ' • $yearsExp yr exp' : ''}',
-        ),
+        subtitle: Text(team),
         trailing: _isEditMode
             ? IconButton(
                 icon: const Icon(Icons.close, color: Colors.red),
                 onPressed: () => _removePlayerFromSlot(slotIndex),
                 tooltip: 'Remove from slot',
               )
-            : Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey.shade400,
-              ),
-        onTap: _isEditMode ? null : () {
-          // TODO: Navigate to player details screen
-        },
+            : null,
       ),
-    );
-  }
-
-  Widget _buildMoveButtons(dynamic player, String section) {
-    // This is now only used for bench players in edit mode
-    if (section == 'bench' && _isEditMode) {
-      return PopupMenuButton<int>(
-        icon: const Icon(Icons.add_circle, color: Colors.green),
-        tooltip: 'Assign to slot',
-        onSelected: (slotIndex) => _assignPlayerToSlot(slotIndex, player),
-        itemBuilder: (context) {
-          return List.generate(_editStarters.length, (index) {
-            final slotData = _editStarters[index];
-            final slot = slotData['slot'];
-            final assignedPlayer = slotData['player'];
-            final isEligible = _isPlayerEligibleForSlot(player, slot);
-
-            return PopupMenuItem<int>(
-              value: index,
-              enabled: assignedPlayer == null && isEligible,
-              child: Row(
-                children: [
-                  Text(
-                    slot,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isEligible ? Colors.black : Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    assignedPlayer != null ? '(${assignedPlayer['full_name']})' : '(Empty)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  if (!isEligible)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 8),
-                      child: Icon(Icons.block, size: 16, color: Colors.red),
-                    ),
-                ],
-              ),
-            );
-          });
-        },
-      );
-    }
-
-    // For taxi/IR, don't show buttons
-    return Icon(
-      Icons.arrow_forward_ios,
-      size: 16,
-      color: Colors.grey.shade400,
     );
   }
 
@@ -715,13 +567,10 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final position = player['position'] as String?;
     if (position == null) return false;
 
-    // Extract base slot name (remove numbers like QB1 -> QB)
     final baseSlot = slot.replaceAll(RegExp(r'\d+$'), '');
 
-    // Exact match
     if (position == baseSlot) return true;
 
-    // FLEX positions
     if (baseSlot == 'FLEX') {
       return ['RB', 'WR', 'TE'].contains(position);
     }

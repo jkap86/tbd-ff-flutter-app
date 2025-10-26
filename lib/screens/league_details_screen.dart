@@ -12,6 +12,7 @@ import 'draft_setup_screen.dart';
 import 'draft_lobby_screen.dart';
 import 'draft_room_screen.dart';
 import 'roster_details_screen.dart';
+import 'matchups_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -51,8 +52,12 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   Future<void> _loadLeagueDetails() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
     await leagueProvider.loadLeagueDetails(widget.leagueId);
+
+    // Load draft for this league to check if it exists
+    await draftProvider.loadDraftByLeague(widget.leagueId);
 
     if (authProvider.token != null) {
       await leagueProvider.checkIsCommissioner(
@@ -319,6 +324,30 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   ),
                 ),
               ),
+              // Matchups Button
+              Positioned(
+                bottom: 150,
+                right: 16,
+                child: FloatingActionButton.extended(
+                  heroTag: 'matchups_button',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => MatchupsScreen(
+                          leagueId: league.id,
+                          leagueName: league.name,
+                          season: league.season,
+                          startWeek: league.startWeek,
+                          playoffWeekStart: league.playoffWeekStart,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.scoreboard),
+                  label: const Text('Matchups'),
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                ),
+              ),
               // Floating Draft Button
               Positioned(
                     bottom: 80,
@@ -326,75 +355,46 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                     child: Consumer<DraftProvider>(
                       builder: (context, draftProvider, child) {
                         final isDrafting = league.status == 'drafting';
+                        // Check if draft exists for this league
+                        final hasDraft = draftProvider.currentDraft != null &&
+                            draftProvider.currentDraft!.leagueId == league.id;
 
                         return FloatingActionButton.extended(
-                          onPressed: () async {
-                            // Load draft for this league
-                            await draftProvider.loadDraftByLeague(league.id);
-
-                            final draft = draftProvider.currentDraft;
-
-                            if (!mounted) return;
-
-                            if (draft == null) {
-                              // No draft exists - go to setup (commissioner only)
-                              if (isCommissioner) {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (context) => DraftSetupScreen(
-                                      leagueId: league.id,
-                                      leagueName: league.name,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Draft not set up yet. Contact commissioner.'),
-                                  ),
-                                );
-                              }
-                            } else if (draft.isInProgress || draft.isCompleted) {
-                              // Draft in progress or completed - go to draft room
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => DraftRoomScreen(
-                                    leagueId: league.id,
-                                    leagueName: league.name,
-                                  ),
+                          heroTag: 'draft_button',
+                          onPressed: hasDraft ? () async {
+                            // Go directly to draft room
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => DraftRoomScreen(
+                                  leagueId: league.id,
+                                  leagueName: league.name,
                                 ),
-                              );
-                              // Reload league details when returning
-                              await _loadLeagueDetails();
-                            } else {
-                              // Draft exists but not started - go to lobby
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => DraftLobbyScreen(
-                                    leagueId: league.id,
-                                    leagueName: league.name,
-                                  ),
-                                ),
-                              );
-                              // Reload league details when returning
-                              await _loadLeagueDetails();
-                            }
-                          },
+                              ),
+                            );
+                            // Reload league details when returning
+                            await _loadLeagueDetails();
+                          } : null, // Disabled if no draft
                           icon: Icon(
                             Icons.list_alt,
-                            color: isDrafting ? Colors.white : null,
+                            color: hasDraft
+                                ? (isDrafting ? Colors.white : null)
+                                : Colors.grey,
                           ),
                           label: Text(
-                            'Draft',
+                            hasDraft ? 'Draft' : 'No Draft',
                             style: TextStyle(
-                              color: isDrafting ? Colors.white : null,
+                              color: hasDraft
+                                  ? (isDrafting ? Colors.white : null)
+                                  : Colors.grey,
                               fontWeight: isDrafting ? FontWeight.bold : null,
                             ),
                           ),
-                          backgroundColor: isDrafting
-                              ? Colors.orange
-                              : Theme.of(context).colorScheme.primaryContainer,
-                          elevation: isDrafting ? 8 : 2,
+                          backgroundColor: hasDraft
+                              ? (isDrafting
+                                  ? Colors.orange
+                                  : Theme.of(context).colorScheme.primaryContainer)
+                              : Theme.of(context).colorScheme.surfaceVariant,
+                          elevation: hasDraft ? (isDrafting ? 8 : 2) : 0,
                         );
                       },
                     ),
@@ -429,6 +429,19 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
         ),
       ],
     );
+  }
+
+  int _countPlayers(Roster roster) {
+    // Count only non-null players in starter slots
+    int starterCount = 0;
+    if (roster.starters is List) {
+      for (var item in roster.starters) {
+        if (item is Map && item['player'] != null) {
+          starterCount++;
+        }
+      }
+    }
+    return starterCount + roster.bench.length;
   }
 
   Widget _buildRosterCard(
@@ -520,7 +533,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                         ),
                       ),
                       Text(
-                        '${roster.starters.length + roster.bench.length} players',
+                        '${_countPlayers(roster)} players',
                         style: const TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                     ],
