@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/draft_provider.dart';
+import '../providers/matchup_provider.dart';
 import '../models/league_model.dart';
 import '../models/roster_model.dart';
 import '../services/draft_service.dart';
@@ -223,8 +224,37 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
           }
         }
 
+        // Auto-generate matchups for all regular season weeks
+        print('[EditLeague] Auto-generating matchups for weeks $_startWeek to ${_playoffWeekStart - 1}...');
+        final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
+        final totalWeeks = _playoffWeekStart - _startWeek;
+
+        int successCount = 0;
+        for (int week = _startWeek; week < _playoffWeekStart; week++) {
+          final matchupSuccess = await matchupProvider.generateMatchups(
+            token: authProvider.token!,
+            leagueId: widget.league.id,
+            week: week,
+            season: widget.league.season,
+          );
+          if (matchupSuccess) {
+            successCount++;
+
+            // Auto-calculate scores for this week
+            print('[EditLeague] Calculating scores for week $week...');
+            await matchupProvider.updateScores(
+              token: authProvider.token!,
+              leagueId: widget.league.id,
+              week: week,
+              season: widget.league.season,
+            );
+          }
+        }
+
+        print('[EditLeague] Generated matchups and calculated scores for $successCount/$totalWeeks weeks');
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('League updated successfully!')),
+          SnackBar(content: Text('League updated! Generated $successCount matchups with scores.')),
         );
         Navigator.of(context).pop();
       } else {

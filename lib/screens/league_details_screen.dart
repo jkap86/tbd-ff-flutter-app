@@ -259,95 +259,41 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                     ),
                     const SizedBox(height: 24),
 
-                    // Rosters section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Teams',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${rosters.length} teams',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Rosters list
-                    if (rosters.isEmpty)
-                      const Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(
-                            child: Text('No teams in this league yet'),
-                          ),
-                        ),
-                      )
+                    // Show Standings for in_season, Teams otherwise
+                    if (league.status == 'in_season')
+                      _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
                     else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: rosters.length,
-                        itemBuilder: (context, index) {
-                          final roster = rosters[index];
-                          final isCurrentUser = roster.userId == currentUserId;
-                          final isRosterCommissioner =
-                              roster.userId == league.commissionerId;
-
-                          return _buildRosterCard(
-                            roster,
-                            isCurrentUser: isCurrentUser,
-                            isRosterCommissioner: isRosterCommissioner,
-                            canRemove: isCommissioner && !isCurrentUser,
-                            onRemove: () {
-                              _showRemoveConfirmation(
-                                context,
-                                roster,
-                                leagueProvider,
-                                authProvider,
-                              );
-                            },
-                          );
-                        },
-                      ),
+                      _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
                       ],
                     ),
                   ),
                 ),
               ),
-              // Matchups Button
-              Positioned(
-                bottom: 150,
-                right: 16,
-                child: FloatingActionButton.extended(
-                  heroTag: 'matchups_button',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MatchupsScreen(
-                          leagueId: league.id,
-                          leagueName: league.name,
-                          season: league.season,
-                          startWeek: league.startWeek,
-                          playoffWeekStart: league.playoffWeekStart,
+              // Matchups Button (only show after draft completes or league is in_season)
+              if (league.status == 'in_season' || league.status == 'post_draft')
+                Positioned(
+                  bottom: 150,
+                  right: 16,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'matchups_button',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => MatchupsScreen(
+                            leagueId: league.id,
+                            leagueName: league.name,
+                            season: league.season,
+                            startWeek: league.startWeek,
+                            playoffWeekStart: league.playoffWeekStart,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.scoreboard),
-                  label: const Text('Matchups'),
-                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                      );
+                    },
+                    icon: const Icon(Icons.scoreboard),
+                    label: const Text('Matchups'),
+                    backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                  ),
                 ),
-              ),
               // Floating Draft Button
               Positioned(
                     bottom: 80,
@@ -547,12 +493,17 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                 ],
               ),
         onTap: () {
+          final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+          final league = leagueProvider.selectedLeague;
+
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => RosterDetailsScreen(
                 rosterId: roster.id,
                 rosterName: roster.username ?? 'Roster ${roster.rosterId}',
+                season: league?.season,
+                currentWeek: league?.startWeek ?? 1,
               ),
             ),
           );
@@ -645,5 +596,236 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
       default:
         return type;
     }
+  }
+
+  Widget _buildTeamsSection(
+    List<Roster> rosters,
+    int? currentUserId,
+    int commissionerId,
+    bool isCommissioner,
+    LeagueProvider leagueProvider,
+    AuthProvider authProvider,
+  ) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Teams',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              '${rosters.length} teams',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (rosters.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: Text('No teams in this league yet'),
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: rosters.length,
+            itemBuilder: (context, index) {
+              final roster = rosters[index];
+              final isCurrentUser = roster.userId == currentUserId;
+              final isRosterCommissioner = roster.userId == commissionerId;
+
+              return _buildRosterCard(
+                roster,
+                isCurrentUser: isCurrentUser,
+                isRosterCommissioner: isRosterCommissioner,
+                canRemove: isCommissioner && !isCurrentUser,
+                onRemove: () {
+                  _showRemoveConfirmation(
+                    context,
+                    roster,
+                    leagueProvider,
+                    authProvider,
+                  );
+                },
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildStandingsSection(
+    List<Roster> rosters,
+    int? currentUserId,
+    int commissionerId,
+  ) {
+    // Sort rosters by wins (descending), then by points for (descending)
+    final sortedRosters = List<Roster>.from(rosters)
+      ..sort((a, b) {
+        final winsCompare = (b.wins ?? 0).compareTo(a.wins ?? 0);
+        if (winsCompare != 0) return winsCompare;
+        return (b.pointsFor ?? 0).compareTo(a.pointsFor ?? 0);
+      });
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Standings',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              '${rosters.length} teams',
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (rosters.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: Text('No teams in this league yet'),
+              ),
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: sortedRosters.length,
+            itemBuilder: (context, index) {
+              final roster = sortedRosters[index];
+              final isCurrentUser = roster.userId == currentUserId;
+              final isRosterCommissioner = roster.userId == commissionerId;
+              final rank = index + 1;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                color: isCurrentUser
+                    ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                    : null,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: rank <= 3
+                        ? (rank == 1
+                            ? Colors.amber
+                            : rank == 2
+                                ? Colors.grey.shade400
+                                : Colors.brown.shade300)
+                        : Theme.of(context).colorScheme.surfaceVariant,
+                    child: Text(
+                      '$rank',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: rank <= 3 ? Colors.white : null,
+                      ),
+                    ),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          roster.username ?? 'Unknown User',
+                          style: TextStyle(
+                            fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      if (isRosterCommissioner)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text(
+                            'C',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      if (isCurrentUser)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text(
+                            'You',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    '${roster.wins ?? 0}-${roster.losses ?? 0}${roster.ties != null && roster.ties! > 0 ? '-${roster.ties}' : ''} • ${(roster.pointsFor ?? 0).toStringAsFixed(2)} PF',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_forward_ios, size: 16),
+                    ],
+                  ),
+                  onTap: () {
+                    final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+                    final league = leagueProvider.selectedLeague;
+
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => RosterDetailsScreen(
+                          rosterId: roster.id,
+                          rosterName: roster.username ?? 'Roster ${roster.rosterId}',
+                          season: league?.season,
+                          currentWeek: league?.startWeek ?? 1,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 }

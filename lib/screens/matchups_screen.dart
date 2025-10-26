@@ -28,14 +28,22 @@ class MatchupsScreen extends StatefulWidget {
 }
 
 class _MatchupsScreenState extends State<MatchupsScreen> {
-  int _selectedWeek = 1;
-  bool _isGenerating = false;
-  bool _isUpdatingScores = false;
+  late int _selectedWeek;
 
   @override
   void initState() {
     super.initState();
+    // Calculate current NFL week or default to start week
+    _selectedWeek = _calculateCurrentWeek();
     _loadMatchups();
+  }
+
+  /// Calculate the current NFL week based on the season start
+  /// For now, defaults to startWeek. Could be enhanced to calculate actual current week.
+  int _calculateCurrentWeek() {
+    // TODO: Calculate actual current week based on current date and NFL season calendar
+    // For now, just use startWeek as a reasonable default
+    return widget.startWeek;
   }
 
   Future<void> _loadMatchups() async {
@@ -47,126 +55,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
         token: authProvider.token!,
         leagueId: widget.leagueId,
         week: _selectedWeek,
-      );
-    }
-  }
-
-  Future<void> _generateMatchups() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
-
-    if (authProvider.token == null) return;
-
-    setState(() => _isGenerating = true);
-
-    final success = await matchupProvider.generateMatchups(
-      token: authProvider.token!,
-      leagueId: widget.leagueId,
-      week: _selectedWeek,
-      season: widget.season,
-    );
-
-    if (mounted) {
-      setState(() => _isGenerating = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Matchups generated for week $_selectedWeek!'
-                : 'Failed to generate matchups',
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _generateAllRegularSeasonMatchups() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
-
-    if (authProvider.token == null) return;
-
-    final int totalWeeks = widget.playoffWeekStart - widget.startWeek;
-
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Generate All Regular Season Matchups?'),
-        content: Text(
-          'This will generate matchups for all $totalWeeks regular season weeks (Week ${widget.startWeek} to Week ${widget.playoffWeekStart - 1}).\n\nAny existing matchups will be replaced.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Generate'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    setState(() => _isGenerating = true);
-
-    final success = await matchupProvider.generateAllRegularSeasonMatchups(
-      token: authProvider.token!,
-      leagueId: widget.leagueId,
-      season: widget.season,
-      startWeek: widget.startWeek,
-      playoffWeekStart: widget.playoffWeekStart,
-    );
-
-    if (mounted) {
-      setState(() => _isGenerating = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Generated matchups for all $totalWeeks regular season weeks!'
-                : 'Failed to generate all matchups',
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<void> _updateScores() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
-
-    if (authProvider.token == null) return;
-
-    setState(() => _isUpdatingScores = true);
-
-    final success = await matchupProvider.updateScores(
-      token: authProvider.token!,
-      leagueId: widget.leagueId,
-      week: _selectedWeek,
-      season: widget.season,
-    );
-
-    if (mounted) {
-      setState(() => _isUpdatingScores = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Scores updated for week $_selectedWeek!'
-                : 'Failed to update scores',
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
+        season: widget.season, // Pass season for auto-update
       );
     }
   }
@@ -252,32 +141,10 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Generate matchups to get started',
+                        'Matchups are auto-generated when league settings are updated',
                         style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 24),
-                      if (leagueProvider.isCommissioner) ...[
-                        FilledButton.icon(
-                          onPressed: _isGenerating ? null : _generateAllRegularSeasonMatchups,
-                          icon: _isGenerating
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.auto_awesome),
-                          label: const Text('Generate All Regular Season'),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _isGenerating ? null : _generateMatchups,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Generate This Week Only'),
-                        ),
-                      ],
                     ],
                   ),
                 );
@@ -285,68 +152,13 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
 
               return RefreshIndicator(
                 onRefresh: _loadMatchups,
-                child: Column(
-                  children: [
-                    // Commissioner actions
-                    if (leagueProvider.isCommissioner)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _isGenerating ? null : _generateMatchups,
-                                icon: _isGenerating
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : const Icon(Icons.refresh, size: 18),
-                                label: const Text('Re-generate'),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: _isUpdatingScores ? null : _updateScores,
-                                icon: _isUpdatingScores
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Icon(Icons.sync, size: 18),
-                                label: const Text('Update Scores'),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Matchups list
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: matchupProvider.matchups.length,
-                        itemBuilder: (context, index) {
-                          final matchup = matchupProvider.matchups[index];
-                          return _buildMatchupCard(matchup);
-                        },
-                      ),
-                    ),
-                  ],
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: matchupProvider.matchups.length,
+                  itemBuilder: (context, index) {
+                    final matchup = matchupProvider.matchups[index];
+                    return _buildMatchupCard(matchup);
+                  },
                 ),
               );
             },

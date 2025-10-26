@@ -32,15 +32,24 @@ class MatchupService {
     }
   }
 
-  /// Get matchups for a specific week
+  /// Get matchups for a specific week (auto-updates scores)
   Future<List<Matchup>?> getMatchupsByWeek({
     required String token,
     required int leagueId,
     required int week,
+    String? season,
+    String seasonType = 'regular',
   }) async {
     try {
+      // Build URL with query parameters for auto-update
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/matchups/league/$leagueId/week/$week')
+          .replace(queryParameters: {
+        if (season != null) 'season': season,
+        'season_type': seasonType,
+      });
+
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/matchups/league/$leagueId/week/$week'),
+        uri,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',

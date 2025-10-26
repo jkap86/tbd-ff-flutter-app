@@ -48,11 +48,13 @@ class MatchupProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load matchups for a specific week
+  /// Load matchups for a specific week (auto-updates scores if season provided)
   Future<void> loadMatchupsByWeek({
     required String token,
     required int leagueId,
     required int week,
+    String? season,
+    String seasonType = 'regular',
   }) async {
     _status = MatchupStatus.loading;
     _errorMessage = null;
@@ -64,6 +66,8 @@ class MatchupProvider with ChangeNotifier {
         token: token,
         leagueId: leagueId,
         week: week,
+        season: season,
+        seasonType: seasonType,
       );
 
       if (matchups != null) {
@@ -182,6 +186,8 @@ class MatchupProvider with ChangeNotifier {
           token: token,
           leagueId: leagueId,
           week: week,
+          season: season,
+          seasonType: seasonType,
         );
       }
 
