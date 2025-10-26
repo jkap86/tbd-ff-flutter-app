@@ -67,8 +67,9 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
         );
       }
 
-      // If draft is already in progress, navigate to draft room
-      if (draftProvider.currentDraft?.isInProgress == true) {
+      // If draft is already in progress or paused, navigate to draft room
+      final draft = draftProvider.currentDraft;
+      if (draft != null && (draft.isInProgress || draft.isPaused)) {
         _navigateToDraftRoom();
       }
     }

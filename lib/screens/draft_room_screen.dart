@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
+import '../providers/league_provider.dart';
 import '../models/player_model.dart';
 import '../models/draft_order_model.dart';
 import '../widgets/draft_board_widget.dart';
 import '../widgets/league_chat_tab_widget.dart';
+import '../widgets/player_stats_widget.dart';
 
 class DraftRoomScreen extends StatefulWidget {
   final int leagueId;
@@ -202,77 +204,198 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Draft - ${widget.leagueName}'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.list), text: 'Players'),
-            Tab(icon: Icon(Icons.grid_on), text: 'Board'),
-            Tab(icon: Icon(Icons.chat), text: 'Chat'),
+    return Consumer2<DraftProvider, AuthProvider>(
+      builder: (context, draftProvider, authProvider, _) {
+        final draft = draftProvider.currentDraft;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Draft - ${widget.leagueName}'),
+            actions: [
+              if (draft != null)
+                _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(icon: Icon(Icons.list), text: 'Players'),
+                Tab(icon: Icon(Icons.grid_on), text: 'Board'),
+                Tab(icon: Icon(Icons.chat), text: 'Chat'),
+              ],
+            ),
+          ),
+          body: _buildBody(draftProvider),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(DraftProvider draftProvider) {
+    final draft = draftProvider.currentDraft;
+
+    if (draft == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        // Draft Status Bar
+        _buildStatusBar(draftProvider),
+
+        // Tab Views
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              // Players Tab
+              _buildPlayersTab(draftProvider),
+
+              // Draft Board Tab
+              const DraftBoardWidget(),
+
+              // Chat Tab
+              LeagueChatTabWidget(leagueId: widget.leagueId),
+            ],
+          ),
+        ),
+
+        // Pick Button (only if it's user's turn and player selected)
+        Consumer<AuthProvider>(
+          builder: (context, authProvider, child) {
+            if (!draft.isInProgress) return const SizedBox.shrink();
+
+            // Check if it's the current user's turn
+            DraftOrder? currentRoster;
+            try {
+              currentRoster = draftProvider.draftOrder.firstWhere(
+                (order) => order.rosterId == draft.currentRosterId,
+              );
+            } catch (e) {
+              currentRoster = null;
+            }
+
+            final isUsersTurn = authProvider.user != null &&
+                currentRoster != null &&
+                currentRoster.userId == authProvider.user!.id;
+
+            if (isUsersTurn && _selectedPlayer != null) {
+              return _buildPickButton(draftProvider);
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showPlayerStats(Player player) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    child: Text(player.position),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          player.fullName,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        Text(
+                          player.positionTeam,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            // Stats Widget
+            Expanded(
+              child: PlayerStatsWidget(
+                playerId: player.playerId,
+                currentSeason: 2024,
+                currentWeek: null, // Will show full season stats
+              ),
+            ),
           ],
         ),
       ),
-      body: Consumer<DraftProvider>(
-        builder: (context, draftProvider, child) {
-          final draft = draftProvider.currentDraft;
+    );
+  }
 
-          if (draft == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  Widget _buildPauseResumeButton(
+    BuildContext context,
+    String draftStatus,
+    DraftProvider draftProvider,
+    AuthProvider authProvider,
+  ) {
+    // Only show for commissioner during active draft
+    final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
+    if (!leagueProvider.isCommissioner) {
+      return const SizedBox.shrink();
+    }
 
-          return Column(
-            children: [
-              // Draft Status Bar
-              _buildStatusBar(draftProvider),
+    if (draftStatus != 'in_progress' && draftStatus != 'paused') {
+      return const SizedBox.shrink();
+    }
 
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // Players Tab
-                    _buildPlayersTab(draftProvider),
+    final isPaused = draftStatus == 'paused';
 
-                    // Draft Board Tab
-                    const DraftBoardWidget(),
+    return IconButton(
+      icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+      tooltip: isPaused ? 'Resume Draft' : 'Pause Draft',
+      onPressed: () async {
+        final token = authProvider.token;
+        final draftId = draftProvider.currentDraft?.id;
 
-                    // Chat Tab
-                    LeagueChatTabWidget(leagueId: widget.leagueId),
-                  ],
-                ),
+        if (token == null || draftId == null) return;
+
+        final success = isPaused
+            ? await draftProvider.resumeDraft(token: token, draftId: draftId)
+            : await draftProvider.pauseDraft(token: token, draftId: draftId);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                success
+                    ? isPaused
+                        ? 'Draft resumed'
+                        : 'Draft paused'
+                    : 'Failed to ${isPaused ? 'resume' : 'pause'} draft',
               ),
-
-              // Pick Button (only if it's user's turn and player selected)
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, child) {
-                  if (!draft.isInProgress) return const SizedBox.shrink();
-
-                  // Check if it's the current user's turn
-                  DraftOrder? currentRoster;
-                  try {
-                    currentRoster = draftProvider.draftOrder.firstWhere(
-                      (order) => order.rosterId == draft.currentRosterId,
-                    );
-                  } catch (e) {
-                    currentRoster = null;
-                  }
-
-                  final isUsersTurn = authProvider.user != null &&
-                      currentRoster != null &&
-                      currentRoster.userId == authProvider.user!.id;
-
-                  if (isUsersTurn && _selectedPlayer != null) {
-                    return _buildPickButton(draftProvider);
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ],
+              backgroundColor: success ? Colors.green : Colors.red,
+            ),
           );
-        },
-      ),
+        }
+      },
     );
   }
 
@@ -514,12 +637,21 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       ),
                       title: Text(player.fullName),
                       subtitle: Text(player.positionTeam),
-                      trailing: isSelected
-                          ? Icon(
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.info_outline),
+                            onPressed: () => _showPlayerStats(player),
+                            tooltip: 'View Stats',
+                          ),
+                          if (isSelected)
+                            Icon(
                               Icons.check_circle,
                               color: Theme.of(context).colorScheme.primary,
-                            )
-                          : null,
+                            ),
+                        ],
+                      ),
                       onTap: isUsersTurn
                           ? () {
                               setState(() {
