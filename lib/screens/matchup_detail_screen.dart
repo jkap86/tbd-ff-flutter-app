@@ -284,33 +284,7 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-
-        // Edit Lineup Button (only for user's own roster)
-        if (isMyRoster) ...[
-          OutlinedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => WeeklyLineupScreen(
-                    rosterId: rosterId,
-                    rosterName: teamName,
-                    week: widget.matchup.week,
-                    season: widget.matchup.season,
-                  ),
-                ),
-              ).then((_) => _loadMatchupDetails()); // Refresh when returning
-            },
-            icon: const Icon(Icons.edit, size: 16),
-            label: const Text('Edit Lineup'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ] else
-          const SizedBox(height: 16),
+        const SizedBox(height: 16),
 
         // Starters section
         const Text(
