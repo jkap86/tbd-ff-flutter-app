@@ -4,8 +4,10 @@ import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/draft_provider.dart';
 import '../models/roster_model.dart';
+import '../models/league_chat_message_model.dart';
 import '../widgets/responsive_container.dart';
-import '../widgets/league_chat_widget.dart';
+import '../services/socket_service.dart';
+import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
 import 'draft_setup_screen.dart';
@@ -27,16 +29,38 @@ class LeagueDetailsScreen extends StatefulWidget {
 
 class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     with WidgetsBindingObserver {
+  double _chatDrawerHeight = 0.1; // Start collapsed showing preview
+
+  // Chat state
+  final LeagueChatService _chatService = LeagueChatService();
+  final SocketService _socketService = SocketService();
+  final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  List<LeagueChatMessage> _messages = [];
+  bool _isChatLoading = true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadLeagueDetails();
+    _loadMessages();
+    _setupSocket();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _messageController.dispose();
+    _scrollController.dispose();
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user != null) {
+      _socketService.leaveLeague(
+        leagueId: widget.leagueId,
+        userId: authProvider.user!.id,
+        username: authProvider.user!.username,
+      );
+    }
     super.dispose();
   }
 
@@ -68,6 +92,63 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
         leagueId: widget.leagueId,
       );
     }
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() => _isChatLoading = true);
+    final messages = await _chatService.getChatMessages(widget.leagueId);
+    setState(() {
+      _messages = messages;
+      _isChatLoading = false;
+    });
+    _scrollToBottom();
+  }
+
+  void _setupSocket() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user == null) return;
+
+    _socketService.onLeagueChatMessage = (message) {
+      setState(() {
+        _messages.add(message);
+      });
+      _scrollToBottom();
+    };
+
+    _socketService.joinLeague(
+      leagueId: widget.leagueId,
+      userId: authProvider.user!.id,
+      username: authProvider.user!.username,
+    );
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _sendMessage() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (_messageController.text.trim().isEmpty || authProvider.user == null) {
+      return;
+    }
+
+    final message = _messageController.text.trim();
+    _messageController.clear();
+
+    _socketService.sendLeagueChatMessage(
+      leagueId: widget.leagueId,
+      userId: authProvider.user!.id,
+      username: authProvider.user!.username,
+      message: message,
+    );
   }
 
   @override
@@ -403,8 +484,159 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                       },
                     ),
               ),
-              // League Chat Widget
-              LeagueChatWidget(leagueId: league.id),
+              // Chat Drawer (bottom)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: MediaQuery.of(context).size.height * _chatDrawerHeight,
+                child: GestureDetector(
+                  onVerticalDragUpdate: (details) {
+                    setState(() {
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      _chatDrawerHeight -= details.delta.dy / screenHeight;
+                      _chatDrawerHeight = _chatDrawerHeight.clamp(0.1, 0.9);
+                    });
+                  },
+                  onVerticalDragEnd: (details) {
+                    setState(() {
+                      if (_chatDrawerHeight < 0.3) {
+                        _chatDrawerHeight = 0.1;
+                      } else if (_chatDrawerHeight < 0.7) {
+                        _chatDrawerHeight = 0.5;
+                      } else {
+                        _chatDrawerHeight = 0.9;
+                      }
+                    });
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // Drag handle
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        // Title and Preview
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.chat,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'League Chat',
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    // Show last message preview when collapsed
+                                    if (_chatDrawerHeight <= 0.2 && _messages.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          '${_messages.last.displayUsername}: ${_messages.last.message}',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Colors.grey.shade600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        // Chat content
+                        if (_chatDrawerHeight > 0.2)
+                          Expanded(
+                            child: Column(
+                              children: [
+                                // Messages
+                                Expanded(
+                                  child: _isChatLoading
+                                      ? const Center(child: CircularProgressIndicator())
+                                      : ListView.builder(
+                                          controller: _scrollController,
+                                          padding: const EdgeInsets.all(12),
+                                          itemCount: _messages.length,
+                                          itemBuilder: (context, index) {
+                                            final message = _messages[index];
+                                            final authProvider = context.read<AuthProvider>();
+                                            final isMe = message.userId == authProvider.user?.id;
+
+                                            return _buildMessageBubble(message, isMe);
+                                          },
+                                        ),
+                                ),
+                                // Input
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _messageController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Type a message...',
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                          ),
+                                          onSubmitted: (_) => _sendMessage(),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        onPressed: _sendMessage,
+                                        icon: const Icon(Icons.send),
+                                        style: IconButton.styleFrom(
+                                          backgroundColor: Theme.of(context).colorScheme.primary,
+                                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -884,6 +1116,48 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
             },
           ),
       ],
+    );
+  }
+
+  Widget _buildMessageBubble(LeagueChatMessage message, bool isMe) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isMe
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isMe)
+              Text(
+                message.displayUsername,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ),
+            if (!isMe) const SizedBox(height: 4),
+            Text(
+              message.message,
+              style: TextStyle(
+                color: isMe
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
