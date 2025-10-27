@@ -228,6 +228,65 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                           );
                                         },
                                       ),
+                                      PopupMenuItem(
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.delete_forever, size: 20, color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Delete League', style: TextStyle(color: Colors.red)),
+                                          ],
+                                        ),
+                                        onTap: () async {
+                                          // Show confirmation dialog
+                                          final confirmed = await showDialog<bool>(
+                                            context: context,
+                                            builder: (context) => AlertDialog(
+                                              title: const Text('Delete League?'),
+                                              content: const Text(
+                                                'This will permanently delete the league and all related data including draft, matchups, and chat messages. This action cannot be undone.',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(context).pop(false),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () => Navigator.of(context).pop(true),
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: Colors.red,
+                                                  ),
+                                                  child: const Text('Delete'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+
+                                          if (confirmed == true) {
+                                            final success = await leagueProvider.deleteLeague(
+                                              token: authProvider.token!,
+                                              leagueId: league.id,
+                                            );
+
+                                            if (success && context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('League deleted successfully'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                              // Navigate back to leagues list
+                                              Navigator.of(context).pop();
+                                            } else if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(leagueProvider.errorMessage ?? 'Failed to delete league'),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
+                                      ),
                                     ],
                                   ),
                               ],

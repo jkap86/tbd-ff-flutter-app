@@ -282,4 +282,26 @@ class LeagueService {
       return false;
     }
   }
+
+  /// Delete a league (commissioner only)
+  /// Permanently deletes the league and all related data
+  Future<bool> deleteLeague({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Delete league error: $e');
+      return false;
+    }
+  }
 }

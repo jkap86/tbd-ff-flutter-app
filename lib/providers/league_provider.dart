@@ -340,4 +340,46 @@ class LeagueProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Delete league (commissioner only)
+  Future<bool> deleteLeague({
+    required String token,
+    required int leagueId,
+  }) async {
+    _status = LeagueStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _leagueService.deleteLeague(
+        token: token,
+        leagueId: leagueId,
+      );
+
+      if (success) {
+        // Remove league from user leagues if it exists
+        _userLeagues.removeWhere((league) => league.id == leagueId);
+
+        // Clear selected league if it was the deleted one
+        if (_selectedLeague?.id == leagueId) {
+          _selectedLeague = null;
+          _selectedLeagueRosters = [];
+        }
+
+        _status = LeagueStatus.loaded;
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = 'Failed to delete league';
+        _status = LeagueStatus.error;
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Error deleting league: ${e.toString()}';
+      _status = LeagueStatus.error;
+      notifyListeners();
+      return false;
+    }
+  }
 }
