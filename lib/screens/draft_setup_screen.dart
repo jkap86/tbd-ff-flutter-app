@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../widgets/responsive_container.dart';
-import 'draft_lobby_screen.dart';
+import 'draft_room_screen.dart';
 
 class DraftSetupScreen extends StatefulWidget {
   final int leagueId;
@@ -57,10 +57,10 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       setState(() => _isCreating = false);
 
       if (success) {
-        // Navigate to draft lobby
+        // Navigate directly to draft room
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => DraftLobbyScreen(
+            builder: (context) => DraftRoomScreen(
               leagueId: widget.leagueId,
               leagueName: widget.leagueName,
             ),
