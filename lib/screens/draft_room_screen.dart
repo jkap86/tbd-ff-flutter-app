@@ -528,15 +528,87 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     );
   }
 
+  Future<void> _handleStartDraft(
+    BuildContext context,
+    DraftProvider draftProvider,
+    AuthProvider authProvider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start Draft'),
+        content: const Text(
+          'Are you ready to start the draft? Once started, managers can begin making picks.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Start Draft'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final success = await draftProvider.startDraft(
+      token: authProvider.token!,
+      draftId: draftProvider.currentDraft!.id,
+    );
+
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft started!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              draftProvider.errorMessage ?? 'Failed to start draft',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
     draft,
     DraftProvider draftProvider,
     AuthProvider authProvider,
   ) {
+    final leagueProvider = Provider.of<LeagueProvider>(context);
+    final isCommissioner = leagueProvider.isCommissioner;
+    final hasOrder = draftProvider.draftOrder.isNotEmpty;
+
     return AppBar(
       title: Text('Draft - ${widget.leagueName}'),
       actions: [
+        // Start Draft button (commissioner only, when draft not started)
+        if (draft != null && draft.isNotStarted && isCommissioner && hasOrder)
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: FilledButton.icon(
+              onPressed: () => _handleStartDraft(context, draftProvider, authProvider),
+              icon: const Icon(Icons.play_arrow, size: 20),
+              label: const Text('Start Draft'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+            ),
+          ),
+        // Auto-draft and pause/resume buttons (when draft is started)
         if (draft != null && !draft.isNotStarted) ...[
           _buildAutoDraftButton(context, draftProvider, authProvider),
           _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
@@ -632,82 +704,30 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
               const SizedBox(height: 24),
             ],
 
-            // Start Draft button (commissioner only, order must be set)
-            if (isCommissioner && hasOrder)
-              FilledButton.icon(
-                onPressed: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Start Draft'),
-                      content: const Text(
-                        'Are you ready to start the draft? Once started, managers can begin making picks.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text('Start Draft'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirmed != true || !mounted) return;
-
-                  final success = await draftProvider.startDraft(
-                    token: authProvider.token!,
-                    draftId: draftProvider.currentDraft!.id,
-                  );
-
-                  if (mounted) {
-                    if (success) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Draft started!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            draftProvider.errorMessage ?? 'Failed to start draft',
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start Draft'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  backgroundColor: Colors.green,
-                  textStyle: const TextStyle(fontSize: 18),
+            // Messages for commissioner and non-commissioner
+            if (isCommissioner && !hasOrder)
+              Padding(
+                padding: const EdgeInsets.only(top: 24.0),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Go to Settings to Set Draft Order'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  ),
                 ),
               )
-            else if (isCommissioner && !hasOrder)
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Go to Settings to Set Draft Order'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            else if (!isCommissioner)
+              Padding(
+                padding: const EdgeInsets.only(top: 24.0),
+                child: Text(
+                  'Waiting for commissioner to start the draft...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey,
+                  ),
                 ),
-              )
-            else
-              Text(
-                'Waiting for commissioner to start the draft...',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey,
-                    ),
               ),
           ],
         ),
