@@ -28,6 +28,9 @@ class SocketService {
   Function(Map<String, dynamic>)? onUserJoinedLeague;
   Function(Map<String, dynamic>)? onUserLeftLeague;
 
+  // Matchup event callbacks
+  Function(Map<String, dynamic>)? onMatchupScoresUpdated;
+
   bool get isConnected => _socket?.connected ?? false;
 
   // Connect to the WebSocket server
@@ -186,6 +189,17 @@ class SocketService {
     _socket!.on('joined_league', (data) {
       print('Joined league: $data');
     });
+
+    // Matchup scores updated (live scores)
+    _socket!.on('matchup_scores_updated', (data) {
+      print('Matchup scores updated: ${data['league_id']} week ${data['week']}');
+      onMatchupScoresUpdated?.call(data);
+    });
+
+    // Joined matchup room confirmation
+    _socket!.on('joined_matchup_room', (data) {
+      print('Joined matchup room: $data');
+    });
   }
 
   // Join a draft room
@@ -340,6 +354,46 @@ class SocketService {
     });
   }
 
+  // Join a league's matchup room for live scores
+  void joinLeagueMatchups({
+    required int leagueId,
+    required int week,
+  }) {
+    if (_socket == null || !_socket!.connected) {
+      print('Socket not connected, connecting now...');
+      connect();
+
+      // Wait for connection before joining
+      _socket!.onConnect((_) {
+        _emitJoinLeagueMatchups(leagueId, week);
+      });
+    } else {
+      _emitJoinLeagueMatchups(leagueId, week);
+    }
+  }
+
+  void _emitJoinLeagueMatchups(int leagueId, int week) {
+    _socket!.emit('join_league_matchups', {
+      'league_id': leagueId,
+      'week': week,
+    });
+    print('Joined matchup room for league $leagueId week $week');
+  }
+
+  // Leave a league's matchup room
+  void leaveLeagueMatchups({
+    required int leagueId,
+    required int week,
+  }) {
+    if (_socket == null || !_socket!.connected) return;
+
+    _socket!.emit('leave_league_matchups', {
+      'league_id': leagueId,
+      'week': week,
+    });
+    print('Left matchup room for league $leagueId week $week');
+  }
+
   // Disconnect from WebSocket
   void disconnect() {
     if (_socket == null) return;
@@ -380,5 +434,6 @@ class SocketService {
     onLeagueChatMessage = null;
     onUserJoinedLeague = null;
     onUserLeftLeague = null;
+    onMatchupScoresUpdated = null;
   }
 }

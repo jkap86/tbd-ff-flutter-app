@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../models/matchup_model.dart';
 import '../widgets/responsive_container.dart';
+import '../services/socket_service.dart';
 import 'matchup_detail_screen.dart';
 
 class MatchupsScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class MatchupsScreen extends StatefulWidget {
 
 class _MatchupsScreenState extends State<MatchupsScreen> {
   late int _selectedWeek;
+  final SocketService _socketService = SocketService();
 
   @override
   void initState() {
@@ -36,6 +38,46 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
     // Calculate current NFL week or default to start week
     _selectedWeek = _calculateCurrentWeek();
     _loadMatchups();
+    _setupLiveScores();
+  }
+
+  void _setupLiveScores() {
+    // Set up socket for live score updates
+    _socketService.onMatchupScoresUpdated = (data) {
+      final leagueId = data['league_id'] as int?;
+      final week = data['week'] as int?;
+      final matchups = data['matchups'] as List?;
+
+      // Only update if it's the current league and week
+      if (leagueId == widget.leagueId && week == _selectedWeek && matchups != null) {
+        print('[LiveScores] Received live score update for week $_selectedWeek');
+
+        // Update the provider with new matchup data
+        final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
+        final updatedMatchups = matchups
+            .map((m) => Matchup.fromJson(m as Map<String, dynamic>))
+            .toList();
+
+        matchupProvider.updateMatchupsInPlace(updatedMatchups);
+      }
+    };
+
+    // Join the matchup room for live updates
+    _socketService.joinLeagueMatchups(
+      leagueId: widget.leagueId,
+      week: _selectedWeek,
+    );
+  }
+
+  @override
+  void dispose() {
+    // Leave the matchup room when leaving the screen
+    _socketService.leaveLeagueMatchups(
+      leagueId: widget.leagueId,
+      week: _selectedWeek,
+    );
+    _socketService.clearCallbacks();
+    super.dispose();
   }
 
   /// Calculate the current NFL week based on the season start
@@ -87,8 +129,20 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
               ),
               onChanged: (week) {
                 if (week != null) {
+                  // Leave old room
+                  _socketService.leaveLeagueMatchups(
+                    leagueId: widget.leagueId,
+                    week: _selectedWeek,
+                  );
+
                   setState(() => _selectedWeek = week);
                   _loadMatchups();
+
+                  // Join new room
+                  _socketService.joinLeagueMatchups(
+                    leagueId: widget.leagueId,
+                    week: _selectedWeek,
+                  );
                 }
               },
             ),

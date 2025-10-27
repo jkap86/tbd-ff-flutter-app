@@ -222,4 +222,20 @@ class MatchupProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  /// Update matchups in place (for live score updates via WebSocket)
+  void updateMatchupsInPlace(List<Matchup> updatedMatchups) {
+    if (updatedMatchups.isEmpty) return;
+
+    // Update the matchups list with new scores
+    for (final updated in updatedMatchups) {
+      final index = _matchups.indexWhere((m) => m.id == updated.id);
+      if (index != -1) {
+        _matchups[index] = updated;
+      }
+    }
+
+    // Notify listeners to update UI
+    notifyListeners();
+  }
 }
