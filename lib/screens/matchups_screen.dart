@@ -6,6 +6,7 @@ import '../providers/league_provider.dart';
 import '../models/matchup_model.dart';
 import '../widgets/responsive_container.dart';
 import '../services/socket_service.dart';
+import '../services/nfl_service.dart';
 import 'matchup_detail_screen.dart';
 
 class MatchupsScreen extends StatefulWidget {
@@ -31,14 +32,28 @@ class MatchupsScreen extends StatefulWidget {
 class _MatchupsScreenState extends State<MatchupsScreen> {
   late int _selectedWeek;
   final SocketService _socketService = SocketService();
+  final NflService _nflService = NflService();
+  bool _isLoadingWeek = true;
 
   @override
   void initState() {
     super.initState();
-    // Calculate current NFL week or default to start week
-    _selectedWeek = _calculateCurrentWeek();
-    _loadMatchups();
-    _setupLiveScores();
+    _initializeCurrentWeek();
+  }
+
+  Future<void> _initializeCurrentWeek() async {
+    // Fetch actual current week from backend
+    final currentWeek = await _nflService.getCurrentWeek(season: widget.season);
+
+    if (mounted) {
+      setState(() {
+        _selectedWeek = currentWeek ?? widget.startWeek;
+        _isLoadingWeek = false;
+      });
+
+      _loadMatchups();
+      _setupLiveScores();
+    }
   }
 
   void _setupLiveScores() {
@@ -80,15 +95,9 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
     super.dispose();
   }
 
-  /// Calculate the current NFL week based on the season start
-  /// For now, defaults to startWeek. Could be enhanced to calculate actual current week.
-  int _calculateCurrentWeek() {
-    // TODO: Calculate actual current week based on current date and NFL season calendar
-    // For now, just use startWeek as a reasonable default
-    return widget.startWeek;
-  }
-
   Future<void> _loadMatchups() async {
+    if (_isLoadingWeek) return; // Don't load until we know the current week
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
 
