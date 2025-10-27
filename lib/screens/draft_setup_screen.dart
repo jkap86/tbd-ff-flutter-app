@@ -24,7 +24,6 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   bool _thirdRoundReversal = false;
   int _pickTimeSeconds = 90;
   int _rounds = 15;
-  String _timerMode = 'standard'; // 'standard' or 'slow'
 
   // Overnight pause settings
   bool _autoPauseEnabled = false;
@@ -186,33 +185,6 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'standard',
-                      label: Text('Standard'),
-                      icon: Icon(Icons.timer),
-                    ),
-                    ButtonSegment(
-                      value: 'slow',
-                      label: Text('Slow Draft'),
-                      icon: Icon(Icons.schedule),
-                    ),
-                  ],
-                  selected: {_timerMode},
-                  onSelectionChanged: (Set<String> selection) {
-                    setState(() {
-                      _timerMode = selection.first;
-                      // Set default for mode
-                      if (_timerMode == 'standard') {
-                        _pickTimeSeconds = 90;
-                      } else {
-                        _pickTimeSeconds = 3600; // 1 hour default for slow
-                      }
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -241,21 +213,20 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         const SizedBox(height: 8),
                         Slider(
                           value: _pickTimeSeconds.toDouble(),
-                          min: _timerMode == 'standard' ? 30 : 300,
-                          max: _timerMode == 'standard' ? 300 : 86400,
-                          divisions: _timerMode == 'standard' ? 27 : _getSlowDivisions(),
+                          min: 10,
+                          max: 300,
+                          divisions: 29,
                           label: _getTimerDisplay(),
                           onChanged: (value) {
-                            setState(() =>
-                                _pickTimeSeconds = _snapToInterval(value.toInt()));
+                            setState(() => _pickTimeSeconds = value.toInt());
                           },
                         ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(_timerMode == 'standard' ? '30s' : '5m',
+                            Text('10s',
                                 style: Theme.of(context).textTheme.bodySmall),
-                            Text(_timerMode == 'standard' ? '5m' : '24h',
+                            Text('5m',
                                 style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
@@ -322,86 +293,82 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Overnight Pause (only for slow drafts)
-                if (_timerMode == 'slow') ...[
-                  Text(
-                    'Overnight Pause',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          title: const Text('Auto-Pause Overnight'),
-                          subtitle: const Text(
-                              'Automatically pause draft during specified hours'),
-                          value: _autoPauseEnabled,
-                          onChanged: (value) {
-                            setState(() => _autoPauseEnabled = value);
-                          },
+                // Overnight Pause
+                Text(
+                  'Overnight Pause',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        title: const Text('Auto-Pause Overnight'),
+                        subtitle: const Text(
+                            'Automatically pause draft during specified hours'),
+                        value: _autoPauseEnabled,
+                        onChanged: (value) {
+                          setState(() => _autoPauseEnabled = value);
+                        },
+                      ),
+                      if (_autoPauseEnabled) ...[
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.bedtime),
+                          title: const Text('Pause at'),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: _autoPauseStartTime,
+                              );
+                              if (time != null) {
+                                setState(() => _autoPauseStartTime = time);
+                              }
+                            },
+                            child: Text(
+                              _autoPauseStartTime.format(context),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                            ),
+                          ),
                         ),
-                        if (_autoPauseEnabled) ...[
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.bedtime),
-                            title: const Text('Pause at'),
-                            trailing: TextButton(
-                              onPressed: () async {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: _autoPauseStartTime,
-                                );
-                                if (time != null) {
-                                  setState(() => _autoPauseStartTime = time);
-                                }
-                              },
-                              child: Text(
-                                _autoPauseStartTime.format(context),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                              ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.wb_sunny),
+                          title: const Text('Resume at'),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              final time = await showTimePicker(
+                                context: context,
+                                initialTime: _autoPauseEndTime,
+                              );
+                              if (time != null) {
+                                setState(() => _autoPauseEndTime = time);
+                              }
+                            },
+                            child: Text(
+                              _autoPauseEndTime.format(context),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
                             ),
                           ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.wb_sunny),
-                            title: const Text('Resume at'),
-                            trailing: TextButton(
-                              onPressed: () async {
-                                final time = await showTimePicker(
-                                  context: context,
-                                  initialTime: _autoPauseEndTime,
-                                );
-                                if (time != null) {
-                                  setState(() => _autoPauseEndTime = time);
-                                }
-                              },
-                              child: Text(
-                                _autoPauseEndTime.format(context),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                ],
-
-                const SizedBox(height: 8),
+                ),
+                const SizedBox(height: 24),
 
                 // Draft Summary
                 Card(
@@ -460,91 +427,26 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   }
 
   String _getTimerLabel() {
-    if (_timerMode == 'standard') {
-      return '$_pickTimeSeconds seconds per pick';
-    } else {
-      return 'Time per pick';
-    }
+    return '$_pickTimeSeconds seconds per pick';
   }
 
   String _getTimerDisplay() {
-    if (_timerMode == 'standard') {
-      final minutes = _pickTimeSeconds ~/ 60;
-      final seconds = _pickTimeSeconds % 60;
-      return '$minutes:${seconds.toString().padLeft(2, '0')}';
-    } else {
-      // Slow draft display
-      if (_pickTimeSeconds < 3600) {
-        // Less than 1 hour - show minutes
-        final minutes = _pickTimeSeconds ~/ 60;
-        return '${minutes}m';
-      } else if (_pickTimeSeconds < 86400) {
-        // Less than 1 day - show hours
-        final hours = _pickTimeSeconds ~/ 3600;
-        return '${hours}h';
-      } else {
-        // Show days
-        final days = _pickTimeSeconds ~/ 86400;
-        return '${days}d';
-      }
-    }
+    final minutes = _pickTimeSeconds ~/ 60;
+    final seconds = _pickTimeSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 
   String _getTimerSummary() {
     if (_pickTimeSeconds < 60) {
       return '${_pickTimeSeconds}s';
-    } else if (_pickTimeSeconds < 3600) {
+    } else {
       final minutes = _pickTimeSeconds ~/ 60;
-      return '${minutes}m';
-    } else if (_pickTimeSeconds < 86400) {
-      final hours = _pickTimeSeconds ~/ 3600;
-      return '${hours}h';
-    } else {
-      final days = _pickTimeSeconds ~/ 86400;
-      return '${days}d';
-    }
-  }
-
-  int _getSlowDivisions() {
-    // Slow draft intervals:
-    // 5m, 10m, 15m, 20m, 30m, 1h, 2h, 4h, 8h, 12h, 18h, 24h
-    return 11;
-  }
-
-  int _snapToInterval(int seconds) {
-    if (_timerMode == 'standard') {
-      // Standard mode: snap to 10 second intervals
-      return (seconds ~/ 10) * 10;
-    } else {
-      // Slow draft mode: snap to specific intervals
-      const intervals = [
-        300,    // 5 minutes
-        600,    // 10 minutes
-        900,    // 15 minutes
-        1200,   // 20 minutes
-        1800,   // 30 minutes
-        3600,   // 1 hour
-        7200,   // 2 hours
-        14400,  // 4 hours
-        28800,  // 8 hours
-        43200,  // 12 hours
-        64800,  // 18 hours
-        86400,  // 24 hours
-      ];
-
-      // Find closest interval
-      int closest = intervals[0];
-      int minDiff = (seconds - intervals[0]).abs();
-
-      for (int interval in intervals) {
-        int diff = (seconds - interval).abs();
-        if (diff < minDiff) {
-          minDiff = diff;
-          closest = interval;
-        }
+      final seconds = _pickTimeSeconds % 60;
+      if (seconds == 0) {
+        return '${minutes}m';
+      } else {
+        return '$minutes:${seconds.toString().padLeft(2, '0')}';
       }
-
-      return closest;
     }
   }
 
