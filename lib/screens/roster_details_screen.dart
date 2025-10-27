@@ -472,20 +472,33 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
-                    // Total players
+                    // Record and Points
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildStatChip('Total', totalPlayers.toString(), Colors.blue),
+                        _buildStatChip(
+                          'Record',
+                          '${_rosterData!['settings']?['wins'] ?? 0}-${_rosterData!['settings']?['losses'] ?? 0}-${_rosterData!['settings']?['ties'] ?? 0}',
+                          Colors.teal,
+                        ),
+                        _buildStatChip(
+                          'PF',
+                          (_rosterData!['settings']?['points_for'] ?? 0.0).toStringAsFixed(2),
+                          Colors.green,
+                        ),
+                        _buildStatChip(
+                          'PA',
+                          (_rosterData!['settings']?['points_against'] ?? 0.0).toStringAsFixed(2),
+                          Colors.red,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Position breakdown - show positions that exist in roster slots
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.center,
+                    // Total players and position breakdown evenly spaced
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
+                        _buildStatChip('Total', totalPlayers.toString(), Colors.blue),
                         if (rosterPositions.contains('QB'))
                           _buildStatChip('QB', (positionCounts['QB'] ?? 0).toString(), Colors.red),
                         if (rosterPositions.contains('RB'))

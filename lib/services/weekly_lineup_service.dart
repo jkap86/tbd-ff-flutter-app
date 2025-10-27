@@ -40,6 +40,7 @@ class WeeklyLineupService {
     required int week,
     required String season,
     required List<Map<String, dynamic>> starters,
+    String seasonType = 'regular',
   }) async {
     try {
       final response = await http.put(
@@ -51,6 +52,7 @@ class WeeklyLineupService {
         },
         body: json.encode({
           'starters': starters,
+          'season_type': seasonType,
         }),
       );
 
@@ -59,11 +61,15 @@ class WeeklyLineupService {
         if (data['success'] == true && data['data'] != null) {
           return data['data'] as Map<String, dynamic>;
         }
+      } else if (response.statusCode == 400) {
+        // Handle locked player error
+        final data = json.decode(response.body);
+        throw Exception(data['message'] ?? 'Failed to update lineup');
       }
       return null;
     } catch (e) {
       print('Error updating weekly lineup: $e');
-      return null;
+      rethrow; // Re-throw to let the caller handle it
     }
   }
 }

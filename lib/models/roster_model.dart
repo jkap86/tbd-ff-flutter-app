@@ -10,6 +10,11 @@ class Roster {
   final List<dynamic> ir;
   final String? username;
   final String? email;
+  final int? wins;
+  final int? losses;
+  final int? ties;
+  final double? pointsFor;
+  final double? pointsAgainst;
 
   Roster({
     required this.id,
@@ -23,22 +28,42 @@ class Roster {
     required this.ir,
     this.username,
     this.email,
+    this.wins,
+    this.losses,
+    this.ties,
+    this.pointsFor,
+    this.pointsAgainst,
   });
 
   factory Roster.fromJson(Map<String, dynamic> json) {
+    final settings = json['settings'] as Map<String, dynamic>?;
+
     return Roster(
       id: json['id'] as int,
       leagueId: json['league_id'] as int,
       userId: json['user_id'] as int,
       rosterId: json['roster_id'] as int,
-      settings: json['settings'] as Map<String, dynamic>?,
+      settings: settings,
       starters: json['starters'] as List<dynamic>? ?? [],
       bench: json['bench'] as List<dynamic>? ?? [],
       taxi: json['taxi'] as List<dynamic>? ?? [],
       ir: json['ir'] as List<dynamic>? ?? [],
       username: json['username'] as String?,
       email: json['email'] as String?,
+      wins: settings?['wins'] as int?,
+      losses: settings?['losses'] as int?,
+      ties: settings?['ties'] as int?,
+      pointsFor: _parseDouble(settings?['points_for']),
+      pointsAgainst: _parseDouble(settings?['points_against']),
     );
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   Map<String, dynamic> toJson() {

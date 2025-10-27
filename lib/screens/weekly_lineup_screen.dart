@@ -140,40 +140,47 @@ class _WeeklyLineupScreenState extends State<WeeklyLineupScreen> {
       };
     }).toList();
 
-    final result = await _weeklyLineupService.updateWeeklyLineup(
-      token: token,
-      rosterId: widget.rosterId,
-      week: widget.week,
-      season: widget.season,
-      starters: starterSlots,
-    );
+    try {
+      final result = await _weeklyLineupService.updateWeeklyLineup(
+        token: token,
+        rosterId: widget.rosterId,
+        week: widget.week,
+        season: widget.season,
+        starters: starterSlots,
+      );
 
-    setState(() {
-      _isSaving = false;
-    });
-
-    if (result != null) {
       setState(() {
-        _lineupData = result;
-        _isEditMode = false;
-        _editStarters = [];
-        _editBench = [];
+        _isSaving = false;
+      });
+
+      if (result != null) {
+        setState(() {
+          _lineupData = result;
+          _isEditMode = false;
+          _editStarters = [];
+          _editBench = [];
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Week ${widget.week} lineup updated! Scores will auto-update when viewing matchups.'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Week ${widget.week} lineup updated! Go to Matchups and click "Update Scores" to recalculate.'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update lineup'),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
