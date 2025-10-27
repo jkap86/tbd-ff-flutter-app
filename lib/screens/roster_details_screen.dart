@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/roster_service.dart';
+import '../services/weekly_lineup_service.dart';
 
 class RosterDetailsScreen extends StatefulWidget {
   final int rosterId;
   final String rosterName;
+  final String? season;
+  final int? currentWeek;
 
   const RosterDetailsScreen({
     super.key,
     required this.rosterId,
     required this.rosterName,
+    this.season,
+    this.currentWeek,
   });
 
   @override
@@ -19,11 +24,13 @@ class RosterDetailsScreen extends StatefulWidget {
 
 class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   final RosterService _rosterService = RosterService();
+  final WeeklyLineupService _weeklyLineupService = WeeklyLineupService();
   Map<String, dynamic>? _rosterData;
   bool _isLoading = true;
   String? _errorMessage;
   bool _isEditMode = false;
   bool _isSaving = false;
+  int? _selectedWeek;
 
   // Temporary lists for editing
   List<dynamic> _editStarters = []; // List of {slot: string, player: {player data} | null}
@@ -32,6 +39,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedWeek = widget.currentWeek;
     _loadRoster();
   }
 
@@ -78,47 +86,67 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
       };
     }).toList();
 
-    // Extract player IDs for bench
-    final benchIds = _editBench
-        .where((p) => p != null)
-        .map((p) => p['id'] as int)
-        .toList();
+    try {
+      dynamic result;
 
-    print('[RosterDetails] Starter slots: $starterSlots');
-    print('[RosterDetails] Bench IDs: $benchIds');
-    print('[RosterDetails] Calling roster service...');
+      // If week is selected and season is available, use weekly lineup
+      if (_selectedWeek != null && widget.season != null) {
+        print('[RosterDetails] Saving weekly lineup for week $_selectedWeek...');
+        result = await _weeklyLineupService.updateWeeklyLineup(
+          token: token,
+          rosterId: widget.rosterId,
+          week: _selectedWeek!,
+          season: widget.season!,
+          starters: starterSlots,
+        );
+      } else {
+        // Otherwise save default roster lineup
+        print('[RosterDetails] Saving default roster lineup...');
+        // Extract player IDs for bench
+        final benchIds = _editBench
+            .where((p) => p != null)
+            .map((p) => p['id'] as int)
+            .toList();
 
-    final result = await _rosterService.updateRosterLineup(
-      token,
-      widget.rosterId,
-      starters: starterSlots,
-      bench: benchIds,
-    );
+        result = await _rosterService.updateRosterLineup(
+          token,
+          widget.rosterId,
+          starters: starterSlots,
+          bench: benchIds,
+        );
+      }
 
-    print('[RosterDetails] Service result: ${result != null ? "success" : "null"}');
-
-    setState(() {
-      _isSaving = false;
-    });
-
-    if (result != null) {
       setState(() {
-        _rosterData = result;
-        _isEditMode = false;
-        _editStarters = [];
-        _editBench = [];
+        _isSaving = false;
+      });
+
+      if (result != null) {
+        // Reload the roster to get fresh data
+        await _loadRoster();
+
+        setState(() {
+          _isEditMode = false;
+          _editStarters = [];
+          _editBench = [];
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_selectedWeek != null
+              ? 'Week $_selectedWeek lineup updated successfully'
+              : 'Lineup updated successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isSaving = false;
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lineup updated successfully')),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update lineup'),
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
           ),
         );
@@ -167,7 +195,36 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
       return;
     }
 
-    final roster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
+    dynamic roster;
+
+    // If week is selected and season is available, load weekly lineup
+    if (_selectedWeek != null && widget.season != null) {
+      print('[RosterDetails] Loading weekly lineup for week $_selectedWeek...');
+
+      // Load both weekly lineup (for starters) and full roster (for bench)
+      final weeklyLineup = await _weeklyLineupService.getWeeklyLineup(
+        token: token,
+        rosterId: widget.rosterId,
+        week: _selectedWeek!,
+        season: widget.season!,
+      );
+
+      final fullRoster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
+
+      // Merge: use weekly lineup starters but full roster's bench/taxi/ir
+      if (weeklyLineup != null && fullRoster != null) {
+        roster = {
+          ...fullRoster,
+          'starters': weeklyLineup['starters'],
+        };
+      } else {
+        roster = fullRoster; // Fallback to full roster if weekly lineup doesn't exist
+      }
+    } else {
+      // Otherwise load default roster
+      print('[RosterDetails] Loading default roster...');
+      roster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
+    }
 
     setState(() {
       _rosterData = roster;
@@ -182,8 +239,71 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.rosterName),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.rosterName, style: const TextStyle(fontSize: 18)),
+            if (_selectedWeek != null)
+              Text(
+                'Week $_selectedWeek',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              ),
+          ],
+        ),
         actions: [
+          // Week selector dropdown (only show if season is available)
+          if (widget.season != null && !_isEditMode)
+            PopupMenuButton<int?>(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedWeek == null ? 'Default' : 'Week $_selectedWeek',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white),
+                  ],
+                ),
+              ),
+              tooltip: 'Select Week',
+              onSelected: (week) {
+                setState(() {
+                  _selectedWeek = week;
+                });
+                _loadRoster();
+              },
+              itemBuilder: (context) {
+                return [
+                  const PopupMenuItem<int?>(
+                    value: null,
+                    child: Text('Default Roster'),
+                  ),
+                  const PopupMenuDivider(),
+                  ...List.generate(18, (index) {
+                    final week = index + 1;
+                    return PopupMenuItem<int>(
+                      value: week,
+                      child: Row(
+                        children: [
+                          if (week == _selectedWeek)
+                            const Icon(Icons.check, size: 16),
+                          if (week == _selectedWeek)
+                            const SizedBox(width: 8),
+                          Text('Week $week'),
+                        ],
+                      ),
+                    );
+                  }),
+                ];
+              },
+            ),
           if (!_isEditMode && _rosterData != null)
             IconButton(
               icon: const Icon(Icons.edit),
