@@ -369,6 +369,30 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         : starters.where((s) => s['player'] != null).length;
     final totalPlayers = starterCount + bench.length + taxi.length + ir.length;
 
+    // Count players by position
+    Map<String, int> countByPosition(List<dynamic> players) {
+      final counts = <String, int>{};
+      for (final player in players) {
+        final position = player['position'] as String?;
+        if (position != null) {
+          counts[position] = (counts[position] ?? 0) + 1;
+        }
+      }
+      return counts;
+    }
+
+    // Get all players from starters (non-null only) and bench
+    final allPlayers = <dynamic>[];
+    for (final slot in starters) {
+      final player = slot['player'];
+      if (player != null) {
+        allPlayers.add(player);
+      }
+    }
+    allPlayers.addAll(bench);
+
+    final positionCounts = countByPosition(allPlayers);
+
     return RefreshIndicator(
       onRefresh: _loadRoster,
       child: SingleChildScrollView(
@@ -423,14 +447,39 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
+                    // Total players
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _buildStatChip('Total', totalPlayers.toString(), Colors.blue),
-                        _buildStatChip('Starters', starterCount.toString(), Colors.green),
-                        _buildStatChip('Bench', bench.length.toString(), Colors.orange),
-                        if (taxi.isNotEmpty || ir.isNotEmpty)
-                          _buildStatChip('Other', (taxi.length + ir.length).toString(), Colors.purple),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Position breakdown
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        if (positionCounts['QB'] != null)
+                          _buildStatChip('QB', positionCounts['QB'].toString(), Colors.red),
+                        if (positionCounts['RB'] != null)
+                          _buildStatChip('RB', positionCounts['RB'].toString(), Colors.green),
+                        if (positionCounts['WR'] != null)
+                          _buildStatChip('WR', positionCounts['WR'].toString(), Colors.blue),
+                        if (positionCounts['TE'] != null)
+                          _buildStatChip('TE', positionCounts['TE'].toString(), Colors.orange),
+                        if (positionCounts['K'] != null)
+                          _buildStatChip('K', positionCounts['K'].toString(), Colors.purple),
+                        if (positionCounts['DEF'] != null)
+                          _buildStatChip('DEF', positionCounts['DEF'].toString(), Colors.brown),
+                        // IDP positions
+                        if (positionCounts['DL'] != null)
+                          _buildStatChip('DL', positionCounts['DL'].toString(), Colors.grey),
+                        if (positionCounts['LB'] != null)
+                          _buildStatChip('LB', positionCounts['LB'].toString(), Colors.grey),
+                        if (positionCounts['DB'] != null)
+                          _buildStatChip('DB', positionCounts['DB'].toString(), Colors.grey),
                       ],
                     ),
                   ],
