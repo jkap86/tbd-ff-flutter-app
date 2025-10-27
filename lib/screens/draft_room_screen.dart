@@ -772,7 +772,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                     borderRadius: BorderRadius.circular(2),
                                   ),
                                 ),
-                                // Tab bar
+                                // Tab bar or collapsed preview
                                 if (_drawerHeight > 0.2)
                                   TabBar(
                                     controller: _drawerTabController,
@@ -814,18 +814,43 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                       ),
                                     ],
                                   ),
-                                // Show minimized label when drawer is collapsed
+                                // Show tab previews when drawer is collapsed
                                 if (_drawerHeight <= 0.2)
                                   Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                       children: [
-                                        Icon(Icons.expand_less, color: Colors.grey[600]),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Swipe up to view',
-                                          style: TextStyle(color: Colors.grey[600]),
+                                        _buildCollapsedTab(
+                                          icon: Icons.people,
+                                          label: 'Players',
+                                          onTap: () {
+                                            setState(() {
+                                              _drawerTabController.index = 0;
+                                              _drawerHeight = 0.5;
+                                            });
+                                          },
+                                        ),
+                                        _buildCollapsedTab(
+                                          icon: Icons.playlist_add_check,
+                                          label: 'Queue',
+                                          badge: _draftQueue.isNotEmpty ? _draftQueue.length : null,
+                                          onTap: () {
+                                            setState(() {
+                                              _drawerTabController.index = 1;
+                                              _drawerHeight = 0.5;
+                                            });
+                                          },
+                                        ),
+                                        _buildCollapsedTab(
+                                          icon: Icons.chat_bubble_outline,
+                                          label: 'Chat',
+                                          onTap: () {
+                                            setState(() {
+                                              _drawerTabController.index = 2;
+                                              _drawerHeight = 0.5;
+                                            });
+                                          },
                                         ),
                                       ],
                                     ),
@@ -869,7 +894,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             // Stats mode toggle
                                             _buildStatsModeToggle(),
                                             const Divider(height: 1),
-                                            // Sort hint or active sort banner
+                                            // Sort hint or loading banner
                                             if (_sortBy == null)
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -877,20 +902,42 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                                 child: Row(
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    Icon(
-                                                      Icons.info_outline,
-                                                      size: 14,
-                                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      'Tap any stat to sort',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                                        fontStyle: FontStyle.italic,
+                                                    if (_isLoadingStats) ...[
+                                                      SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                                            Theme.of(context).colorScheme.primary,
+                                                          ),
+                                                        ),
                                                       ),
-                                                    ),
+                                                      const SizedBox(width: 8),
+                                                      Text(
+                                                        'Loading stats...',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                          fontStyle: FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                    ] else ...[
+                                                      Icon(
+                                                        Icons.info_outline,
+                                                        size: 14,
+                                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                      ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        'Tap any stat to sort',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                          fontStyle: FontStyle.italic,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ],
                                                 ),
                                               ),
@@ -1011,44 +1058,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(
-            'View:',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (_isLoadingStats)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildStatsChip('2025 Stats', 'current_season'),
-                  const SizedBox(width: 8),
-                  _buildStatsChip(projectionLabel, 'projections'),
-                  const SizedBox(width: 8),
-                  _buildStatsChip('2024 Stats', 'previous_season'),
-                ],
-              ),
-            ),
-          ),
+          _buildStatsChip('2025 Stats', 'current_season'),
+          _buildStatsChip(projectionLabel, 'projections'),
+          _buildStatsChip('2024 Stats', 'previous_season'),
         ],
       ),
     );
@@ -1546,6 +1560,62 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         setState(() => _isLoadingStats = false);
       }
     }
+  }
+
+  Widget _buildCollapsedTab({
+    required IconData icon,
+    required String label,
+    int? badge,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, size: 24),
+                if (badge != null)
+                  Positioned(
+                    right: -8,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildStatColumn(String label, String value, {bool sortable = false}) {
