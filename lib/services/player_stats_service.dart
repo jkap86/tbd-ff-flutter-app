@@ -142,4 +142,110 @@ class PlayerStatsService {
       return null;
     }
   }
+
+  // Get bulk season stats for multiple players
+  Future<Map<String, Map<String, dynamic>>?> getBulkSeasonStats({
+    required int season,
+    required List<String> playerIds,
+    String seasonType = 'regular',
+  }) async {
+    try {
+      if (playerIds.isEmpty) return {};
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/player-stats/bulk/$season'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'player_ids': playerIds,
+          'season_type': seasonType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final statsData = data['data'] as Map<String, dynamic>;
+
+        // Convert to Map<String, Map<String, dynamic>>
+        return statsData.map((key, value) =>
+          MapEntry(key, value as Map<String, dynamic>)
+        );
+      }
+      return null;
+    } catch (e) {
+      print('Get bulk season stats error: $e');
+      return null;
+    }
+  }
+
+  // Get bulk season projections for multiple players
+  Future<Map<String, Map<String, dynamic>>?> getBulkSeasonProjections({
+    required int season,
+    required List<String> playerIds,
+    String seasonType = 'regular',
+  }) async {
+    try {
+      if (playerIds.isEmpty) return {};
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/player-projections/bulk/$season'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'player_ids': playerIds,
+          'season_type': seasonType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final projectionsData = data['data'] as Map<String, dynamic>;
+
+        // Convert to Map<String, Map<String, dynamic>>
+        return projectionsData.map((key, value) =>
+          MapEntry(key, value as Map<String, dynamic>)
+        );
+      }
+      return null;
+    } catch (e) {
+      print('Get bulk season projections error: $e');
+      return null;
+    }
+  }
+
+  // Get bulk projections for multiple players across a week range
+  Future<Map<String, Map<String, dynamic>>?> getBulkWeekRangeProjections({
+    required int season,
+    required List<String> playerIds,
+    required int startWeek,
+    required int endWeek,
+    String seasonType = 'regular',
+  }) async {
+    try {
+      if (playerIds.isEmpty) return {};
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/player-projections/bulk/$season/weeks'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'player_ids': playerIds,
+          'start_week': startWeek,
+          'end_week': endWeek,
+          'season_type': seasonType,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final projectionsData = data['data'] as Map<String, dynamic>;
+
+        // Convert to Map<String, Map<String, dynamic>>
+        return projectionsData.map((key, value) =>
+          MapEntry(key, value as Map<String, dynamic>)
+        );
+      }
+      return null;
+    } catch (e) {
+      print('Get bulk week range projections error: $e');
+      return null;
+    }
+  }
 }
