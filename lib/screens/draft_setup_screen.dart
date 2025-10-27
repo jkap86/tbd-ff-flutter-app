@@ -24,6 +24,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   bool _thirdRoundReversal = false;
   int _pickTimeSeconds = 90;
   int _rounds = 15;
+  String _timerMode = 'standard'; // 'standard' or 'slow'
 
   bool _isCreating = false;
 
@@ -173,6 +174,33 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'standard',
+                      label: Text('Standard'),
+                      icon: Icon(Icons.timer),
+                    ),
+                    ButtonSegment(
+                      value: 'slow',
+                      label: Text('Slow Draft'),
+                      icon: Icon(Icons.schedule),
+                    ),
+                  ],
+                  selected: {_timerMode},
+                  onSelectionChanged: (Set<String> selection) {
+                    setState(() {
+                      _timerMode = selection.first;
+                      // Set default for mode
+                      if (_timerMode == 'standard') {
+                        _pickTimeSeconds = 90;
+                      } else {
+                        _pickTimeSeconds = 3600; // 1 hour default for slow
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -183,11 +211,11 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '$_pickTimeSeconds seconds per pick',
+                              _getTimerLabel(),
                               style: Theme.of(context).textTheme.bodyLarge,
                             ),
                             Text(
-                              '${(_pickTimeSeconds / 60).floor()}:${(_pickTimeSeconds % 60).toString().padLeft(2, '0')}',
+                              _getTimerDisplay(),
                               style: Theme.of(context)
                                   .textTheme
                                   .headlineSmall
@@ -201,21 +229,21 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         const SizedBox(height: 8),
                         Slider(
                           value: _pickTimeSeconds.toDouble(),
-                          min: 30,
-                          max: 300,
-                          divisions: 27,
-                          label: '${_pickTimeSeconds}s',
+                          min: _timerMode == 'standard' ? 30 : 300,
+                          max: _timerMode == 'standard' ? 300 : 86400,
+                          divisions: _timerMode == 'standard' ? 27 : _getSlowDivisions(),
+                          label: _getTimerDisplay(),
                           onChanged: (value) {
                             setState(() =>
-                                _pickTimeSeconds = value.toInt());
+                                _pickTimeSeconds = _snapToInterval(value.toInt()));
                           },
                         ),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('30s',
+                            Text(_timerMode == 'standard' ? '30s' : '5m',
                                 style: Theme.of(context).textTheme.bodySmall),
-                            Text('5m',
+                            Text(_timerMode == 'standard' ? '5m' : '24h',
                                 style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
@@ -302,7 +330,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         if (_draftType == 'snake' && _thirdRoundReversal)
                           _buildSummaryRow('3RR', 'Enabled'),
                         _buildSummaryRow(
-                            'Pick Timer', '${_pickTimeSeconds}s'),
+                            'Pick Timer', _getTimerSummary()),
                         _buildSummaryRow('Rounds', '$_rounds'),
                         _buildSummaryRow('Total Picks',
                             '${_rounds * 12}'), // Assuming 12 teams
@@ -332,6 +360,95 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
         ),
       ),
     );
+  }
+
+  String _getTimerLabel() {
+    if (_timerMode == 'standard') {
+      return '$_pickTimeSeconds seconds per pick';
+    } else {
+      return 'Time per pick';
+    }
+  }
+
+  String _getTimerDisplay() {
+    if (_timerMode == 'standard') {
+      final minutes = _pickTimeSeconds ~/ 60;
+      final seconds = _pickTimeSeconds % 60;
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      // Slow draft display
+      if (_pickTimeSeconds < 3600) {
+        // Less than 1 hour - show minutes
+        final minutes = _pickTimeSeconds ~/ 60;
+        return '${minutes}m';
+      } else if (_pickTimeSeconds < 86400) {
+        // Less than 1 day - show hours
+        final hours = _pickTimeSeconds ~/ 3600;
+        return '${hours}h';
+      } else {
+        // Show days
+        final days = _pickTimeSeconds ~/ 86400;
+        return '${days}d';
+      }
+    }
+  }
+
+  String _getTimerSummary() {
+    if (_pickTimeSeconds < 60) {
+      return '${_pickTimeSeconds}s';
+    } else if (_pickTimeSeconds < 3600) {
+      final minutes = _pickTimeSeconds ~/ 60;
+      return '${minutes}m';
+    } else if (_pickTimeSeconds < 86400) {
+      final hours = _pickTimeSeconds ~/ 3600;
+      return '${hours}h';
+    } else {
+      final days = _pickTimeSeconds ~/ 86400;
+      return '${days}d';
+    }
+  }
+
+  int _getSlowDivisions() {
+    // Slow draft intervals:
+    // 5m, 10m, 15m, 20m, 30m, 1h, 2h, 4h, 8h, 12h, 18h, 24h
+    return 11;
+  }
+
+  int _snapToInterval(int seconds) {
+    if (_timerMode == 'standard') {
+      // Standard mode: snap to 10 second intervals
+      return (seconds ~/ 10) * 10;
+    } else {
+      // Slow draft mode: snap to specific intervals
+      const intervals = [
+        300,    // 5 minutes
+        600,    // 10 minutes
+        900,    // 15 minutes
+        1200,   // 20 minutes
+        1800,   // 30 minutes
+        3600,   // 1 hour
+        7200,   // 2 hours
+        14400,  // 4 hours
+        28800,  // 8 hours
+        43200,  // 12 hours
+        64800,  // 18 hours
+        86400,  // 24 hours
+      ];
+
+      // Find closest interval
+      int closest = intervals[0];
+      int minDiff = (seconds - intervals[0]).abs();
+
+      for (int interval in intervals) {
+        int diff = (seconds - interval).abs();
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = interval;
+        }
+      }
+
+      return closest;
+    }
   }
 
   Widget _buildSummaryRow(String label, String value) {

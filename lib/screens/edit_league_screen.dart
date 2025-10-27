@@ -922,9 +922,10 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                 labelText: 'Pick Timer',
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.timer),
-                                helperText: 'Seconds per pick',
+                                helperText: 'Time per pick',
                               ),
                               items: const [
+                                // Standard options
                                 DropdownMenuItem(value: 10, child: Text('10 seconds')),
                                 DropdownMenuItem(value: 30, child: Text('30 seconds')),
                                 DropdownMenuItem(value: 60, child: Text('1 minute')),
@@ -932,6 +933,18 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                 DropdownMenuItem(value: 120, child: Text('2 minutes')),
                                 DropdownMenuItem(value: 180, child: Text('3 minutes')),
                                 DropdownMenuItem(value: 300, child: Text('5 minutes')),
+                                // Slow draft options
+                                DropdownMenuItem(value: 600, child: Text('10 minutes')),
+                                DropdownMenuItem(value: 900, child: Text('15 minutes')),
+                                DropdownMenuItem(value: 1200, child: Text('20 minutes')),
+                                DropdownMenuItem(value: 1800, child: Text('30 minutes')),
+                                DropdownMenuItem(value: 3600, child: Text('1 hour')),
+                                DropdownMenuItem(value: 7200, child: Text('2 hours')),
+                                DropdownMenuItem(value: 14400, child: Text('4 hours')),
+                                DropdownMenuItem(value: 28800, child: Text('8 hours')),
+                                DropdownMenuItem(value: 43200, child: Text('12 hours')),
+                                DropdownMenuItem(value: 64800, child: Text('18 hours')),
+                                DropdownMenuItem(value: 86400, child: Text('24 hours')),
                               ],
                               onChanged: (value) {
                                 setState(() => _pickTimeSeconds = value!);

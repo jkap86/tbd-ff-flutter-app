@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:uni_links/uni_links.dart';
@@ -89,17 +90,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
       Provider.of<AuthProvider>(context, listen: false).checkAuthStatus();
     });
 
-    // Handle initial deep link (when app is launched from link)
-    _handleInitialLink();
+    // Only handle deep links on mobile platforms (not web)
+    if (!kIsWeb) {
+      // Handle initial deep link (when app is launched from link)
+      _handleInitialLink();
 
-    // Handle deep links while app is running
-    _sub = uriLinkStream.listen((Uri? uri) {
-      if (uri != null && mounted) {
-        _handleDeepLink(uri);
-      }
-    }, onError: (err) {
-      print('Deep link error: $err');
-    });
+      // Handle deep links while app is running
+      _sub = uriLinkStream.listen((Uri? uri) {
+        if (uri != null && mounted) {
+          _handleDeepLink(uri);
+        }
+      }, onError: (err) {
+        print('Deep link error: $err');
+      });
+    }
   }
 
   @override
