@@ -369,6 +369,31 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         : starters.where((s) => s['player'] != null).length;
     final totalPlayers = starterCount + bench.length + taxi.length + ir.length;
 
+    // Get positions that exist in roster slots (to determine which positions to show)
+    final rosterPositions = <String>{};
+    for (final slot in starters) {
+      final slotName = slot['slot'] as String?;
+      if (slotName != null) {
+        // Extract base position (e.g., "QB1" -> "QB", "FLEX" -> "FLEX")
+        final basePosition = slotName.replaceAll(RegExp(r'\d+$'), '');
+
+        // Map FLEX positions to their component positions
+        if (basePosition == 'FLEX') {
+          rosterPositions.addAll(['RB', 'WR', 'TE']);
+        } else if (basePosition == 'SUPER_FLEX') {
+          rosterPositions.addAll(['QB', 'RB', 'WR', 'TE']);
+        } else if (basePosition == 'WRT') {
+          rosterPositions.addAll(['WR', 'RB', 'TE']);
+        } else if (basePosition == 'REC_FLEX') {
+          rosterPositions.addAll(['WR', 'TE']);
+        } else if (basePosition == 'IDP_FLEX') {
+          rosterPositions.addAll(['DL', 'LB', 'DB']);
+        } else {
+          rosterPositions.add(basePosition);
+        }
+      }
+    }
+
     // Count players by position
     Map<String, int> countByPosition(List<dynamic> players) {
       final counts = <String, int>{};
@@ -455,31 +480,31 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // Position breakdown
+                    // Position breakdown - show positions that exist in roster slots
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        if (positionCounts['QB'] != null)
-                          _buildStatChip('QB', positionCounts['QB'].toString(), Colors.red),
-                        if (positionCounts['RB'] != null)
-                          _buildStatChip('RB', positionCounts['RB'].toString(), Colors.green),
-                        if (positionCounts['WR'] != null)
-                          _buildStatChip('WR', positionCounts['WR'].toString(), Colors.blue),
-                        if (positionCounts['TE'] != null)
-                          _buildStatChip('TE', positionCounts['TE'].toString(), Colors.orange),
-                        if (positionCounts['K'] != null)
-                          _buildStatChip('K', positionCounts['K'].toString(), Colors.purple),
-                        if (positionCounts['DEF'] != null)
-                          _buildStatChip('DEF', positionCounts['DEF'].toString(), Colors.brown),
+                        if (rosterPositions.contains('QB'))
+                          _buildStatChip('QB', (positionCounts['QB'] ?? 0).toString(), Colors.red),
+                        if (rosterPositions.contains('RB'))
+                          _buildStatChip('RB', (positionCounts['RB'] ?? 0).toString(), Colors.green),
+                        if (rosterPositions.contains('WR'))
+                          _buildStatChip('WR', (positionCounts['WR'] ?? 0).toString(), Colors.blue),
+                        if (rosterPositions.contains('TE'))
+                          _buildStatChip('TE', (positionCounts['TE'] ?? 0).toString(), Colors.orange),
+                        if (rosterPositions.contains('K'))
+                          _buildStatChip('K', (positionCounts['K'] ?? 0).toString(), Colors.purple),
+                        if (rosterPositions.contains('DEF'))
+                          _buildStatChip('DEF', (positionCounts['DEF'] ?? 0).toString(), Colors.brown),
                         // IDP positions
-                        if (positionCounts['DL'] != null)
-                          _buildStatChip('DL', positionCounts['DL'].toString(), Colors.grey),
-                        if (positionCounts['LB'] != null)
-                          _buildStatChip('LB', positionCounts['LB'].toString(), Colors.grey),
-                        if (positionCounts['DB'] != null)
-                          _buildStatChip('DB', positionCounts['DB'].toString(), Colors.grey),
+                        if (rosterPositions.contains('DL'))
+                          _buildStatChip('DL', (positionCounts['DL'] ?? 0).toString(), Colors.grey),
+                        if (rosterPositions.contains('LB'))
+                          _buildStatChip('LB', (positionCounts['LB'] ?? 0).toString(), Colors.grey),
+                        if (rosterPositions.contains('DB'))
+                          _buildStatChip('DB', (positionCounts['DB'] ?? 0).toString(), Colors.grey),
                       ],
                     ),
                   ],
