@@ -510,19 +510,17 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
           appBar: _buildAppBar(context, draft, draftProvider, authProvider),
           body: draft == null
               ? const Center(child: CircularProgressIndicator())
-              : draft.isNotStarted
-                  ? _buildNotStartedScreen(draftProvider, authProvider)
-                  : Column(
-                      children: [
-                        _buildStickyStatusBar(draftProvider, authProvider),
-                        Expanded(
-                          child: isWideScreen
-                              ? _buildSplitScreenLayout(draftProvider, authProvider)
-                              : _buildTabLayout(draftProvider),
-                        ),
-                        _buildBottomPickButton(draftProvider, authProvider),
-                      ],
+              : Column(
+                  children: [
+                    _buildStickyStatusBar(draftProvider, authProvider),
+                    Expanded(
+                      child: isWideScreen
+                          ? _buildSplitScreenLayout(draftProvider, authProvider)
+                          : _buildTabLayout(draftProvider),
                     ),
+                    _buildBottomPickButton(draftProvider, authProvider),
+                  ],
+                ),
         );
       },
     );
@@ -614,124 +612,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
           _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
         ],
       ],
-    );
-  }
-
-  Widget _buildNotStartedScreen(DraftProvider draftProvider, AuthProvider authProvider) {
-    final leagueProvider = Provider.of<LeagueProvider>(context);
-    final isCommissioner = leagueProvider.isCommissioner;
-    final hasOrder = draftProvider.draftOrder.isNotEmpty;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.sports_football,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Draft Not Started',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              hasOrder
-                  ? 'Draft order is set and ready to begin'
-                  : 'Waiting for commissioner to set draft order',
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-
-            // Show draft order if set
-            if (hasOrder) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Draft Order',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 200),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: draftProvider.draftOrder.length,
-                          itemBuilder: (context, index) {
-                            final order = draftProvider.draftOrder[index];
-                            return ListTile(
-                              dense: true,
-                              leading: CircleAvatar(
-                                radius: 16,
-                                child: Text(
-                                  '${order.draftPosition}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              title: Text(order.displayName),
-                              subtitle: Text('Team ${order.rosterNumber ?? "?"}'),
-                              trailing: order.isAutodrafting
-                                  ? const Tooltip(
-                                      message: 'Autodraft enabled',
-                                      child: Icon(
-                                        Icons.auto_mode,
-                                        color: Colors.green,
-                                        size: 20,
-                                      ),
-                                    )
-                                  : null,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            // Messages for commissioner and non-commissioner
-            if (isCommissioner && !hasOrder)
-              Padding(
-                padding: const EdgeInsets.only(top: 24.0),
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Go to Settings to Set Draft Order'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  ),
-                ),
-              )
-            else if (!isCommissioner)
-              Padding(
-                padding: const EdgeInsets.only(top: 24.0),
-                child: Text(
-                  'Waiting for commissioner to start the draft...',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 
