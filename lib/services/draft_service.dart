@@ -226,6 +226,7 @@ class DraftService {
     bool? thirdRoundReversal,
     int? pickTimeSeconds,
     int? rounds,
+    Map<String, dynamic>? settings,
   }) async {
     try {
       final response = await http.put(
@@ -236,6 +237,7 @@ class DraftService {
           if (thirdRoundReversal != null) 'third_round_reversal': thirdRoundReversal,
           if (pickTimeSeconds != null) 'pick_time_seconds': pickTimeSeconds,
           if (rounds != null) 'rounds': rounds,
+          if (settings != null) 'settings': settings,
         }),
       );
 

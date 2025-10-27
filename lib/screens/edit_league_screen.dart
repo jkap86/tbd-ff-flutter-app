@@ -40,6 +40,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   int _pickTimeSeconds = 90;
   int _draftRounds = 15;
 
+  // Overnight pause settings
+  bool _autoPauseEnabled = false;
+  TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0);
+  TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0);
+
   // Commissioner
   int? _commissionerId;
 
@@ -120,11 +125,25 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     await draftProvider.loadDraftByLeague(widget.league.id);
 
     if (mounted && draftProvider.currentDraft != null) {
+      final draft = draftProvider.currentDraft!;
       setState(() {
-        _draftType = draftProvider.currentDraft!.draftType;
-        _thirdRoundReversal = draftProvider.currentDraft!.thirdRoundReversal;
-        _pickTimeSeconds = draftProvider.currentDraft!.pickTimeSeconds;
-        _draftRounds = draftProvider.currentDraft!.rounds;
+        _draftType = draft.draftType;
+        _thirdRoundReversal = draft.thirdRoundReversal;
+        _pickTimeSeconds = draft.pickTimeSeconds;
+        _draftRounds = draft.rounds;
+
+        // Load overnight pause settings
+        if (draft.settings != null) {
+          _autoPauseEnabled = draft.settings['auto_pause_enabled'] == true;
+          if (_autoPauseEnabled) {
+            final startHour = draft.settings['auto_pause_start_hour'] ?? 23;
+            final startMinute = draft.settings['auto_pause_start_minute'] ?? 0;
+            final endHour = draft.settings['auto_pause_end_hour'] ?? 8;
+            final endMinute = draft.settings['auto_pause_end_minute'] ?? 0;
+            _autoPauseStartTime = TimeOfDay(hour: startHour, minute: startMinute);
+            _autoPauseEndTime = TimeOfDay(hour: endHour, minute: endMinute);
+          }
+        }
       });
     }
   }
@@ -216,6 +235,13 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             thirdRoundReversal: _thirdRoundReversal,
             pickTimeSeconds: _pickTimeSeconds,
             rounds: _draftRounds,
+            settings: _autoPauseEnabled ? {
+              'auto_pause_enabled': true,
+              'auto_pause_start_hour': _autoPauseStartTime.hour,
+              'auto_pause_start_minute': _autoPauseStartTime.minute,
+              'auto_pause_end_hour': _autoPauseEndTime.hour,
+              'auto_pause_end_minute': _autoPauseEndTime.minute,
+            } : {'auto_pause_enabled': false},
           );
 
           // Only show draft error if update actually failed (don't show for league-only updates)
@@ -970,6 +996,76 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                               onChanged: (value) {
                                 setState(() => _draftRounds = value!);
                               },
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Overnight Pause Settings
+                            Card(
+                              child: Column(
+                                children: [
+                                  SwitchListTile(
+                                    title: const Text('Auto-Pause Overnight'),
+                                    subtitle: const Text(
+                                        'Automatically pause draft during specified hours'),
+                                    value: _autoPauseEnabled,
+                                    onChanged: (value) {
+                                      setState(() => _autoPauseEnabled = value);
+                                    },
+                                  ),
+                                  if (_autoPauseEnabled) ...[
+                                    const Divider(height: 1),
+                                    ListTile(
+                                      leading: const Icon(Icons.bedtime),
+                                      title: const Text('Pause at'),
+                                      trailing: TextButton(
+                                        onPressed: () async {
+                                          final time = await showTimePicker(
+                                            context: context,
+                                            initialTime: _autoPauseStartTime,
+                                          );
+                                          if (time != null) {
+                                            setState(() => _autoPauseStartTime = time);
+                                          }
+                                        },
+                                        child: Text(
+                                          _autoPauseStartTime.format(context),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: Theme.of(context).colorScheme.primary,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                    const Divider(height: 1),
+                                    ListTile(
+                                      leading: const Icon(Icons.wb_sunny),
+                                      title: const Text('Resume at'),
+                                      trailing: TextButton(
+                                        onPressed: () async {
+                                          final time = await showTimePicker(
+                                            context: context,
+                                            initialTime: _autoPauseEndTime,
+                                          );
+                                          if (time != null) {
+                                            setState(() => _autoPauseEndTime = time);
+                                          }
+                                        },
+                                        child: Text(
+                                          _autoPauseEndTime.format(context),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                color: Theme.of(context).colorScheme.primary,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 24),
 
