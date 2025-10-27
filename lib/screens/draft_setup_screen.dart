@@ -26,6 +26,11 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   int _rounds = 15;
   String _timerMode = 'standard'; // 'standard' or 'slow'
 
+  // Overnight pause settings
+  bool _autoPauseEnabled = false;
+  TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0); // 11:00 PM
+  TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0); // 8:00 AM
+
   bool _isCreating = false;
 
   Future<void> _handleCreateDraft() async {
@@ -51,6 +56,13 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       thirdRoundReversal: _thirdRoundReversal,
       pickTimeSeconds: _pickTimeSeconds,
       rounds: _rounds,
+      settings: _autoPauseEnabled ? {
+        'auto_pause_enabled': true,
+        'auto_pause_start_hour': _autoPauseStartTime.hour,
+        'auto_pause_start_minute': _autoPauseStartTime.minute,
+        'auto_pause_end_hour': _autoPauseEndTime.hour,
+        'auto_pause_end_minute': _autoPauseEndTime.minute,
+      } : null,
     );
 
     if (mounted) {
@@ -308,7 +320,88 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // Overnight Pause (only for slow drafts)
+                if (_timerMode == 'slow') ...[
+                  Text(
+                    'Overnight Pause',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text('Auto-Pause Overnight'),
+                          subtitle: const Text(
+                              'Automatically pause draft during specified hours'),
+                          value: _autoPauseEnabled,
+                          onChanged: (value) {
+                            setState(() => _autoPauseEnabled = value);
+                          },
+                        ),
+                        if (_autoPauseEnabled) ...[
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.bedtime),
+                            title: const Text('Pause at'),
+                            trailing: TextButton(
+                              onPressed: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _autoPauseStartTime,
+                                );
+                                if (time != null) {
+                                  setState(() => _autoPauseStartTime = time);
+                                }
+                              },
+                              child: Text(
+                                _autoPauseStartTime.format(context),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.wb_sunny),
+                            title: const Text('Resume at'),
+                            trailing: TextButton(
+                              onPressed: () async {
+                                final time = await showTimePicker(
+                                  context: context,
+                                  initialTime: _autoPauseEndTime,
+                                );
+                                if (time != null) {
+                                  setState(() => _autoPauseEndTime = time);
+                                }
+                              },
+                              child: Text(
+                                _autoPauseEndTime.format(context),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                const SizedBox(height: 8),
 
                 // Draft Summary
                 Card(
@@ -334,6 +427,10 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         _buildSummaryRow('Rounds', '$_rounds'),
                         _buildSummaryRow('Total Picks',
                             '${_rounds * 12}'), // Assuming 12 teams
+                        if (_autoPauseEnabled)
+                          _buildSummaryRow(
+                              'Auto-Pause',
+                              '${_autoPauseStartTime.format(context)} - ${_autoPauseEndTime.format(context)}')
                       ],
                     ),
                   ),

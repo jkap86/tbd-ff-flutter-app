@@ -116,6 +116,7 @@ class DraftProvider with ChangeNotifier {
     bool thirdRoundReversal = false,
     int pickTimeSeconds = 90,
     int rounds = 15,
+    Map<String, dynamic>? settings,
   }) async {
     _status = DraftStatus.loading;
     _errorMessage = null;
@@ -129,6 +130,7 @@ class DraftProvider with ChangeNotifier {
         thirdRoundReversal: thirdRoundReversal,
         pickTimeSeconds: pickTimeSeconds,
         rounds: rounds,
+        settings: settings,
       );
 
       if (draft != null) {
