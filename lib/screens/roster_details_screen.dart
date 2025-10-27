@@ -363,11 +363,12 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final taxi = _rosterData!['taxi'] as List<dynamic>? ?? [];
     final ir = _rosterData!['ir'] as List<dynamic>? ?? [];
 
-    // Count total players - for starters in view mode, count non-null slots
+    // Count total players - for starters (including BN slots), count non-null slots
     int starterCount = _isEditMode
         ? starters.where((s) => s['player'] != null).length
         : starters.where((s) => s['player'] != null).length;
-    final totalPlayers = starterCount + bench.length + taxi.length + ir.length;
+    // Note: bench array is deprecated - bench players are now in BN slots within starters
+    final totalPlayers = starterCount + taxi.length + ir.length;
 
     // Get positions that exist in roster slots (to determine which positions to show)
     final rosterPositions = <String>{};
@@ -418,6 +419,13 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
     final positionCounts = countByPosition(allPlayers);
 
+    // Calculate roster size validation
+    final totalRosterSlots = starters.length;
+    // starterCount includes all filled slots (QB, RB, WR, BN, etc.)
+    final totalPlayersOnRoster = starterCount + taxi.length + ir.length;
+    final excessPlayers = totalPlayersOnRoster - totalRosterSlots;
+    final hasExcessPlayers = excessPlayers > 0;
+
     return RefreshIndicator(
       onRefresh: _loadRoster,
       child: SingleChildScrollView(
@@ -426,6 +434,48 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Roster Size Validation Warning
+            if (hasExcessPlayers) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300, width: 2),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.red.shade700, size: 32),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Too Many Players on Roster',
+                            style: TextStyle(
+                              color: Colors.red.shade900,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'You have $totalPlayersOnRoster players but only $totalRosterSlots roster slots. Please drop $excessPlayers ${excessPlayers == 1 ? 'player' : 'players'} to meet league requirements.',
+                            style: TextStyle(
+                              color: Colors.red.shade800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Roster Info Card
             Card(
               child: Padding(
@@ -574,14 +624,6 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-            ],
-
-            // Bench Section
-            if (bench.isNotEmpty) ...[
-              _buildSectionHeader('Bench', bench.length, Colors.orange),
-              const SizedBox(height: 8),
-              ...bench.map((player) => _buildPlayerCard(player, 'bench')),
               const SizedBox(height: 24),
             ],
 

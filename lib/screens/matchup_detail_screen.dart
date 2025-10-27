@@ -293,17 +293,6 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
         ),
         const SizedBox(height: 8),
         ...starters.map((starter) => _buildPlayerRow(starter, isStarter: true)),
-
-        // Bench section
-        if (bench.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          const Text(
-            'Bench',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          ...bench.map((player) => _buildPlayerRow({'player': player}, isStarter: false)),
-        ],
       ],
     );
   }
@@ -337,10 +326,11 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
                       'Empty',
                       style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
                     ),
-                    Text(
-                      slot ?? 'BN',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                    ),
+                    if (slot != null)
+                      Text(
+                        slot,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
                   ],
                 ),
               ),

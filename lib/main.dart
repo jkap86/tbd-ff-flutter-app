@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
+import 'package:uni_links/uni_links.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
@@ -8,6 +10,7 @@ import 'providers/draft_provider.dart';
 import 'providers/matchup_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'config/api_config.dart';
 
 void main() {
@@ -76,6 +79,8 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  StreamSubscription? _sub;
+
   @override
   void initState() {
     super.initState();
@@ -83,6 +88,55 @@ class _AuthWrapperState extends State<AuthWrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<AuthProvider>(context, listen: false).checkAuthStatus();
     });
+
+    // Handle initial deep link (when app is launched from link)
+    _handleInitialLink();
+
+    // Handle deep links while app is running
+    _sub = uriLinkStream.listen((Uri? uri) {
+      if (uri != null && mounted) {
+        _handleDeepLink(uri);
+      }
+    }, onError: (err) {
+      print('Deep link error: $err');
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _handleInitialLink() async {
+    try {
+      final initialUri = await getInitialUri();
+      if (initialUri != null && mounted) {
+        _handleDeepLink(initialUri);
+      }
+    } catch (e) {
+      print('Error handling initial link: $e');
+    }
+  }
+
+  void _handleDeepLink(Uri uri) {
+    print('📱 Deep link received: $uri');
+
+    // Handle reset-password link
+    if (uri.path.contains('reset-password')) {
+      final token = uri.queryParameters['token'];
+      if (token != null && token.isNotEmpty) {
+        print('✅ Password reset token found: $token');
+        // Navigate to reset password screen
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ResetPasswordScreen(token: token),
+          ),
+        );
+      } else {
+        print('❌ No token found in reset password link');
+      }
+    }
   }
 
   @override
