@@ -48,7 +48,7 @@ class MyAppContent extends StatelessWidget {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         return MaterialApp(
-          title: 'TBD Fantasy Football',
+          title: 'HypeTrain',
           debugShowCheckedModeBanner: false,
           themeMode: themeProvider.themeMode,
           theme: ThemeData(
