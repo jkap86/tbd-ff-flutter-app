@@ -53,17 +53,31 @@ class HomeScreen extends StatelessWidget {
             );
           }
 
-          return ResponsiveContainer(
-            maxWidth: 800,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Leagues Card - Main feature
-                  Card(
-                    elevation: 4,
-                    child: InkWell(
+          return Column(
+            children: [
+              // Logo banner - full width at top (outside ResponsiveContainer)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              // Scrollable content with ResponsiveContainer
+              Expanded(
+                child: ResponsiveContainer(
+                  maxWidth: 800,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Leagues Card - Main feature
+                        Card(
+                          elevation: 4,
+                          child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -128,9 +142,12 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           );
         },
       ),
