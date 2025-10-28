@@ -52,8 +52,13 @@ jobs:
         PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
         echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PP_PATH"
         
+        # Get UUID from provisioning profile
+        PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PP_PATH"))
+        echo "Provisioning Profile UUID: $PP_UUID"
+        
+        # Install to correct location
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
+        cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/$PP_UUID.mobileprovision
 
     - name: Build iOS App
       env:
@@ -61,23 +66,34 @@ jobs:
       run: |
         cd ios
         
+        # Get the provisioning profile UUID
+        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+        PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PP_PATH"))
+        
         # Build Flutter app first
         flutter build ios --release --no-codesign
         
-        # Archive with automatic signing - NO PROVISIONING_PROFILE!
+        # Archive with explicit settings for Runner only
         xcodebuild -workspace Runner.xcworkspace \
           -scheme Runner \
           -configuration Release \
           -archivePath build/Runner.xcarchive \
           archive \
+          -destination 'generic/platform=iOS' \
           DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-          -allowProvisioningUpdates
+          PROVISIONING_PROFILE_SPECIFIER="$PP_UUID" \
+          CODE_SIGN_STYLE="Manual" \
+          CODE_SIGN_IDENTITY="iPhone Distribution"
 
     - name: Export IPA
       run: |
         cd ios
         
-        # Create ExportOptions.plist for automatic signing
+        # Get the provisioning profile UUID
+        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+        PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PP_PATH"))
+        
+        # Create ExportOptions.plist
         cat > ExportOptions.plist <<EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -91,6 +107,13 @@ jobs:
             <true/>
             <key>compileBitcode</key>
             <false/>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+                <key>com.jkap86.fantasyfootball</key>
+                <string>$PP_UUID</string>
+            </dict>
         </dict>
         </plist>
         EOF
