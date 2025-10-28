@@ -13,7 +13,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('HypeTrain'),
         actions: [
           // Theme toggle button
           Consumer<ThemeProvider>(
@@ -58,10 +57,11 @@ class HomeScreen extends StatelessWidget {
               // Logo banner - full width at top (outside ResponsiveContainer)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
                 child: Image.asset(
                   'assets/icon/app_icon.png',
-                  height: 120,
+                  height: 240,
+                  width: 540,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -70,7 +70,7 @@ class HomeScreen extends StatelessWidget {
                 child: ResponsiveContainer(
                   maxWidth: 800,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -142,6 +142,174 @@ class HomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                        const SizedBox(height: 16),
+                        // My Players Card - Coming Soon
+                        Card(
+                          elevation: 4,
+                          child: Opacity(
+                            opacity: 0.6,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.group,
+                                      size: 40,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'My Players',
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Coming Soon',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // My Leaguemates Card - Coming Soon
+                        Card(
+                          elevation: 4,
+                          child: Opacity(
+                            opacity: 0.6,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.people,
+                                      size: 40,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'My Leaguemates',
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Coming Soon',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Trades Card - Coming Soon
+                        Card(
+                          elevation: 4,
+                          child: Opacity(
+                            opacity: 0.6,
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(
+                                      Icons.swap_horiz,
+                                      size: 40,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Trades',
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Coming Soon',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

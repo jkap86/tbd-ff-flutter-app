@@ -56,6 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -78,160 +80,240 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 500),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // App Logo/Title
-                    const Icon(
-                      Icons.sports_football,
-                      size: 80,
-                      color: Colors.blue,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'HypeTrain',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Login to your account',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Username field
-                    TextFormField(
-                      controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your username';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Password field
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Forgot Password link
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text('Forgot Password?'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Login button
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, child) {
-                        return ElevatedButton(
-                          onPressed: authProvider.status == AuthStatus.loading
-                              ? null
-                              : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: authProvider.status == AuthStatus.loading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  'Login',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Register link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Don't have an account? "),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text('Register'),
-                        ),
-                      ],
-                    ),
-                  ],
+      body: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.35,
+              child: Transform.scale(
+                scale: 1.5,
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
           ),
-        ),
+          // Overlay to adjust brightness
+          Positioned.fill(
+            child: Container(
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.7),
+            ),
+          ),
+          // Content
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // App Title
+                        Text(
+                          'HypeTrain',
+                          style: TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.2,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Login to your account',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 48),
+
+                        // Username field
+                        TextFormField(
+                          controller: _usernameController,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.tertiary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Username',
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.tertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 3,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.person,
+                              color: Theme.of(context).colorScheme.tertiary,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your username';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Password field
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.tertiary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.tertiary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.tertiary,
+                                width: 3,
+                              ),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.lock,
+                              color: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                                color: Theme.of(context).colorScheme.tertiary,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Forgot Password link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const ForgotPasswordScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text('Forgot Password?'),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Login button
+                        Consumer<AuthProvider>(
+                          builder: (context, authProvider, child) {
+                            return ElevatedButton(
+                              onPressed: authProvider.status == AuthStatus.loading
+                                  ? null
+                                  : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: authProvider.status == AuthStatus.loading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Login',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Register link
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text("Don't have an account? "),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => const RegisterScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text('Register'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
