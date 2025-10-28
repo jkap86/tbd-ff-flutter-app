@@ -22,47 +22,73 @@ jobs:
     - name: Install Flutter dependencies
       run: flutter pub get
     
-    - name: Install Fastlane
-      run: |
-        cd ios
-        bundle install
-    
-    - name: Set up Fastlane Match
+    - name: Install Apple Certificate
       env:
-        MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-        APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        FASTLANE_USER: "jkap86@gmail.com"
-        FASTLANE_DONT_STORE_PASSWORD: "true"
-        FASTLANE_SKIP_UPDATE_CHECK: "true"
+        CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        KEYCHAIN_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       run: |
-        cd ios
-        bundle exec fastlane match appstore --readonly false
+        # Create certificate file
+        CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+        echo -n "$CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+        
+        # Create keychain
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+        security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+        
+        # Import certificate
+        security import $CERTIFICATE_PATH -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+        security list-keychain -d user -s $KEYCHAIN_PATH
     
-    - name: Build iOS Release
-      run: flutter build ios --release --no-codesign
-    
-    - name: Build and Archive with Fastlane
+    - name: Install Provisioning Profile
       env:
-        MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        FASTLANE_USER: "jkap86@gmail.com"
-        FASTLANE_DONT_STORE_PASSWORD: "true"
-        FASTLANE_SKIP_UPDATE_CHECK: "true"
+        PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+      run: |
+        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
+        echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o $PP_PATH
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles
+    
+    - name: Build iOS App
       run: |
         cd ios
-        bundle exec fastlane build_and_upload
+        xcodebuild -workspace Runner.xcworkspace \
+          -scheme Runner \
+          -configuration Release \
+          -archivePath $RUNNER_TEMP/Runner.xcarchive \
+          archive
+    
+    - name: Export IPA
+      env:
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        cd ios
+        cat > exportOptions.plist <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>$APPLE_TEAM_ID</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>compileBitcode</key>
+            <false/>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild -exportArchive \
+          -archivePath $RUNNER_TEMP/Runner.xcarchive \
+          -exportPath $RUNNER_TEMP/ipa \
+          -exportOptionsPlist exportOptions.plist
     
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
       with:
         name: ios-ipa
-        path: ios/*.ipa
+        path: ${{ runner.temp }}/ipa/*.ipa
