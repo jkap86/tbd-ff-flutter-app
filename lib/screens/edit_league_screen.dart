@@ -210,102 +210,32 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             })
         .toList();
 
-    final success = await leagueProvider.updateLeagueSettings(
-      token: authProvider.token!,
-      leagueId: widget.league.id,
-      name: _nameController.text.trim(),
-      seasonType: _seasonType,
-      totalRosters: _totalRosters,
-      settings: {
+    // Show success message and navigate back immediately
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saving changes in background...')),
+    );
+    Navigator.of(context).pop();
+
+    // Do all the work in background (non-blocking)
+    _saveAllChangesInBackground(
+      authProvider.token!,
+      leagueProvider,
+      widget.league.id,
+      _nameController.text.trim(),
+      _seasonType,
+      _totalRosters,
+      {
         'is_public': _isPublic,
         'start_week': _startWeek,
         'end_week': _endWeek,
         'playoff_week_start': _playoffWeekStart,
       },
-      scoringSettings: updatedScoringSettings,
-      rosterPositions: rosterPositionsList,
+      updatedScoringSettings,
+      rosterPositionsList,
+      widget.league.season,
+      _startWeek,
+      _playoffWeekStart,
     );
-
-    if (mounted) {
-      if (success) {
-        // Update draft settings if draft exists
-        final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-        if (draftProvider.currentDraft != null) {
-          // Convert local time to UTC before saving
-          Map<String, dynamic> draftSettings;
-          if (_autoPauseEnabled) {
-            final startUTC = _localTimeOfDayToUTC(_autoPauseStartTime);
-            final endUTC = _localTimeOfDayToUTC(_autoPauseEndTime);
-            draftSettings = {
-              'auto_pause_enabled': true,
-              'auto_pause_start_hour': startUTC['hour'],
-              'auto_pause_start_minute': startUTC['minute'],
-              'auto_pause_end_hour': endUTC['hour'],
-              'auto_pause_end_minute': endUTC['minute'],
-            };
-          } else {
-            draftSettings = {'auto_pause_enabled': false};
-          }
-
-          final draftSuccess = await DraftService().updateDraftSettings(
-            token: authProvider.token!,
-            draftId: draftProvider.currentDraft!.id,
-            draftType: _draftType,
-            thirdRoundReversal: _thirdRoundReversal,
-            pickTimeSeconds: _pickTimeSeconds,
-            rounds: _draftRounds,
-            settings: draftSettings,
-          );
-
-          // Only show draft error if update actually failed (don't show for league-only updates)
-          if (draftSuccess == null) {
-            print('Draft settings update failed, but league settings updated successfully');
-          }
-        }
-
-        // Auto-generate matchups for all regular season weeks
-        print('[EditLeague] Auto-generating matchups for weeks $_startWeek to ${_playoffWeekStart - 1}...');
-        final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
-        final totalWeeks = _playoffWeekStart - _startWeek;
-
-        int successCount = 0;
-        for (int week = _startWeek; week < _playoffWeekStart; week++) {
-          final matchupSuccess = await matchupProvider.generateMatchups(
-            token: authProvider.token!,
-            leagueId: widget.league.id,
-            week: week,
-            season: widget.league.season,
-          );
-          if (matchupSuccess) {
-            successCount++;
-
-            // Auto-calculate scores for this week
-            print('[EditLeague] Calculating scores for week $week...');
-            await matchupProvider.updateScores(
-              token: authProvider.token!,
-              leagueId: widget.league.id,
-              week: week,
-              season: widget.league.season,
-            );
-          }
-        }
-
-        print('[EditLeague] Generated matchups and calculated scores for $successCount/$totalWeeks weeks');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('League updated! Generated $successCount matchups with scores.')),
-        );
-        Navigator.of(context).pop();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(leagueProvider.errorMessage ?? 'Failed to update league'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _handleCreateDraft() async {
@@ -1409,6 +1339,125 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       'hour': utcTime.hour,
       'minute': utcTime.minute,
     };
+  }
+
+  /// Save all changes in background (non-blocking)
+  void _saveAllChangesInBackground(
+    String token,
+    LeagueProvider leagueProvider,
+    int leagueId,
+    String name,
+    String seasonType,
+    int totalRosters,
+    Map<String, dynamic> settings,
+    Map<String, dynamic> scoringSettings,
+    List<Map<String, dynamic>> rosterPositions,
+    String season,
+    int startWeek,
+    int playoffWeekStart,
+  ) async {
+    print('[EditLeague] Starting background save...');
+
+    // Step 1: Update league settings
+    final success = await leagueProvider.updateLeagueSettings(
+      token: token,
+      leagueId: leagueId,
+      name: name,
+      seasonType: seasonType,
+      totalRosters: totalRosters,
+      settings: settings,
+      scoringSettings: scoringSettings,
+      rosterPositions: rosterPositions,
+    );
+
+    if (!success) {
+      print('[EditLeague] Failed to update league settings');
+      return;
+    }
+
+    print('[EditLeague] League settings updated');
+
+    // Step 2: Update draft settings if draft exists
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    if (draftProvider.currentDraft != null) {
+      // Convert local time to UTC before saving
+      Map<String, dynamic> draftSettings;
+      if (_autoPauseEnabled) {
+        final startUTC = _localTimeOfDayToUTC(_autoPauseStartTime);
+        final endUTC = _localTimeOfDayToUTC(_autoPauseEndTime);
+        draftSettings = {
+          'auto_pause_enabled': true,
+          'auto_pause_start_hour': startUTC['hour'],
+          'auto_pause_start_minute': startUTC['minute'],
+          'auto_pause_end_hour': endUTC['hour'],
+          'auto_pause_end_minute': endUTC['minute'],
+        };
+      } else {
+        draftSettings = {'auto_pause_enabled': false};
+      }
+
+      final draftSuccess = await DraftService().updateDraftSettings(
+        token: token,
+        draftId: draftProvider.currentDraft!.id,
+        draftType: _draftType,
+        thirdRoundReversal: _thirdRoundReversal,
+        pickTimeSeconds: _pickTimeSeconds,
+        rounds: _draftRounds,
+        settings: draftSettings,
+      );
+
+      if (draftSuccess == null) {
+        print('[EditLeague] Draft settings update failed');
+      } else {
+        print('[EditLeague] Draft settings updated');
+      }
+    }
+
+    // Step 3: Generate matchups
+    _generateMatchupsInBackground(
+      token,
+      leagueId,
+      season,
+      startWeek,
+      playoffWeekStart,
+    );
+  }
+
+  /// Generate matchups in background (non-blocking)
+  void _generateMatchupsInBackground(
+    String token,
+    int leagueId,
+    String season,
+    int startWeek,
+    int playoffWeekStart,
+  ) async {
+    print('[EditLeague] Auto-generating matchups for weeks $startWeek to ${playoffWeekStart - 1} in background...');
+    final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
+    final totalWeeks = playoffWeekStart - startWeek;
+
+    int successCount = 0;
+    for (int week = startWeek; week < playoffWeekStart; week++) {
+      final matchupSuccess = await matchupProvider.generateMatchups(
+        token: token,
+        leagueId: leagueId,
+        week: week,
+        season: season,
+      );
+      if (matchupSuccess) {
+        successCount++;
+
+        // Auto-calculate scores for this week
+        print('[EditLeague] Calculating scores for week $week...');
+        await matchupProvider.updateScores(
+          token: token,
+          leagueId: leagueId,
+          week: week,
+          season: season,
+        );
+      }
+    }
+
+    print('[EditLeague] Background matchup generation complete: $successCount/$totalWeeks weeks');
   }
 
   Widget _buildRosterPositionRow(String positionKey, String positionName) {
