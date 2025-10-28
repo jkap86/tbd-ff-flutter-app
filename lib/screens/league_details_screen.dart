@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/draft_provider.dart';
 import '../models/roster_model.dart';
+import '../models/league_model.dart';
 import '../models/league_chat_message_model.dart';
 import '../widgets/responsive_container.dart';
 import '../services/socket_service.dart';
@@ -30,6 +31,9 @@ class LeagueDetailsScreen extends StatefulWidget {
 class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     with WidgetsBindingObserver {
   double _chatDrawerHeight = 0.1; // Start collapsed showing preview
+  bool _isLeagueInfoExpanded = false;
+  final GlobalKey _cardKey = GlobalKey();
+  double _cardHeight = 80.0; // Default height
 
   // Chat state
   final LeagueChatService _chatService = LeagueChatService();
@@ -151,6 +155,17 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     );
   }
 
+  void _updateCardHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final RenderBox? renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        setState(() {
+          _cardHeight = renderBox.size.height;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -220,25 +235,36 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
             return const Center(child: Text('League not found'));
           }
 
+          final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
           return Stack(
             children: [
-              RefreshIndicator(
-                onRefresh: _loadLeagueDetails,
+              // League card - fixed at top
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
                 child: ResponsiveContainer(
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // League info card
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Card(
+                            key: _cardKey,
+                            margin: EdgeInsets.zero,
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            // Header (always visible)
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _isLeagueInfoExpanded = !_isLeagueInfoExpanded;
+                                });
+                                _updateCardHeight();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                child: Row(
                               children: [
                                 Icon(
                                   Icons.sports_football,
@@ -286,6 +312,15 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                     ],
                                   ),
                                 ),
+                                const Spacer(),
+                                // Expand/collapse icon
+                                Icon(
+                                  _isLeagueInfoExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 8),
                                 if (isCommissioner)
                                   PopupMenuButton(
                                     itemBuilder: (context) => [
@@ -369,16 +404,41 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                       ),
                                     ],
                                   ),
-                              ],
+                                ],
+                              ),
                             ),
+                          ),
+                            // Expandable content with animation
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              alignment: Alignment.topCenter,
+                              child: _isLeagueInfoExpanded
+                                ? Padding(
+                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
                             const Divider(height: 24),
                             _buildInfoRow(
-                                Icons.calendar_today, 'Season', league.season),
+                                Icons.calendar_today, 'Season', '${league.season} (Weeks ${league.startWeek}-${league.endWeek})'),
+                            const SizedBox(height: 8),
+                            _buildInfoRow(
+                              Icons.sports,
+                              'Season Type',
+                              _formatSeasonType(league.seasonType),
+                            ),
                             const SizedBox(height: 8),
                             _buildInfoRow(
                               Icons.category,
                               'League Type',
                               _formatLeagueType(league.leagueType),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildInfoRow(
+                              Icons.emoji_events,
+                              'Playoff Start',
+                              'Week ${league.playoffWeekStart}',
                             ),
                             const SizedBox(height: 8),
                             _buildInfoRow(
@@ -392,18 +452,87 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                               'Status',
                               _formatStatus(league.status),
                             ),
+                            const SizedBox(height: 16),
+                            // Collapsible Scoring Settings
+                            _buildScoringSettingsSection(league),
+                            const SizedBox(height: 16),
+                            const Divider(height: 1),
+                            const SizedBox(height: 16),
+                            // Draft button
+                            Consumer<DraftProvider>(
+                              builder: (context, draftProvider, child) {
+                                final isDrafting = league.status == 'drafting';
+                                final hasDraft = draftProvider.currentDraft != null &&
+                                    draftProvider.currentDraft!.leagueId == league.id;
+
+                                return SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: hasDraft ? () async {
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => DraftRoomScreen(
+                                            leagueId: league.id,
+                                            leagueName: league.name,
+                                          ),
+                                        ),
+                                      );
+                                      await _loadLeagueDetails();
+                                    } : null,
+                                    icon: Icon(
+                                      Icons.list_alt,
+                                      color: hasDraft
+                                          ? (isDrafting ? Colors.white : null)
+                                          : Colors.grey,
+                                    ),
+                                    label: Text(
+                                      hasDraft ? 'Draft' : 'No Draft',
+                                      style: TextStyle(
+                                        color: hasDraft
+                                            ? (isDrafting ? Colors.white : null)
+                                            : Colors.grey,
+                                        fontWeight: isDrafting ? FontWeight.bold : null,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: hasDraft
+                                          ? (isDrafting
+                                              ? Colors.orange
+                                              : Theme.of(context).colorScheme.primaryContainer)
+                                          : Theme.of(context).colorScheme.surfaceVariant,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                                      ],
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // Show Standings for in_season, Teams otherwise
-                    if (league.status == 'in_season')
-                      _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
-                    else
-                      _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
-                      ],
+                  ),
+                ),
+              ),
+              // Teams/Standings section - positioned below card with independent scroll
+              Positioned(
+                top: _isLeagueInfoExpanded ? 620 : 100, // Adjust based on card height
+                left: 0,
+                right: 0,
+                bottom: MediaQuery.of(context).size.height * _chatDrawerHeight,
+                child: RefreshIndicator(
+                  onRefresh: _loadLeagueDetails,
+                  child: ResponsiveContainer(
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      child: league.status == 'in_season'
+                        ? _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
+                        : _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
                     ),
                   ),
                 ),
@@ -411,7 +540,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
               // Matchups Button (only show after draft completes or league is in_season)
               if (league.status == 'in_season' || league.status == 'post_draft')
                 Positioned(
-                  bottom: 150,
+                  bottom: 80,
                   right: 16,
                   child: FloatingActionButton.extended(
                     heroTag: 'matchups_button',
@@ -433,57 +562,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                     backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
                   ),
                 ),
-              // Floating Draft Button
-              Positioned(
-                    bottom: 80,
-                    right: 16,
-                    child: Consumer<DraftProvider>(
-                      builder: (context, draftProvider, child) {
-                        final isDrafting = league.status == 'drafting';
-                        // Check if draft exists for this league
-                        final hasDraft = draftProvider.currentDraft != null &&
-                            draftProvider.currentDraft!.leagueId == league.id;
-
-                        return FloatingActionButton.extended(
-                          heroTag: 'draft_button',
-                          onPressed: hasDraft ? () async {
-                            // Go directly to draft room
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => DraftRoomScreen(
-                                  leagueId: league.id,
-                                  leagueName: league.name,
-                                ),
-                              ),
-                            );
-                            // Reload league details when returning
-                            await _loadLeagueDetails();
-                          } : null, // Disabled if no draft
-                          icon: Icon(
-                            Icons.list_alt,
-                            color: hasDraft
-                                ? (isDrafting ? Colors.white : null)
-                                : Colors.grey,
-                          ),
-                          label: Text(
-                            hasDraft ? 'Draft' : 'No Draft',
-                            style: TextStyle(
-                              color: hasDraft
-                                  ? (isDrafting ? Colors.white : null)
-                                  : Colors.grey,
-                              fontWeight: isDrafting ? FontWeight.bold : null,
-                            ),
-                          ),
-                          backgroundColor: hasDraft
-                              ? (isDrafting
-                                  ? Colors.orange
-                                  : Theme.of(context).colorScheme.primaryContainer)
-                              : Theme.of(context).colorScheme.surfaceVariant,
-                          elevation: hasDraft ? (isDrafting ? 8 : 2) : 0,
-                        );
-                      },
-                    ),
-              ),
               // Chat Drawer (bottom)
               Positioned(
                 left: 0,
@@ -591,7 +669,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                             final authProvider = context.read<AuthProvider>();
                                             final isMe = message.userId == authProvider.user?.id;
 
-                                            return _buildMessageBubble(message, isMe);
+                                            return _buildMessageBubble(context, message, isMe);
                                           },
                                         ),
                                 ),
@@ -636,7 +714,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                     ),
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -888,6 +965,78 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     }
   }
 
+  String _formatSeasonType(String type) {
+    switch (type) {
+      case 'pre':
+        return 'Preseason';
+      case 'regular':
+        return 'Regular Season';
+      case 'post':
+        return 'Postseason';
+      default:
+        return type;
+    }
+  }
+
+  Widget _buildScoringSettingsSection(League league) {
+    if (league.scoringSettings == null) {
+      return const SizedBox.shrink();
+    }
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      title: const Text(
+        'Scoring Settings',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: league.scoringSettings!.entries.map((entry) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatScoringLabel(entry.key),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      entry.value.toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatScoringLabel(String key) {
+    // Convert snake_case to Title Case
+    return key
+        .split('_')
+        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+  }
+
   Widget _buildTeamsSection(
     List<Roster> rosters,
     int? currentUserId,
@@ -1119,7 +1268,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     );
   }
 
-  Widget _buildMessageBubble(LeagueChatMessage message, bool isMe) {
+  Widget _buildMessageBubble(BuildContext context, LeagueChatMessage message, bool isMe) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
