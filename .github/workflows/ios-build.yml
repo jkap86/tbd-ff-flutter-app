@@ -66,32 +66,29 @@ jobs:
       run: |
         cd ios
         
-        # Get the provisioning profile UUID
-        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-        PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PP_PATH"))
-        
         # Build Flutter app first
         flutter build ios --release --no-codesign
         
-        # Archive with explicit settings for Runner only
+        # Create xcconfig to override settings ONLY for Runner target
+        cat > Runner.xcconfig <<EOF
+        DEVELOPMENT_TEAM = $APPLE_TEAM_ID
+        CODE_SIGN_STYLE = Manual
+        CODE_SIGN_IDENTITY = iPhone Distribution
+        PROVISIONING_PROFILE_SPECIFIER = 487f232e-03ad-403f-a3fa-0b9b8e64b80f
+        EOF
+        
+        # Archive using xcconfig (only affects Runner, not Pods)
         xcodebuild -workspace Runner.xcworkspace \
           -scheme Runner \
           -configuration Release \
           -archivePath build/Runner.xcarchive \
-          archive \
           -destination 'generic/platform=iOS' \
-          DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-          PROVISIONING_PROFILE_SPECIFIER="$PP_UUID" \
-          CODE_SIGN_STYLE="Manual" \
-          CODE_SIGN_IDENTITY="iPhone Distribution"
+          -xcconfig Runner.xcconfig \
+          archive
 
     - name: Export IPA
       run: |
         cd ios
-        
-        # Get the provisioning profile UUID
-        PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-        PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PP_PATH"))
         
         # Create ExportOptions.plist
         cat > ExportOptions.plist <<EOF
@@ -112,7 +109,7 @@ jobs:
             <key>provisioningProfiles</key>
             <dict>
                 <key>com.jkap86.fantasyfootball</key>
-                <string>$PP_UUID</string>
+                <string>487f232e-03ad-403f-a3fa-0b9b8e64b80f</string>
             </dict>
         </dict>
         </plist>
