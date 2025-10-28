@@ -10,9 +10,40 @@ subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 subprojects {
-    project.evaluationDependsOn(":app")
+    project.evaluationDependsOn(':app')
+    
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            android {
+                compileSdkVersion 34
+                buildToolsVersion "34.0.0"
+                
+                if (namespace == null) {
+                    namespace = "com.example.${project.name.replace('-', '_')}"
+                }
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
+}
+
+// Add this to provide flutter properties to all subprojects
+subprojects {
+    project.configurations.configureEach {
+        resolutionStrategy {
+            force 'androidx.core:core-ktx:1.12.0'
+            force 'androidx.core:core:1.12.0'
+        }
+    }
+}
+
+// Provide flutter extension for plugins that need it
+ext {
+    compileSdkVersion = 34
+    minSdkVersion = 21
+    targetSdkVersion = 34
+    ndkVersion = "25.1.8937393"
 }
