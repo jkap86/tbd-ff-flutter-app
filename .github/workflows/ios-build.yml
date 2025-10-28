@@ -119,16 +119,18 @@ jobs:
       run: |
         cd ios
         
-        # Create private key file
-        echo "$APP_STORE_CONNECT_KEY" > AuthKey.p8
+        # Create private_keys directory
+        mkdir -p ~/private_keys
+        
+        # Create private key file with correct naming
+        echo "$APP_STORE_CONNECT_KEY" > ~/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8
         
         # Upload to TestFlight
         xcrun altool --upload-app \
           --type ios \
           --file build/ios/*.ipa \
           --apiKey "$APP_STORE_CONNECT_KEY_ID" \
-          --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
-          --apiKeyPath AuthKey.p8
+          --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID"
 
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
