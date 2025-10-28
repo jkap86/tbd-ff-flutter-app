@@ -111,7 +111,26 @@ jobs:
           -exportPath build/ios \
           -exportOptionsPlist ExportOptions.plist
 
-    - name: Upload IPA
+    - name: Upload to TestFlight
+      env:
+        APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+      run: |
+        cd ios
+        
+        # Create private key file
+        echo "$APP_STORE_CONNECT_KEY" > AuthKey.p8
+        
+        # Upload to TestFlight
+        xcrun altool --upload-app \
+          --type ios \
+          --file build/ios/*.ipa \
+          --apiKey "$APP_STORE_CONNECT_KEY_ID" \
+          --apiIssuer "$APP_STORE_CONNECT_ISSUER_ID" \
+          --apiKeyPath AuthKey.p8
+
+    - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ios-build
