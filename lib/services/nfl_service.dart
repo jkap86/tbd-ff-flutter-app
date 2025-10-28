@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -23,10 +24,10 @@ class NflService {
         }
       }
 
-      print('Failed to get current week: ${response.statusCode}');
+      debugPrint('Failed to get current week: ${response.statusCode}');
       return null;
     } catch (e) {
-      print('Error getting current week: $e');
+      debugPrint('Error getting current week: $e');
       return null;
     }
   }

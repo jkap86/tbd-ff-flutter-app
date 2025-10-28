@@ -61,7 +61,7 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
         });
       }
     } catch (e) {
-      print('Error loading public leagues: $e');
+      debugPrint('Error loading public leagues: $e');
       if (mounted) {
         setState(() {
           _publicLeagues = [];
@@ -225,7 +225,7 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
             Icon(
               Icons.public_off,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -337,7 +337,7 @@ class _JoinLeagueScreenState extends State<JoinLeagueScreen>
                 Icon(
                   Icons.mail_outline,
                   size: 64,
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 16),
                 const Text(

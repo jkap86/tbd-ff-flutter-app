@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/matchup_model.dart';
@@ -27,7 +28,7 @@ class MatchupService {
       }
       return null;
     } catch (e) {
-      print('Error getting matchups by league: $e');
+      debugPrint('Error getting matchups by league: $e');
       return null;
     }
   }
@@ -65,7 +66,7 @@ class MatchupService {
       }
       return null;
     } catch (e) {
-      print('Error getting matchups by week: $e');
+      debugPrint('Error getting matchups by week: $e');
       return null;
     }
   }
@@ -90,8 +91,8 @@ class MatchupService {
         }),
       );
 
-      print('Generate matchups response: ${response.statusCode}');
-      print('Generate matchups body: ${response.body}');
+      debugPrint('Generate matchups response: ${response.statusCode}');
+      debugPrint('Generate matchups body: ${response.body}');
 
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
@@ -100,11 +101,11 @@ class MatchupService {
           return matchupsJson.map((json) => Matchup.fromJson(json)).toList();
         }
       } else {
-        print('Failed to generate matchups: ${response.statusCode} - ${response.body}');
+        debugPrint('Failed to generate matchups: ${response.statusCode} - ${response.body}');
       }
       return null;
     } catch (e) {
-      print('Error generating matchups: $e');
+      debugPrint('Error generating matchups: $e');
       return null;
     }
   }
@@ -137,7 +138,7 @@ class MatchupService {
       }
       return false;
     } catch (e) {
-      print('Error updating scores: $e');
+      debugPrint('Error updating scores: $e');
       return false;
     }
   }
@@ -162,7 +163,7 @@ class MatchupService {
       }
       return null;
     } catch (e) {
-      print('Error getting matchup details: $e');
+      debugPrint('Error getting matchup details: $e');
       return null;
     }
   }
@@ -187,7 +188,7 @@ class MatchupService {
       }
       return null;
     } catch (e) {
-      print('Error getting matchup scores: $e');
+      debugPrint('Error getting matchup scores: $e');
       return null;
     }
   }

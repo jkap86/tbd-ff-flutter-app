@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -23,7 +24,7 @@ class RosterService {
       }
       return null;
     } catch (e) {
-      print('Get roster with players error: $e');
+      debugPrint('Get roster with players error: $e');
       return null;
     }
   }
@@ -38,9 +39,9 @@ class RosterService {
     List<int>? ir,
   }) async {
     try {
-      print('[RosterService] Updating lineup for roster $rosterId');
-      print('[RosterService] Starters: $starters');
-      print('[RosterService] Bench: $bench');
+      debugPrint('[RosterService] Updating lineup for roster $rosterId');
+      debugPrint('[RosterService] Starters: $starters');
+      debugPrint('[RosterService] Bench: $bench');
 
       final body = {
         if (starters != null) 'starters': starters,
@@ -49,7 +50,7 @@ class RosterService {
         if (ir != null) 'ir': ir,
       };
 
-      print('[RosterService] Request body: ${jsonEncode(body)}');
+      debugPrint('[RosterService] Request body: ${jsonEncode(body)}');
 
       final response = await http.put(
         Uri.parse('${ApiConfig.baseUrl}/api/rosters/$rosterId/lineup'),
@@ -60,8 +61,8 @@ class RosterService {
         body: jsonEncode(body),
       );
 
-      print('[RosterService] Response status: ${response.statusCode}');
-      print('[RosterService] Response body: ${response.body}');
+      debugPrint('[RosterService] Response status: ${response.statusCode}');
+      debugPrint('[RosterService] Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -69,8 +70,8 @@ class RosterService {
       }
       return null;
     } catch (e, stackTrace) {
-      print('[RosterService] Update roster lineup error: $e');
-      print('[RosterService] Stack trace: $stackTrace');
+      debugPrint('[RosterService] Update roster lineup error: $e');
+      debugPrint('[RosterService] Stack trace: $stackTrace');
       return null;
     }
   }

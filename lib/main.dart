@@ -104,7 +104,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           _handleDeepLink(uri);
         }
       }, onError: (err) {
-        print('Deep link error: $err');
+        debugPrint('Deep link error: $err');
       });
     }
   }
@@ -122,18 +122,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _handleDeepLink(initialUri);
       }
     } catch (e) {
-      print('Error handling initial link: $e');
+      debugPrint('Error handling initial link: $e');
     }
   }
 
   void _handleDeepLink(Uri uri) {
-    print('📱 Deep link received: $uri');
+    debugPrint('📱 Deep link received: $uri');
 
     // Handle reset-password link
     if (uri.path.contains('reset-password')) {
       final token = uri.queryParameters['token'];
       if (token != null && token.isNotEmpty) {
-        print('✅ Password reset token found: $token');
+        debugPrint('✅ Password reset token found: $token');
         // Navigate to reset password screen
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -141,7 +141,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           ),
         );
       } else {
-        print('❌ No token found in reset password link');
+        debugPrint('❌ No token found in reset password link');
       }
     }
   }

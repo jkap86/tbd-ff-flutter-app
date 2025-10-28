@@ -160,7 +160,7 @@ class _DraftChatWidgetState extends State<DraftChatWidget> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -229,7 +229,7 @@ class _DraftChatWidgetState extends State<DraftChatWidget> {
               decoration: BoxDecoration(
                 color: isCurrentUser
                     ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.surfaceVariant,
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(18).copyWith(
                   bottomLeft: isCurrentUser ? null : const Radius.circular(4),
                   bottomRight: isCurrentUser ? const Radius.circular(4) : null,
@@ -262,11 +262,11 @@ class _DraftChatWidgetState extends State<DraftChatWidget> {
                               ? Theme.of(context)
                                   .colorScheme
                                   .onPrimaryContainer
-                                  .withOpacity(0.7)
+                                  .withValues(alpha: 0.7)
                               : Theme.of(context)
                                   .colorScheme
                                   .onSurfaceVariant
-                                  .withOpacity(0.7),
+                                  .withValues(alpha: 0.7),
                         ),
                   ),
                 ],

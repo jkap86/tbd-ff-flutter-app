@@ -88,11 +88,11 @@ class Matchup {
   bool get isCompleted => status == 'completed';
 
   String get roster1Display =>
-      roster1TeamName ?? roster1Username ?? 'Team ${roster1Id}';
+      roster1TeamName ?? roster1Username ?? 'Team $roster1Id';
   String get roster2Display =>
       isByeWeek
           ? 'BYE'
-          : (roster2TeamName ?? roster2Username ?? 'Team ${roster2Id}');
+          : (roster2TeamName ?? roster2Username ?? 'Team $roster2Id');
 
   // Get winner/loser info
   String? get winner {

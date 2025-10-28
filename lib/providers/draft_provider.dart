@@ -468,7 +468,7 @@ class DraftProvider with ChangeNotifier {
     if (_currentDraft != null &&
         _currentDraft!.isInProgress &&
         _currentDraft!.pickDeadline != null) {
-      print('[Timer] Starting timer. Draft status: ${_currentDraft!.status}, Pick deadline: ${_currentDraft!.pickDeadline}');
+      debugPrint('[Timer] Starting timer. Draft status: ${_currentDraft!.status}, Pick deadline: ${_currentDraft!.pickDeadline}');
 
       // Set initial time remaining
       _timeRemaining = _currentDraft!.timeRemaining ?? Duration.zero;
@@ -485,7 +485,7 @@ class DraftProvider with ChangeNotifier {
         }
       });
     } else {
-      print('[Timer] NOT starting timer. Draft: ${_currentDraft != null}, InProgress: ${_currentDraft?.isInProgress}, Deadline: ${_currentDraft?.pickDeadline}');
+      debugPrint('[Timer] NOT starting timer. Draft: ${_currentDraft != null}, InProgress: ${_currentDraft?.isInProgress}, Deadline: ${_currentDraft?.pickDeadline}');
       _timeRemaining = Duration.zero;
     }
   }

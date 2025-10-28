@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -28,7 +29,7 @@ class WeeklyLineupService {
       }
       return null;
     } catch (e) {
-      print('Error getting weekly lineup: $e');
+      debugPrint('Error getting weekly lineup: $e');
       return null;
     }
   }
@@ -68,7 +69,7 @@ class WeeklyLineupService {
       }
       return null;
     } catch (e) {
-      print('Error updating weekly lineup: $e');
+      debugPrint('Error updating weekly lineup: $e');
       rethrow; // Re-throw to let the caller handle it
     }
   }

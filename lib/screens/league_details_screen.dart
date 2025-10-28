@@ -11,7 +11,6 @@ import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
-import 'draft_setup_screen.dart';
 import 'draft_room_screen.dart';
 import 'roster_details_screen.dart';
 import 'matchups_screen.dart';
@@ -32,8 +31,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     with WidgetsBindingObserver {
   double _chatDrawerHeight = 0.1; // Start collapsed showing preview
   bool _isLeagueInfoExpanded = false;
-  final GlobalKey _cardKey = GlobalKey();
-  double _cardHeight = 80.0; // Default height
 
   // Chat state
   final LeagueChatService _chatService = LeagueChatService();
@@ -50,7 +47,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     _loadLeagueDetails();
     _loadMessages();
     _setupSocket();
-    _updateCardHeight();
   }
 
   @override
@@ -154,17 +150,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
       username: authProvider.user!.username,
       message: message,
     );
-  }
-
-  void _updateCardHeight() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final RenderBox? renderBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox != null) {
-        setState(() {
-          _cardHeight = renderBox.size.height;
-        });
-      }
-    });
   }
 
   // Helper method to calculate actual chat drawer height with minimum clamp
@@ -272,7 +257,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Card(
-                            key: _cardKey,
                             margin: EdgeInsets.zero,
                             clipBehavior: Clip.antiAlias,
                             child: Column(
@@ -284,7 +268,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                 setState(() {
                                   _isLeagueInfoExpanded = !_isLeagueInfoExpanded;
                                 });
-                                _updateCardHeight();
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -437,9 +420,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
                               alignment: Alignment.topCenter,
-                              onEnd: () {
-                                _updateCardHeight();
-                              },
                               child: _isLeagueInfoExpanded
                                 ? Padding(
                                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -526,7 +506,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                           ? (isDrafting
                                               ? Colors.orange
                                               : Theme.of(context).colorScheme.primaryContainer)
-                                          : Theme.of(context).colorScheme.surfaceVariant,
+                                          : Theme.of(context).colorScheme.surfaceContainerHighest,
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                     ),
                                   ),
@@ -627,7 +607,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 10,
                           offset: const Offset(0, -2),
                         ),
@@ -728,7 +708,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surfaceVariant,
+                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     ),
                                     child: Row(
                                       children: [
@@ -806,14 +786,12 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   int _countPlayers(Roster roster) {
     // Count only non-null players in starter slots
     int starterCount = 0;
-    if (roster.starters is List) {
-      for (var item in roster.starters) {
-        if (item is Map && item['player'] != null) {
-          starterCount++;
-        }
+    for (var item in roster.starters) {
+      if (item is Map && item['player'] != null) {
+        starterCount++;
       }
     }
-    return starterCount + roster.bench.length;
+      return starterCount + roster.bench.length;
   }
 
   Widget _buildRosterCard(
@@ -848,7 +826,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: Colors.blue.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: const Text(
@@ -868,7 +846,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.2),
+                  color: Colors.green.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: const Text(
@@ -1055,7 +1033,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -1155,7 +1133,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                 );
               },
             );
-          }).toList(),
+          }),
       ],
     );
   }
@@ -1218,7 +1196,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 color: isCurrentUser
-                    ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                    ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
                     : null,
                 child: ListTile(
                   leading: CircleAvatar(
@@ -1228,7 +1206,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             : rank == 2
                                 ? Colors.grey.shade400
                                 : Colors.brown.shade300)
-                        : Theme.of(context).colorScheme.surfaceVariant,
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Text(
                       '$rank',
                       style: TextStyle(
@@ -1256,7 +1234,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.2),
+                            color: Colors.blue.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: const Text(
@@ -1276,7 +1254,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.2),
+                            color: Colors.green.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: const Text(
@@ -1293,10 +1271,10 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   subtitle: Text(
                     '${roster.wins ?? 0}-${roster.losses ?? 0}${roster.ties != null && roster.ties! > 0 ? '-${roster.ties}' : ''} • ${(roster.pointsFor ?? 0).toStringAsFixed(2)} PF',
                   ),
-                  trailing: Row(
+                  trailing: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.arrow_forward_ios, size: 16),
+                      Icon(Icons.arrow_forward_ios, size: 16),
                     ],
                   ),
                   onTap: () {

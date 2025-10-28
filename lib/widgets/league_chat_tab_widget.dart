@@ -143,7 +143,7 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: Border(
               top: BorderSide(
                 color: Theme.of(context).colorScheme.outline,

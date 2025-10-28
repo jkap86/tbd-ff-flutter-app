@@ -60,7 +60,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
   }
 
   Future<void> _saveLineup() async {
-    print('[RosterDetails] Starting lineup save...');
+    debugPrint('[RosterDetails] Starting lineup save...');
     setState(() {
       _isSaving = true;
     });
@@ -68,10 +68,10 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token;
 
-    print('[RosterDetails] Token: ${token != null ? "present" : "missing"}');
+    debugPrint('[RosterDetails] Token: ${token != null ? "present" : "missing"}');
 
     if (token == null) {
-      print('[RosterDetails] No token, aborting');
+      debugPrint('[RosterDetails] No token, aborting');
       setState(() {
         _isSaving = false;
       });
@@ -91,7 +91,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
       // If week is selected and season is available, use weekly lineup
       if (_selectedWeek != null && widget.season != null) {
-        print('[RosterDetails] Saving weekly lineup for week $_selectedWeek...');
+        debugPrint('[RosterDetails] Saving weekly lineup for week $_selectedWeek...');
         result = await _weeklyLineupService.updateWeeklyLineup(
           token: token,
           rosterId: widget.rosterId,
@@ -101,7 +101,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         );
       } else {
         // Otherwise save default roster lineup
-        print('[RosterDetails] Saving default roster lineup...');
+        debugPrint('[RosterDetails] Saving default roster lineup...');
         // Extract player IDs for bench
         final benchIds = _editBench
             .where((p) => p != null)
@@ -199,7 +199,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
     // If week is selected and season is available, load weekly lineup
     if (_selectedWeek != null && widget.season != null) {
-      print('[RosterDetails] Loading weekly lineup for week $_selectedWeek...');
+      debugPrint('[RosterDetails] Loading weekly lineup for week $_selectedWeek...');
 
       // Load both weekly lineup (for starters) and full roster (for bench)
       final weeklyLineup = await _weeklyLineupService.getWeeklyLineup(
@@ -222,7 +222,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
       }
     } else {
       // Otherwise load default roster
-      print('[RosterDetails] Loading default roster...');
+      debugPrint('[RosterDetails] Loading default roster...');
       roster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
     }
 
@@ -254,24 +254,6 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
           // Week selector dropdown (only show if season is available)
           if (widget.season != null && !_isEditMode)
             PopupMenuButton<int?>(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _selectedWeek == null ? 'Default' : 'Week $_selectedWeek',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  ],
-                ),
-              ),
               tooltip: 'Select Week',
               onSelected: (week) {
                 setState(() {
@@ -303,6 +285,24 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
                   }),
                 ];
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _selectedWeek == null ? 'Default' : 'Week $_selectedWeek',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white),
+                  ],
+                ),
+              ),
             ),
           if (!_isEditMode && _rosterData != null)
             IconButton(
@@ -702,7 +702,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -742,14 +742,14 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
   Widget _buildPlayerCard(dynamic player, String section) {
     if (player == null) {
-      return Card(
-        margin: const EdgeInsets.only(bottom: 8),
+      return const Card(
+        margin: EdgeInsets.only(bottom: 8),
         child: ListTile(
-          leading: const CircleAvatar(
+          leading: CircleAvatar(
             child: Icon(Icons.help_outline),
           ),
-          title: const Text('Unknown Player'),
-          subtitle: const Text('Player data not available'),
+          title: Text('Unknown Player'),
+          subtitle: Text('Player data not available'),
         ),
       );
     }

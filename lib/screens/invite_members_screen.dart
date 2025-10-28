@@ -109,7 +109,7 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .onPrimaryContainer
-                                .withOpacity(0.8),
+                                .withValues(alpha: 0.8),
                           ),
                         ),
                         Text(
@@ -172,7 +172,7 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .primary
-                                .withOpacity(0.5),
+                                .withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 16),
                           const Text(

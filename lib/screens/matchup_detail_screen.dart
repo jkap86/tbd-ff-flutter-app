@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/matchup_model.dart';
-import '../models/player_model.dart';
 import '../services/matchup_service.dart';
 import '../widgets/responsive_container.dart';
-import '../providers/auth_provider.dart';
-import '../providers/league_provider.dart';
-import 'weekly_lineup_screen.dart';
 
 class MatchupDetailScreen extends StatefulWidget {
   final Matchup matchup;
@@ -92,7 +87,6 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
       return const Center(child: Text('No data available'));
     }
 
-    final matchup = _matchupDetails!['matchup'];
     final roster1 = _matchupDetails!['roster1'];
     final roster2 = _matchupDetails!['roster2'];
 
@@ -253,13 +247,6 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
     }
 
     final starters = rosterData['starters'] as List<dynamic>? ?? [];
-    final bench = rosterData['bench'] as List<dynamic>? ?? [];
-
-    // Check if this roster belongs to the current user
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userId = authProvider.user?.id;
-    final rosterUserId = rosterData['user_id'];
-    final isMyRoster = userId != null && rosterUserId != null && userId == rosterUserId;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

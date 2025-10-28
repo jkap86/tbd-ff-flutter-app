@@ -630,11 +630,11 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
             flex: 2,
             child: DropdownButtonFormField<int>(
               value: _rosterPositions[positionKey],
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Count',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
                 for (int i = 0; i <= 6; i++)

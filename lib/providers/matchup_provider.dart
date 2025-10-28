@@ -94,7 +94,7 @@ class MatchupProvider with ChangeNotifier {
     required String season,
   }) async {
     try {
-      print('[MatchupProvider] Generating matchups for league $leagueId, week $week, season: "$season"');
+      debugPrint('[MatchupProvider] Generating matchups for league $leagueId, week $week, season: "$season"');
 
       final matchups = await _matchupService.generateMatchupsForWeek(
         token: token,
@@ -111,11 +111,11 @@ class MatchupProvider with ChangeNotifier {
         return true;
       }
 
-      print('[MatchupProvider] Generate matchups returned null');
+      debugPrint('[MatchupProvider] Generate matchups returned null');
       return false;
     } catch (e) {
       _errorMessage = 'Error generating matchups: ${e.toString()}';
-      print('[MatchupProvider] Error: $e');
+      debugPrint('[MatchupProvider] Error: $e');
       notifyListeners();
       return false;
     }
@@ -130,7 +130,7 @@ class MatchupProvider with ChangeNotifier {
     required int playoffWeekStart,
   }) async {
     try {
-      print('[MatchupProvider] Generating all regular season matchups from week $startWeek to ${playoffWeekStart - 1}');
+      debugPrint('[MatchupProvider] Generating all regular season matchups from week $startWeek to ${playoffWeekStart - 1}');
 
       int successCount = 0;
       int totalWeeks = playoffWeekStart - startWeek;
@@ -157,7 +157,7 @@ class MatchupProvider with ChangeNotifier {
       return successCount == totalWeeks;
     } catch (e) {
       _errorMessage = 'Error generating all matchups: ${e.toString()}';
-      print('[MatchupProvider] Error generating all: $e');
+      debugPrint('[MatchupProvider] Error generating all: $e');
       notifyListeners();
       return false;
     }

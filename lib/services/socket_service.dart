@@ -1,7 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config/api_config.dart';
 import '../models/draft_model.dart';
-import '../models/draft_pick_model.dart';
 import '../models/draft_order_model.dart';
 import '../models/draft_chat_message_model.dart';
 import '../models/league_chat_message_model.dart';
@@ -36,7 +36,7 @@ class SocketService {
   // Connect to the WebSocket server
   void connect() {
     if (_socket?.connected == true) {
-      print('Socket already connected');
+      debugPrint('Socket already connected');
       return;
     }
 
@@ -52,22 +52,22 @@ class SocketService {
       _socket!.connect();
 
       _socket!.onConnect((_) {
-        print('Socket connected');
+        debugPrint('Socket connected');
       });
 
       _socket!.onDisconnect((_) {
-        print('Socket disconnected');
+        debugPrint('Socket disconnected');
       });
 
       _socket!.onError((error) {
-        print('Socket error: $error');
+        debugPrint('Socket error: $error');
         onError?.call(error.toString());
       });
 
       // Listen for draft events
       _setupEventListeners();
     } catch (e) {
-      print('Socket connection error: $e');
+      debugPrint('Socket connection error: $e');
       onError?.call(e.toString());
     }
   }
@@ -78,31 +78,31 @@ class SocketService {
 
     // User joined draft
     _socket!.on('user_joined', (data) {
-      print('User joined: $data');
+      debugPrint('User joined: $data');
       onUserJoined?.call(data);
     });
 
     // User left draft
     _socket!.on('user_left', (data) {
-      print('User left: $data');
+      debugPrint('User left: $data');
       onUserLeft?.call(data);
     });
 
     // Pick made
     _socket!.on('pick_made', (data) {
-      print('Pick made: $data');
+      debugPrint('Pick made: $data');
       onPickMade?.call(data);
     });
 
     // Draft status changed
     _socket!.on('status_changed', (data) {
-      print('Status changed: $data');
+      debugPrint('Status changed: $data');
       onStatusChanged?.call(data);
     });
 
     // Draft order updated
     _socket!.on('order_updated', (data) {
-      print('Order updated: $data');
+      debugPrint('Order updated: $data');
       if (data['draft_order'] != null) {
         final orders = (data['draft_order'] as List)
             .map((json) => DraftOrder.fromJson(json))
@@ -113,12 +113,12 @@ class SocketService {
 
     // Chat message received
     _socket!.on('chat_message', (data) {
-      print('Chat message: $data');
+      debugPrint('Chat message: $data');
       try {
         final message = DraftChatMessage.fromJson(data);
         onChatMessage?.call(message);
       } catch (e) {
-        print('Error parsing chat message: $e');
+        debugPrint('Error parsing chat message: $e');
       }
     });
 
@@ -129,76 +129,76 @@ class SocketService {
 
     // Draft state response
     _socket!.on('draft_state', (data) {
-      print('Draft state: $data');
+      debugPrint('Draft state: $data');
       if (data['draft'] != null) {
         try {
           final draft = Draft.fromJson(data['draft']);
           onDraftState?.call(draft);
         } catch (e) {
-          print('Error parsing draft state: $e');
+          debugPrint('Error parsing draft state: $e');
         }
       }
     });
 
     // Autodraft toggled
     _socket!.on('autodraft_toggled', (data) {
-      print('Autodraft toggled: $data');
+      debugPrint('Autodraft toggled: $data');
       onAutodraftToggled?.call(data);
     });
 
     // Joined draft confirmation
     _socket!.on('joined_draft', (data) {
-      print('Joined draft: $data');
+      debugPrint('Joined draft: $data');
     });
 
     // Error handling
     _socket!.on('error', (data) {
-      print('Server error: $data');
+      debugPrint('Server error: $data');
       onError?.call(data['message'] ?? 'Unknown error');
     });
 
     // Auto-pick made
     _socket!.on('auto_pick_made', (data) {
-      print('Auto-pick made: $data');
+      debugPrint('Auto-pick made: $data');
     });
 
     // League chat message
     _socket!.on('league_chat_message', (data) {
-      print('League chat message received: $data');
+      debugPrint('League chat message received: $data');
       try {
         final message = LeagueChatMessage.fromJson(data);
         onLeagueChatMessage?.call(message);
       } catch (e) {
-        print('Error parsing league chat message: $e');
+        debugPrint('Error parsing league chat message: $e');
       }
     });
 
     // User joined league
     _socket!.on('user_joined_league', (data) {
-      print('User joined league: $data');
+      debugPrint('User joined league: $data');
       onUserJoinedLeague?.call(data);
     });
 
     // User left league
     _socket!.on('user_left_league', (data) {
-      print('User left league: $data');
+      debugPrint('User left league: $data');
       onUserLeftLeague?.call(data);
     });
 
     // Joined league confirmation
     _socket!.on('joined_league', (data) {
-      print('Joined league: $data');
+      debugPrint('Joined league: $data');
     });
 
     // Matchup scores updated (live scores)
     _socket!.on('matchup_scores_updated', (data) {
-      print('Matchup scores updated: ${data['league_id']} week ${data['week']}');
+      debugPrint('Matchup scores updated: ${data['league_id']} week ${data['week']}');
       onMatchupScoresUpdated?.call(data);
     });
 
     // Joined matchup room confirmation
     _socket!.on('joined_matchup_room', (data) {
-      print('Joined matchup room: $data');
+      debugPrint('Joined matchup room: $data');
     });
   }
 
@@ -209,7 +209,7 @@ class SocketService {
     required String username,
   }) {
     if (_socket == null || !_socket!.connected) {
-      print('Socket not connected, connecting now...');
+      debugPrint('Socket not connected, connecting now...');
       connect();
 
       // Wait for connection before joining
@@ -228,7 +228,7 @@ class SocketService {
       'user_id': userId,
       'username': username,
     });
-    print('Emitted join_draft for draft $draftId');
+    debugPrint('Emitted join_draft for draft $draftId');
   }
 
   // Leave a draft room
@@ -245,7 +245,7 @@ class SocketService {
       'username': username,
     });
     _currentDraftId = null;
-    print('Left draft $draftId');
+    debugPrint('Left draft $draftId');
   }
 
   // Send chat message
@@ -281,7 +281,7 @@ class SocketService {
     required String username,
   }) {
     if (_socket == null || !_socket!.connected) {
-      print('Socket not connected, connecting now...');
+      debugPrint('Socket not connected, connecting now...');
       connect();
 
       // Wait for connection before joining
@@ -300,7 +300,7 @@ class SocketService {
       'user_id': userId,
       'username': username,
     });
-    print('Emitted join_league for league $leagueId');
+    debugPrint('Emitted join_league for league $leagueId');
   }
 
   // Leave a league room
@@ -317,7 +317,7 @@ class SocketService {
       'username': username,
     });
     _currentLeagueId = null;
-    print('Left league $leagueId');
+    debugPrint('Left league $leagueId');
   }
 
   // Send league chat message
@@ -360,7 +360,7 @@ class SocketService {
     required int week,
   }) {
     if (_socket == null || !_socket!.connected) {
-      print('Socket not connected, connecting now...');
+      debugPrint('Socket not connected, connecting now...');
       connect();
 
       // Wait for connection before joining
@@ -377,7 +377,7 @@ class SocketService {
       'league_id': leagueId,
       'week': week,
     });
-    print('Joined matchup room for league $leagueId week $week');
+    debugPrint('Joined matchup room for league $leagueId week $week');
   }
 
   // Leave a league's matchup room
@@ -391,7 +391,7 @@ class SocketService {
       'league_id': leagueId,
       'week': week,
     });
-    print('Left matchup room for league $leagueId week $week');
+    debugPrint('Left matchup room for league $leagueId week $week');
   }
 
   // Disconnect from WebSocket
@@ -417,7 +417,7 @@ class SocketService {
     _socket = null;
     _currentDraftId = null;
     _currentLeagueId = null;
-    print('Socket disconnected and disposed');
+    debugPrint('Socket disconnected and disposed');
   }
 
   // Clear all callbacks

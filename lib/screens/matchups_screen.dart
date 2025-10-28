@@ -65,7 +65,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
 
       // Only update if it's the current league and week
       if (leagueId == widget.leagueId && week == _selectedWeek && matchups != null) {
-        print('[LiveScores] Received live score update for week $_selectedWeek');
+        debugPrint('[LiveScores] Received live score update for week $_selectedWeek');
 
         // Update the provider with new matchup data
         final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
@@ -281,7 +281,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(

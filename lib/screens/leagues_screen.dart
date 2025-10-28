@@ -128,7 +128,7 @@ class _LeaguesScreenState extends State<LeaguesScreen>
             Icon(
               Icons.sports_football,
               size: 80,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -271,7 +271,7 @@ class _LeaguesScreenState extends State<LeaguesScreen>
         label,
         style: const TextStyle(fontSize: 12),
       ),
-      backgroundColor: color.withOpacity(0.2),
+      backgroundColor: color.withValues(alpha: 0.2),
       side: BorderSide.none,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
@@ -305,7 +305,7 @@ class _LeaguesScreenState extends State<LeaguesScreen>
         label,
         style: const TextStyle(fontSize: 12),
       ),
-      backgroundColor: color.withOpacity(0.2),
+      backgroundColor: color.withValues(alpha: 0.2),
       side: BorderSide.none,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,

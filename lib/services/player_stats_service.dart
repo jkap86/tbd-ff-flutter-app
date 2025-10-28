@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -21,7 +22,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get player stats error: $e');
+      debugPrint('Get player stats error: $e');
       return null;
     }
   }
@@ -45,7 +46,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get player stats by ID error: $e');
+      debugPrint('Get player stats by ID error: $e');
       return null;
     }
   }
@@ -68,7 +69,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get player projections error: $e');
+      debugPrint('Get player projections error: $e');
       return null;
     }
   }
@@ -92,7 +93,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get player projections by ID error: $e');
+      debugPrint('Get player projections by ID error: $e');
       return null;
     }
   }
@@ -115,7 +116,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get season stats error: $e');
+      debugPrint('Get season stats error: $e');
       return null;
     }
   }
@@ -138,7 +139,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get season projections error: $e');
+      debugPrint('Get season projections error: $e');
       return null;
     }
   }
@@ -172,7 +173,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get bulk season stats error: $e');
+      debugPrint('Get bulk season stats error: $e');
       return null;
     }
   }
@@ -206,7 +207,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get bulk season projections error: $e');
+      debugPrint('Get bulk season projections error: $e');
       return null;
     }
   }
@@ -244,7 +245,7 @@ class PlayerStatsService {
       }
       return null;
     } catch (e) {
-      print('Get bulk week range projections error: $e');
+      debugPrint('Get bulk week range projections error: $e');
       return null;
     }
   }

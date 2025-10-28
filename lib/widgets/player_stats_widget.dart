@@ -165,7 +165,7 @@ class _PlayerStatsWidgetState extends State<PlayerStatsWidget>
           const SizedBox(height: 16),
           ...keyStats.entries.map((entry) {
             return _buildStatRow(entry.key, entry.value);
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -202,7 +202,7 @@ class _PlayerStatsWidgetState extends State<PlayerStatsWidget>
           const SizedBox(height: 16),
           ...keyStats.entries.map((entry) {
             return _buildStatRow(entry.key, entry.value);
-          }).toList(),
+          }),
         ],
       ),
     );

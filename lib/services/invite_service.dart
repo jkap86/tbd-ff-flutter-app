@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -23,7 +24,7 @@ class InviteService {
 
       return response.statusCode == 201;
     } catch (e) {
-      print('Send invite error: $e');
+      debugPrint('Send invite error: $e');
       return false;
     }
   }
@@ -43,7 +44,7 @@ class InviteService {
       }
       return [];
     } catch (e) {
-      print('Get user invites error: $e');
+      debugPrint('Get user invites error: $e');
       return [];
     }
   }
@@ -61,7 +62,7 @@ class InviteService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Accept invite error: $e');
+      debugPrint('Accept invite error: $e');
       return false;
     }
   }
@@ -79,7 +80,7 @@ class InviteService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Decline invite error: $e');
+      debugPrint('Decline invite error: $e');
       return false;
     }
   }
@@ -102,7 +103,7 @@ class InviteService {
       }
       return [];
     } catch (e) {
-      print('Search users error: $e');
+      debugPrint('Search users error: $e');
       return [];
     }
   }
@@ -121,7 +122,7 @@ class InviteService {
       }
       return [];
     } catch (e) {
-      print('Get public leagues error: $e');
+      debugPrint('Get public leagues error: $e');
       return [];
     }
   }

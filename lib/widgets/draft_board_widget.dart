@@ -85,7 +85,7 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
             // Toggle button for Y-axis view
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -138,25 +138,26 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
     Map<int, Map<int, DraftPick>> picksByRosterAndRound,
   ) {
     return DataTable(
-      headingRowColor: MaterialStateProperty.all(
+      headingRowColor: WidgetStateProperty.all(
         Theme.of(context).colorScheme.primaryContainer,
       ),
       headingRowHeight: 40,
-      dataRowHeight: 60,
+      dataRowMinHeight: 60,
+      dataRowMaxHeight: 60,
       columnSpacing: 4,
       horizontalMargin: 8,
       columns: [
-        DataColumn(
-          label: Container(
+        const DataColumn(
+          label: SizedBox(
             width: 60,
-            child: const Text(
+            child: Text(
               'Round',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ),
         ...order.map((team) => DataColumn(
-          label: Container(
+          label: SizedBox(
             width: 100,
             child: Center(
               child: Row(
@@ -197,7 +198,7 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
                               cells: [
                                 // Round number cell
                                 DataCell(
-                                  Container(
+                                  SizedBox(
                                     width: 60,
                                     child: Center(
                                       child: Text(
@@ -223,7 +224,7 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
                                       decoration: BoxDecoration(
                                         color: hasPick
                                             ? _getPositionColor(pick?.playerPosition)
-                                                .withOpacity(0.2)
+                                                .withValues(alpha: 0.2)
                                             : Colors.grey.shade200,
                                         border: Border.all(
                                           color: hasPick
@@ -315,9 +316,9 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
     final rosterPositions = league?.rosterPositions ?? [];
 
     if (rosterPositions.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32.0),
+          padding: EdgeInsets.all(32.0),
           child: Text('No roster positions defined for this league'),
         ),
       );
@@ -351,25 +352,26 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
     }
 
     return DataTable(
-      headingRowColor: MaterialStateProperty.all(
+      headingRowColor: WidgetStateProperty.all(
         Theme.of(context).colorScheme.primaryContainer,
       ),
       headingRowHeight: 40,
-      dataRowHeight: 60,
+      dataRowMinHeight: 60,
+      dataRowMaxHeight: 60,
       columnSpacing: 4,
       horizontalMargin: 8,
       columns: [
-        DataColumn(
-          label: Container(
+        const DataColumn(
+          label: SizedBox(
             width: 60,
-            child: const Text(
+            child: Text(
               'Position',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
         ),
         ...order.map((team) => DataColumn(
-          label: Container(
+          label: SizedBox(
             width: 100,
             child: Center(
               child: Row(
@@ -411,7 +413,7 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
           cells: [
             // Position cell
             DataCell(
-              Container(
+              SizedBox(
                 width: 60,
                 child: Center(
                   child: Text(
@@ -437,7 +439,7 @@ class _DraftBoardWidgetState extends State<DraftBoardWidget> {
                   decoration: BoxDecoration(
                     color: hasPick
                         ? _getPositionColor(pick?.playerPosition)
-                            .withOpacity(0.2)
+                            .withValues(alpha: 0.2)
                         : Colors.grey.shade200,
                     border: Border.all(
                       color: hasPick

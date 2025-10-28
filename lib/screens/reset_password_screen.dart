@@ -38,14 +38,21 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       });
 
       try {
-        final response = await http.post(
-          Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auth/reset-password'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'token': widget.token,
-            'newPassword': _passwordController.text,
-          }),
-        );
+        final response = await http
+            .post(
+              Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auth/reset-password'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({
+                'token': widget.token,
+                'newPassword': _passwordController.text,
+              }),
+            )
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw Exception('Request timed out. Please check your internet connection.');
+              },
+            );
 
         if (mounted) {
           setState(() {

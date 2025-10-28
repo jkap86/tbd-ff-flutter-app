@@ -45,8 +45,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0);
   TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0);
 
-  // Commissioner
-  int? _commissionerId;
 
   // Scoring settings fields
   late TextEditingController _passingTouchdownsController;
@@ -68,9 +66,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     _endWeek = widget.league.settings?['end_week'] ?? 17;
     _playoffWeekStart = widget.league.settings?['playoff_week_start'] ?? 15;
     _scoringSettings = widget.league.scoringSettings ?? {};
-
-    // Initialize commissioner
-    _commissionerId = widget.league.settings?['commissioner_id'];
 
     // Initialize draft settings (will be loaded separately)
     _loadDraftSettings();
@@ -1056,7 +1051,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                   constraints: const BoxConstraints(maxHeight: 300),
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -1080,7 +1075,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                   padding: const EdgeInsets.all(24),
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.5),
                                     ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -1294,9 +1289,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                             color: Colors.red,
                           ),
                         )
-                      : Row(
+                      : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
+                          children: [
                             Icon(Icons.restart_alt),
                             SizedBox(width: 8),
                             Text(
@@ -1356,7 +1351,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     int startWeek,
     int playoffWeekStart,
   ) async {
-    print('[EditLeague] Starting background save...');
+    debugPrint('[EditLeague] Starting background save...');
 
     // Step 1: Update league settings
     final success = await leagueProvider.updateLeagueSettings(
@@ -1371,11 +1366,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     );
 
     if (!success) {
-      print('[EditLeague] Failed to update league settings');
+      debugPrint('[EditLeague] Failed to update league settings');
       return;
     }
 
-    print('[EditLeague] League settings updated');
+    debugPrint('[EditLeague] League settings updated');
 
     // Step 2: Update draft settings if draft exists
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
@@ -1407,9 +1402,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       );
 
       if (draftSuccess == null) {
-        print('[EditLeague] Draft settings update failed');
+        debugPrint('[EditLeague] Draft settings update failed');
       } else {
-        print('[EditLeague] Draft settings updated');
+        debugPrint('[EditLeague] Draft settings updated');
       }
     }
 
@@ -1431,7 +1426,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     int startWeek,
     int playoffWeekStart,
   ) async {
-    print('[EditLeague] Auto-generating matchups for weeks $startWeek to ${playoffWeekStart - 1} in background...');
+    debugPrint('[EditLeague] Auto-generating matchups for weeks $startWeek to ${playoffWeekStart - 1} in background...');
     final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
     final totalWeeks = playoffWeekStart - startWeek;
 
@@ -1447,7 +1442,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         successCount++;
 
         // Auto-calculate scores for this week
-        print('[EditLeague] Calculating scores for week $week...');
+        debugPrint('[EditLeague] Calculating scores for week $week...');
         await matchupProvider.updateScores(
           token: token,
           leagueId: leagueId,
@@ -1457,7 +1452,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       }
     }
 
-    print('[EditLeague] Background matchup generation complete: $successCount/$totalWeeks weeks');
+    debugPrint('[EditLeague] Background matchup generation complete: $successCount/$totalWeeks weeks');
   }
 
   Widget _buildRosterPositionRow(String positionKey, String positionName) {
@@ -1477,11 +1472,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             flex: 2,
             child: DropdownButtonFormField<int>(
               value: _rosterPositions[positionKey],
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Count',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: [
                 for (int i = 0; i <= 6; i++)

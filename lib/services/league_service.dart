@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -44,7 +45,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Create league error: $e');
+      debugPrint('Create league error: $e');
       return null;
     }
   }
@@ -52,27 +53,27 @@ class LeagueService {
   // Get all leagues for a user
   Future<List<League>> getUserLeagues(int userId) async {
     try {
-      print('[LeagueService] Fetching leagues for user $userId');
+      debugPrint('[LeagueService] Fetching leagues for user $userId');
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/user/$userId'),
         headers: ApiConfig.headers,
       );
 
-      print('[LeagueService] Response status: ${response.statusCode}');
-      print('[LeagueService] Response body: ${response.body}');
+      debugPrint('[LeagueService] Response status: ${response.statusCode}');
+      debugPrint('[LeagueService] Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final leaguesData = data['data'] as List;
-        print('[LeagueService] Found ${leaguesData.length} leagues');
+        debugPrint('[LeagueService] Found ${leaguesData.length} leagues');
         return leaguesData.map((json) => League.fromJson(json)).toList();
       } else {
-        print('[LeagueService] Error response: ${response.body}');
+        debugPrint('[LeagueService] Error response: ${response.body}');
         return [];
       }
     } catch (e, stackTrace) {
-      print('[LeagueService] Exception getting user leagues: $e');
-      print('[LeagueService] Stack trace: $stackTrace');
+      debugPrint('[LeagueService] Exception getting user leagues: $e');
+      debugPrint('[LeagueService] Stack trace: $stackTrace');
       return [];
     }
   }
@@ -99,7 +100,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Get league details error: $e');
+      debugPrint('Get league details error: $e');
       return null;
     }
   }
@@ -125,7 +126,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Join league error: $e');
+      debugPrint('Join league error: $e');
       return null;
     }
   }
@@ -163,7 +164,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Update league settings error: $e');
+      debugPrint('Update league settings error: $e');
       return null;
     }
   }
@@ -185,7 +186,7 @@ class LeagueService {
       }
       return false;
     } catch (e) {
-      print('Is commissioner check error: $e');
+      debugPrint('Is commissioner check error: $e');
       return false;
     }
   }
@@ -212,7 +213,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Transfer commissioner error: $e');
+      debugPrint('Transfer commissioner error: $e');
       return null;
     }
   }
@@ -234,7 +235,7 @@ class LeagueService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Remove league member error: $e');
+      debugPrint('Remove league member error: $e');
       return false;
     }
   }
@@ -256,7 +257,7 @@ class LeagueService {
       }
       return null;
     } catch (e) {
-      print('Get league stats error: $e');
+      debugPrint('Get league stats error: $e');
       return null;
     }
   }
@@ -278,7 +279,7 @@ class LeagueService {
       }
       return false;
     } catch (e) {
-      print('Reset league error: $e');
+      debugPrint('Reset league error: $e');
       return false;
     }
   }
@@ -300,7 +301,7 @@ class LeagueService {
       }
       return false;
     } catch (e) {
-      print('Delete league error: $e');
+      debugPrint('Delete league error: $e');
       return false;
     }
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -22,7 +23,7 @@ class LeagueChatService {
       }
       return [];
     } catch (e) {
-      print('Get league chat messages error: $e');
+      debugPrint('Get league chat messages error: $e');
       return [];
     }
   }
@@ -50,7 +51,7 @@ class LeagueChatService {
       }
       return null;
     } catch (e) {
-      print('Send league chat message error: $e');
+      debugPrint('Send league chat message error: $e');
       return null;
     }
   }

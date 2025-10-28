@@ -80,12 +80,12 @@ class ApiConfig {
   // Debug helper to print current configuration
   static void printConfig() {
     if (kDebugMode) {
-      print('🌐 API Configuration:');
-      print('   Mode: ${kReleaseMode ? "PRODUCTION" : "DEVELOPMENT"}');
-      print('   Platform: ${_getPlatformName()}');
-      print('   Base URL: $effectiveBaseUrl');
+      debugPrint('🌐 API Configuration:');
+      debugPrint('   Mode: ${kReleaseMode ? "PRODUCTION" : "DEVELOPMENT"}');
+      debugPrint('   Platform: ${_getPlatformName()}');
+      debugPrint('   Base URL: $effectiveBaseUrl');
       if (overrideBaseUrl != null) {
-        print('   ⚠️  URL Override Active: $overrideBaseUrl');
+        debugPrint('   ⚠️  URL Override Active: $overrideBaseUrl');
       }
     }
   }

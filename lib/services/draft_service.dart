@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
@@ -38,7 +39,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Create draft error: $e');
+      debugPrint('Create draft error: $e');
       return null;
     }
   }
@@ -57,7 +58,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Get draft error: $e');
+      debugPrint('Get draft error: $e');
       return null;
     }
   }
@@ -76,7 +77,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Get draft by league error: $e');
+      debugPrint('Get draft by league error: $e');
       return null;
     }
   }
@@ -105,7 +106,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Set draft order error: $e');
+      debugPrint('Set draft order error: $e');
       return [];
     }
   }
@@ -125,7 +126,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Get draft order error: $e');
+      debugPrint('Get draft order error: $e');
       return [];
     }
   }
@@ -147,7 +148,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Start draft error: $e');
+      debugPrint('Start draft error: $e');
       return null;
     }
   }
@@ -169,7 +170,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Pause draft error: $e');
+      debugPrint('Pause draft error: $e');
       return null;
     }
   }
@@ -191,7 +192,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Resume draft error: $e');
+      debugPrint('Resume draft error: $e');
       return null;
     }
   }
@@ -213,7 +214,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Reset draft error: $e');
+      debugPrint('Reset draft error: $e');
       return null;
     }
   }
@@ -247,7 +248,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Update draft settings error: $e');
+      debugPrint('Update draft settings error: $e');
       return null;
     }
   }
@@ -280,7 +281,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Make pick error: $e');
+      debugPrint('Make pick error: $e');
       return null;
     }
   }
@@ -302,7 +303,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Get draft picks error: $e');
+      debugPrint('Get draft picks error: $e');
       return [];
     }
   }
@@ -336,7 +337,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Get available players error: $e');
+      debugPrint('Get available players error: $e');
       return [];
     }
   }
@@ -359,7 +360,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Get chat messages error: $e');
+      debugPrint('Get chat messages error: $e');
       return [];
     }
   }
@@ -387,7 +388,7 @@ class DraftService {
       }
       return null;
     } catch (e) {
-      print('Send chat message error: $e');
+      debugPrint('Send chat message error: $e');
       return null;
     }
   }
@@ -402,7 +403,7 @@ class DraftService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Sync players error: $e');
+      debugPrint('Sync players error: $e');
       return false;
     }
   }
@@ -434,7 +435,7 @@ class DraftService {
       }
       return [];
     } catch (e) {
-      print('Get players error: $e');
+      debugPrint('Get players error: $e');
       return [];
     }
   }

@@ -30,13 +30,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
 
       try {
-        final response = await http.post(
-          Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auth/request-reset'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'email': _emailController.text.trim(),
-          }),
-        );
+        final response = await http
+            .post(
+              Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auth/request-reset'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({
+                'email': _emailController.text.trim(),
+              }),
+            )
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw Exception('Request timed out. Please check your internet connection.');
+              },
+            );
 
         if (mounted) {
           setState(() {
@@ -102,13 +109,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              tokenController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
               final token = tokenController.text.trim();
               if (token.isNotEmpty) {
+                tokenController.dispose();
                 Navigator.pop(context);
                 Navigator.push(
                   context,
@@ -243,7 +254,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Success icon
-        Icon(
+        const Icon(
           Icons.mark_email_read,
           size: 80,
           color: Colors.green,
@@ -281,18 +292,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.blue.shade50,
+            color: Theme.of(context).colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue.shade200),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            ),
           ),
           child: Column(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700),
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(height: 8),
               Text(
                 'The link will expire in 1 hour. If you don\'t see the email, check your spam folder.',
                 style: TextStyle(
-                  color: Colors.blue.shade900,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,

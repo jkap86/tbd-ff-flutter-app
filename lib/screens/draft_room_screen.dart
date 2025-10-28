@@ -9,7 +9,6 @@ import '../models/draft_model.dart';
 import '../models/draft_order_model.dart';
 import '../widgets/draft_board_widget.dart';
 import '../widgets/league_chat_tab_widget.dart';
-import '../widgets/player_stats_widget.dart';
 import '../services/player_stats_service.dart';
 import '../services/nfl_service.dart';
 
@@ -203,17 +202,15 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     final currentRosterId = draft.currentRosterId;
 
     // Find the roster that's currently on the clock
-    DraftOrder? currentRoster;
-    try {
-      currentRoster = draftProvider.draftOrder.firstWhere(
-        (order) => order.rosterId == currentRosterId,
-      );
-    } catch (e) {
-      return;
-    }
+    final currentRoster = draftProvider.draftOrder.cast<DraftOrder?>().firstWhere(
+      (order) => order?.rosterId == currentRosterId,
+      orElse: () => null,
+    );
+
+    if (currentRoster == null) return;
 
     // Check if this roster has autodraft enabled
-    if (currentRoster == null || !currentRoster.isAutodrafting) {
+    if (!currentRoster.isAutodrafting) {
       _lastAutoPickNumber = null;
       return;
     }
@@ -227,14 +224,14 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     // Check if we've already auto-picked for this specific pick number
     if (_lastAutoPickNumber == currentPickNumber) return;
 
-    print('[AutoDraft] Triggering auto-pick for pick #$currentPickNumber (roster $currentRosterId)');
+    debugPrint('[AutoDraft] Triggering auto-pick for pick #$currentPickNumber (roster $currentRosterId)');
 
     // Mark that we're auto-picking for this pick number
     _lastAutoPickNumber = currentPickNumber;
 
     // Auto-pick the first player in queue, or best available
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && currentRoster?.isAutodrafting == true) {
+      if (mounted && currentRoster.isAutodrafting == true) {
         Player? playerToPick;
 
         if (_draftQueue.isNotEmpty) {
@@ -298,11 +295,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
             Icon(Icons.check_circle, color: Colors.green, size: 32),
-            const SizedBox(width: 12),
-            const Text('Draft Complete!'),
+            SizedBox(width: 12),
+            Text('Draft Complete!'),
           ],
         ),
         content: const Text('The draft has been completed. All picks have been made.'),
@@ -630,83 +627,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     }
   }
 
-  void _showPlayerStats(Player player) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _getPositionColor(player.position),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.white,
-                    child: Text(
-                      player.position,
-                      style: TextStyle(
-                        color: _getPositionColor(player.position),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          player.fullName,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          player.positionTeam,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PlayerStatsWidget(
-                playerId: player.playerId,
-                currentSeason: 2024,
-                currentWeek: null,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    final isWideScreen = MediaQuery.of(context).size.width > 900;
 
     return Consumer2<DraftProvider, AuthProvider>(
       builder: (context, draftProvider, authProvider, _) {
@@ -729,8 +652,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                         _buildStickyStatusBar(draftProvider, authProvider),
                         if (draft.status == 'paused' && _isAutoPaused(draft))
                           _buildAutoPauseBanner(draft),
-                        Expanded(
-                          child: const DraftBoardWidget(),
+                        const Expanded(
+                          child: DraftBoardWidget(),
                         ),
                       ],
                     ),
@@ -766,7 +689,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, -2),
                               ),
@@ -912,7 +835,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             if (_sortBy == null)
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                                                 child: Row(
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
@@ -958,7 +881,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             if (_sortBy != null)
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                                                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                                                 child: Row(
                                                   children: [
                                                     Icon(
@@ -1044,7 +967,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                     _filterPlayers();
                   });
                 },
-                backgroundColor: _getPositionColor(position).withOpacity(0.1),
+                backgroundColor: _getPositionColor(position).withValues(alpha: 0.1),
                 selectedColor: _getPositionColor(position),
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : _getPositionColor(position),
@@ -1140,7 +1063,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         // Show loading overlay while sorting
         if (_isSorting)
           Container(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             child: const Center(
               child: Card(
                 child: Padding(
@@ -1172,8 +1095,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       margin: const EdgeInsets.only(bottom: 8),
       elevation: isSelected ? 4 : 1,
       color: isSelected
-          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
-          : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+          ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -1450,17 +1373,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     return pts.toString();
   }
 
-  String _getGamesPlayed(Map<String, dynamic>? data) {
-    if (data == null) return '--';
-
-    // The actual stats are nested inside 'stats' property
-    final stats = data['stats'] as Map<String, dynamic>?;
-    if (stats == null) return '--';
-
-    final gp = stats['games_played'] ?? stats['gp'] ?? stats['g'] ?? stats['gms_active'];
-    if (gp == null) return '--';
-    return gp.toString();
-  }
 
   String _getStatValue(Map<String, dynamic>? data, String statKey, String position) {
     if (data == null) {
@@ -1552,8 +1464,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       // Get all player IDs
       final playerIds = availablePlayers.map((p) => p.playerId).toList();
 
-      final currentSeason = 2025;
-      final previousSeason = 2024;
+      const currentSeason = 2025;
+      const previousSeason = 2024;
 
       // Get current NFL week for remaining weeks projections
       final currentWeek = await _nflService.getCurrentWeek(
@@ -1626,7 +1538,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         setState(() => _isLoadingStats = false);
       }
     } catch (e) {
-      print('Error loading player stats: $e');
+      debugPrint('Error loading player stats: $e');
       if (mounted) {
         setState(() => _isLoadingStats = false);
       }
@@ -1794,33 +1706,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     return column;
   }
 
-  List<String> _getAllStatsForPosition(String position) {
-    // Return ALL relevant stat categories in consistent order based on position
-    switch (position) {
-      case 'QB':
-        return ['PASS_YDS', 'PASS_TD', 'INT', 'RUSH_YDS', 'RUSH_TD'];
-      case 'RB':
-        return ['RUSH_YDS', 'RUSH_TD', 'REC', 'REC_YDS', 'REC_TD'];
-      case 'WR':
-      case 'TE':
-        return ['REC', 'REC_YDS', 'REC_TD', 'RUSH_YDS', 'RUSH_TD'];
-      case 'K':
-        return ['FG', 'FGA', 'XP'];
-      case 'DEF':
-        return ['SACK', 'INT', 'FR', 'TD', 'PA'];
-      case 'DL':
-      case 'LB':
-      case 'DB':
-        return ['TKLS', 'SACK', 'INT', 'FF'];
-      default:
-        return [];
-    }
-  }
-
-  List<String> _getStatsForPosition(String position) {
-    // Backward compatibility - use the comprehensive version
-    return _getAllStatsForPosition(position);
-  }
 
   Widget _buildQueueTab(DraftProvider draftProvider, AuthProvider authProvider) {
     if (_draftQueue.isEmpty) {
@@ -1923,7 +1808,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                       Container(
                         width: 32,
                         height: 32,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.blue,
                           shape: BoxShape.circle,
                         ),
@@ -1990,119 +1875,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         // Bottom pick button for queue
         _buildBottomPickButton(draftProvider, authProvider),
       ],
-    );
-  }
-
-  Widget _buildRecentPicksTab(DraftProvider draftProvider, ScrollController? scrollController) {
-    final picks = draftProvider.draftPicks.reversed.take(20).toList(); // Show last 20 picks
-
-    if (picks.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.info_outline, size: 48, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'No picks yet',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: picks.length,
-      itemBuilder: (context, index) {
-        final pick = picks[index];
-        final playerId = pick.playerId;
-
-        // Skip if playerId is null
-        if (playerId == null) {
-          return const SizedBox.shrink();
-        }
-
-        final player = draftProvider.availablePlayers.firstWhere(
-          (p) => p.id == playerId,
-          orElse: () => Player(
-            id: playerId,
-            playerId: '',
-            fullName: 'Unknown Player',
-            position: '',
-            team: '',
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          ),
-        );
-
-        // Find roster that made the pick
-        final roster = draftProvider.draftOrder.firstWhere(
-          (r) => r.rosterId == pick.rosterId,
-          orElse: () => DraftOrder(
-            id: 0,
-            draftId: 0,
-            rosterId: pick.rosterId,
-            draftPosition: 0,
-            userId: 0,
-            username: 'Unknown',
-            isAutodrafting: false,
-            createdAt: DateTime.now(),
-          ),
-        );
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            dense: true,
-            leading: CircleAvatar(
-              backgroundColor: _getPositionColor(player.position),
-              radius: 20,
-              child: Text(
-                player.position,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            title: Text(
-              player.fullName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            subtitle: Text(
-              '${roster.displayName} • Pick ${pick.pickNumber}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  player.team ?? '',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'Rd ${pick.round}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -2328,7 +2100,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -2345,7 +2117,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.amber.withOpacity(0.5),
+                    color: Colors.amber.withValues(alpha: 0.5),
                     blurRadius: 8,
                     spreadRadius: 2,
                   ),
@@ -2480,7 +2252,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -2490,7 +2262,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Card(
-            color: _getPositionColor(_selectedPlayer!.position).withOpacity(0.2),
+            color: _getPositionColor(_selectedPlayer!.position).withValues(alpha: 0.2),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
