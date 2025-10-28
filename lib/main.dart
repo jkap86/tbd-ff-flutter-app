@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'dart:async';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
@@ -80,7 +80,8 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  StreamSubscription? _sub;
+  late AppLinks _appLinks;
+  StreamSubscription<Uri>? _sub;
 
   @override
   void initState() {
@@ -92,12 +93,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     // Only handle deep links on mobile platforms (not web)
     if (!kIsWeb) {
+      _appLinks = AppLinks();
+
       // Handle initial deep link (when app is launched from link)
       _handleInitialLink();
 
       // Handle deep links while app is running
-      _sub = uriLinkStream.listen((Uri? uri) {
-        if (uri != null && mounted) {
+      _sub = _appLinks.uriLinkStream.listen((Uri uri) {
+        if (mounted) {
           _handleDeepLink(uri);
         }
       }, onError: (err) {
@@ -114,7 +117,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _handleInitialLink() async {
     try {
-      final initialUri = await getInitialUri();
+      final initialUri = await _appLinks.getInitialLink();
       if (initialUri != null && mounted) {
         _handleDeepLink(initialUri);
       }
