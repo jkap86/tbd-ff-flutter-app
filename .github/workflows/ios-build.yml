@@ -26,7 +26,7 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.24.0'
+        flutter-version: '3.27.0'
         channel: 'stable'
 
     - name: Install Flutter dependencies
@@ -69,10 +69,11 @@ jobs:
       env:
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
-        cd ios
-        
-        # Build Flutter app first
+        # Build Flutter app first (from project root)
         flutter build ios --release --no-codesign
+        
+        # NOW change to ios directory for xcodebuild
+        cd ios
         
         # Archive with manual signing
         xcodebuild -workspace Runner.xcworkspace \
