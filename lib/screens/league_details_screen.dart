@@ -50,6 +50,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     _loadLeagueDetails();
     _loadMessages();
     _setupSocket();
+    _updateCardHeight();
   }
 
   @override
@@ -166,8 +167,26 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     });
   }
 
+  // Helper method to calculate actual chat drawer height with minimum clamp
+  double _getActualChatDrawerHeight(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final calculatedHeight = screenHeight * _chatDrawerHeight;
+
+    // Only apply minimum in landscape where screen height is limited
+    // In portrait, 10% of screen is usually enough (60-90px on most devices)
+    if (isLandscape) {
+      return calculatedHeight.clamp(120.0, double.infinity);
+    }
+
+    return calculatedHeight;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Calculate drawer height once per build to ensure consistency
+    final drawerHeight = _getActualChatDrawerHeight(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('League Details'),
@@ -235,19 +254,24 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
             return const Center(child: Text('League not found'));
           }
 
-          final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-
           return Stack(
             children: [
-              // League card - fixed at top
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                child: ResponsiveContainer(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Card(
+                bottom: drawerHeight,
+                child: ClipRect(
+                  child: RefreshIndicator(
+                    onRefresh: _loadLeagueDetails,
+                    child: ResponsiveContainer(
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Card(
                             key: _cardKey,
                             margin: EdgeInsets.zero,
                             clipBehavior: Clip.antiAlias,
@@ -413,6 +437,9 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeInOut,
                               alignment: Alignment.topCenter,
+                              onEnd: () {
+                                _updateCardHeight();
+                              },
                               child: _isLeagueInfoExpanded
                                 ? Padding(
                                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -513,26 +540,19 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             ),
                           ],
                         ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-              // Teams/Standings section - positioned below card with independent scroll
-              Positioned(
-                top: _isLeagueInfoExpanded ? 620 : 100, // Adjust based on card height
-                left: 0,
-                right: 0,
-                bottom: MediaQuery.of(context).size.height * _chatDrawerHeight,
-                child: RefreshIndicator(
-                  onRefresh: _loadLeagueDetails,
-                  child: ResponsiveContainer(
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      child: league.status == 'in_season'
-                        ? _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
-                        : _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: league.status == 'in_season'
+                          ? _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
+                          : _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
+                      ),
+                      // Add bottom padding to prevent content from going under chat drawer
+                      SizedBox(height: MediaQuery.of(context).orientation == Orientation.landscape ? 8.0 : 16.0),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -540,7 +560,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
               // Matchups Button (only show after draft completes or league is in_season)
               if (league.status == 'in_season' || league.status == 'post_draft')
                 Positioned(
-                  bottom: 80,
+                  bottom: drawerHeight + 16,
                   right: 16,
                   child: FloatingActionButton.extended(
                     heroTag: 'matchups_button',
@@ -567,7 +587,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: MediaQuery.of(context).size.height * _chatDrawerHeight,
+                height: drawerHeight,
                 child: GestureDetector(
                   onVerticalDragUpdate: (details) {
                     setState(() {
@@ -578,12 +598,26 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   },
                   onVerticalDragEnd: (details) {
                     setState(() {
-                      if (_chatDrawerHeight < 0.3) {
-                        _chatDrawerHeight = 0.1;
-                      } else if (_chatDrawerHeight < 0.7) {
-                        _chatDrawerHeight = 0.5;
+                      final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+                      if (isLandscape) {
+                        // In landscape, use higher percentages since screen is shorter
+                        if (_chatDrawerHeight < 0.35) {
+                          _chatDrawerHeight = 0.1;
+                        } else if (_chatDrawerHeight < 0.75) {
+                          _chatDrawerHeight = 0.6; // Higher middle point for landscape
+                        } else {
+                          _chatDrawerHeight = 0.9;
+                        }
                       } else {
-                        _chatDrawerHeight = 0.9;
+                        // Portrait snap points
+                        if (_chatDrawerHeight < 0.3) {
+                          _chatDrawerHeight = 0.1;
+                        } else if (_chatDrawerHeight < 0.7) {
+                          _chatDrawerHeight = 0.5;
+                        } else {
+                          _chatDrawerHeight = 0.9;
+                        }
                       }
                     });
                   },
@@ -599,7 +633,10 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                         ),
                       ],
                     ),
-                    child: Column(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         // Drag handle
                         Container(
@@ -624,6 +661,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       'League Chat',
@@ -632,18 +670,23 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                       ),
                                     ),
                                     // Show last message preview when collapsed
-                                    if (_chatDrawerHeight <= 0.2 && _messages.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          '${_messages.last.displayUsername}: ${_messages.last.message}',
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Colors.grey.shade600,
+                                    if (_messages.isNotEmpty) () {
+                                      final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                                      final threshold = isLandscape ? 0.35 : 0.2;
+                                      return _chatDrawerHeight <= threshold;
+                                    }()
+                                      ? Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            '${_messages.last.displayUsername}: ${_messages.last.message}',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Colors.grey.shade600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
+                                        )
+                                      : const SizedBox.shrink(),
                                   ],
                                 ),
                               ),
@@ -651,10 +694,16 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                           ),
                         ),
                         const Divider(height: 1),
-                        // Chat content
-                        if (_chatDrawerHeight > 0.2)
-                          Expanded(
-                            child: Column(
+                        // Chat content - Always use Expanded to prevent overflow
+                        Expanded(
+                          child: () {
+                            final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                            // In landscape, need more height before showing full chat interface
+                            final threshold = isLandscape ? 0.35 : 0.2;
+                            return _chatDrawerHeight > threshold;
+                          }()
+                            ? Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 // Messages
                                 Expanded(
@@ -673,47 +722,57 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                           },
                                         ),
                                 ),
-                                // Input
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceVariant,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _messageController,
-                                          decoration: const InputDecoration(
-                                            hintText: 'Type a message...',
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
+                                // Input - Use SafeArea to ensure it doesn't get cut off
+                                SafeArea(
+                                  top: false,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surfaceVariant,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _messageController,
+                                            maxLines: null,
+                                            minLines: 1,
+                                            keyboardType: TextInputType.multiline,
+                                            textInputAction: TextInputAction.newline,
+                                            decoration: const InputDecoration(
+                                              hintText: 'Type a message...',
+                                              border: OutlineInputBorder(),
+                                              contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
                                             ),
+                                            onSubmitted: (_) => _sendMessage(),
                                           ),
-                                          onSubmitted: (_) => _sendMessage(),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        onPressed: _sendMessage,
-                                        icon: const Icon(Icons.send),
-                                        style: IconButton.styleFrom(
-                                          backgroundColor: Theme.of(context).colorScheme.primary,
-                                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          onPressed: _sendMessage,
+                                          icon: const Icon(Icons.send),
+                                          style: IconButton.styleFrom(
+                                            backgroundColor: Theme.of(context).colorScheme.primary,
+                                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
+                            )
+                            : const SizedBox.shrink(), // Empty when collapsed
+                        ),
                       ],
+                      ),
                     ),
                   ),
                 ),
+              ),
             ],
           );
         },
@@ -1077,31 +1136,26 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
             ),
           )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: rosters.length,
-            itemBuilder: (context, index) {
-              final roster = rosters[index];
-              final isCurrentUser = roster.userId == currentUserId;
-              final isRosterCommissioner = roster.userId == commissionerId;
+          ...rosters.asMap().entries.map((entry) {
+            final roster = entry.value;
+            final isCurrentUser = roster.userId == currentUserId;
+            final isRosterCommissioner = roster.userId == commissionerId;
 
-              return _buildRosterCard(
-                roster,
-                isCurrentUser: isCurrentUser,
-                isRosterCommissioner: isRosterCommissioner,
-                canRemove: isCommissioner && !isCurrentUser,
-                onRemove: () {
-                  _showRemoveConfirmation(
-                    context,
-                    roster,
-                    leagueProvider,
-                    authProvider,
-                  );
-                },
-              );
-            },
-          ),
+            return _buildRosterCard(
+              roster,
+              isCurrentUser: isCurrentUser,
+              isRosterCommissioner: isRosterCommissioner,
+              canRemove: isCommissioner && !isCurrentUser,
+              onRemove: () {
+                _showRemoveConfirmation(
+                  context,
+                  roster,
+                  leagueProvider,
+                  authProvider,
+                );
+              },
+            );
+          }).toList(),
       ],
     );
   }
