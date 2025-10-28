@@ -55,6 +55,10 @@ jobs:
       env:
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
+        # First, let Flutter generate necessary files
+        flutter build ios --release --no-codesign
+        
+        # Then build and archive with xcodebuild
         cd ios
         xcodebuild -workspace Runner.xcworkspace \
           -scheme Runner \
