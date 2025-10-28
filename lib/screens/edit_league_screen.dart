@@ -132,16 +132,19 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         _pickTimeSeconds = draft.pickTimeSeconds;
         _draftRounds = draft.rounds;
 
-        // Load overnight pause settings
-        if (draft.settings != null) {
-          _autoPauseEnabled = draft.settings['auto_pause_enabled'] == true;
+        // Load overnight pause settings (stored in UTC, convert to local)
+        final settings = draft.settings;
+        if (settings != null) {
+          _autoPauseEnabled = settings['auto_pause_enabled'] == true;
           if (_autoPauseEnabled) {
-            final startHour = draft.settings['auto_pause_start_hour'] ?? 23;
-            final startMinute = draft.settings['auto_pause_start_minute'] ?? 0;
-            final endHour = draft.settings['auto_pause_end_hour'] ?? 8;
-            final endMinute = draft.settings['auto_pause_end_minute'] ?? 0;
-            _autoPauseStartTime = TimeOfDay(hour: startHour, minute: startMinute);
-            _autoPauseEndTime = TimeOfDay(hour: endHour, minute: endMinute);
+            final startHourUTC = settings['auto_pause_start_hour'] ?? 23;
+            final startMinuteUTC = settings['auto_pause_start_minute'] ?? 0;
+            final endHourUTC = settings['auto_pause_end_hour'] ?? 8;
+            final endMinuteUTC = settings['auto_pause_end_minute'] ?? 0;
+
+            // Convert UTC to local time
+            _autoPauseStartTime = _utcToLocalTimeOfDay(startHourUTC, startMinuteUTC);
+            _autoPauseEndTime = _utcToLocalTimeOfDay(endHourUTC, endMinuteUTC);
           }
         }
       });
@@ -228,6 +231,22 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         // Update draft settings if draft exists
         final draftProvider = Provider.of<DraftProvider>(context, listen: false);
         if (draftProvider.currentDraft != null) {
+          // Convert local time to UTC before saving
+          Map<String, dynamic> draftSettings;
+          if (_autoPauseEnabled) {
+            final startUTC = _localTimeOfDayToUTC(_autoPauseStartTime);
+            final endUTC = _localTimeOfDayToUTC(_autoPauseEndTime);
+            draftSettings = {
+              'auto_pause_enabled': true,
+              'auto_pause_start_hour': startUTC['hour'],
+              'auto_pause_start_minute': startUTC['minute'],
+              'auto_pause_end_hour': endUTC['hour'],
+              'auto_pause_end_minute': endUTC['minute'],
+            };
+          } else {
+            draftSettings = {'auto_pause_enabled': false};
+          }
+
           final draftSuccess = await DraftService().updateDraftSettings(
             token: authProvider.token!,
             draftId: draftProvider.currentDraft!.id,
@@ -235,13 +254,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             thirdRoundReversal: _thirdRoundReversal,
             pickTimeSeconds: _pickTimeSeconds,
             rounds: _draftRounds,
-            settings: _autoPauseEnabled ? {
-              'auto_pause_enabled': true,
-              'auto_pause_start_hour': _autoPauseStartTime.hour,
-              'auto_pause_start_minute': _autoPauseStartTime.minute,
-              'auto_pause_end_hour': _autoPauseEndTime.hour,
-              'auto_pause_end_minute': _autoPauseEndTime.minute,
-            } : {'auto_pause_enabled': false},
+            settings: draftSettings,
           );
 
           // Only show draft error if update actually failed (don't show for league-only updates)
@@ -1369,6 +1382,33 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         ),
       ),
     );
+  }
+
+  /// Convert UTC time to local TimeOfDay
+  TimeOfDay _utcToLocalTimeOfDay(int hourUTC, int minuteUTC) {
+    // Create a UTC DateTime for today with the given time
+    final now = DateTime.now();
+    final utcTime = DateTime.utc(now.year, now.month, now.day, hourUTC, minuteUTC);
+
+    // Convert to local time
+    final localTime = utcTime.toLocal();
+
+    return TimeOfDay(hour: localTime.hour, minute: localTime.minute);
+  }
+
+  /// Convert local TimeOfDay to UTC
+  Map<String, int> _localTimeOfDayToUTC(TimeOfDay localTime) {
+    // Create a local DateTime for today with the given time
+    final now = DateTime.now();
+    final localDateTime = DateTime(now.year, now.month, now.day, localTime.hour, localTime.minute);
+
+    // Convert to UTC
+    final utcTime = localDateTime.toUtc();
+
+    return {
+      'hour': utcTime.hour,
+      'minute': utcTime.minute,
+    };
   }
 
   Widget _buildRosterPositionRow(String positionKey, String positionName) {

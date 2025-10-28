@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
 import '../models/player_model.dart';
+import '../models/draft_model.dart';
 import '../models/draft_order_model.dart';
 import '../widgets/draft_board_widget.dart';
 import '../widgets/league_chat_tab_widget.dart';
@@ -715,6 +716,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                     Column(
                       children: [
                         _buildStickyStatusBar(draftProvider, authProvider),
+                        if (draft.status == 'paused' && _isAutoPaused(draft))
+                          _buildAutoPauseBanner(draft),
                         Expanded(
                           child: const DraftBoardWidget(),
                         ),
@@ -2457,6 +2460,79 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Check if draft is auto-paused (has overnight pause settings enabled)
+  bool _isAutoPaused(Draft draft) {
+    return draft.settings?['auto_pause_enabled'] == true;
+  }
+
+  /// Convert UTC time to local TimeOfDay for display
+  TimeOfDay _utcToLocalTimeOfDay(int hourUTC, int minuteUTC) {
+    final now = DateTime.now();
+    final utcTime = DateTime.utc(now.year, now.month, now.day, hourUTC, minuteUTC);
+    final localTime = utcTime.toLocal();
+    return TimeOfDay(hour: localTime.hour, minute: localTime.minute);
+  }
+
+  /// Build auto-pause notification banner
+  Widget _buildAutoPauseBanner(Draft draft) {
+    final settings = draft.settings;
+    if (settings == null) return const SizedBox.shrink();
+
+    final startHourUTC = settings['auto_pause_start_hour'] ?? 23;
+    final startMinuteUTC = settings['auto_pause_start_minute'] ?? 0;
+    final endHourUTC = settings['auto_pause_end_hour'] ?? 8;
+    final endMinuteUTC = settings['auto_pause_end_minute'] ?? 0;
+
+    // Convert UTC to local time for display
+    final startTime = _utcToLocalTimeOfDay(startHourUTC, startMinuteUTC);
+    final endTime = _utcToLocalTimeOfDay(endHourUTC, endMinuteUTC);
+
+    // Get timezone abbreviation (EST, EDT, PST, etc.)
+    final now = DateTime.now();
+    final timeZoneName = now.timeZoneName; // e.g., "EST", "EDT", "PST", "PDT"
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade100,
+        border: Border(
+          bottom: BorderSide(color: Colors.orange.shade300, width: 2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.bedtime, color: Colors.orange.shade900, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Draft Auto-Paused Overnight',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Paused from ${startTime.format(context)} to ${endTime.format(context)} $timeZoneName',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.orange.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
         ],
       ),
     );

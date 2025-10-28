@@ -48,6 +48,20 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       return;
     }
 
+    // Convert local time to UTC before saving
+    Map<String, dynamic>? draftSettings;
+    if (_autoPauseEnabled) {
+      final startUTC = _localTimeOfDayToUTC(_autoPauseStartTime);
+      final endUTC = _localTimeOfDayToUTC(_autoPauseEndTime);
+      draftSettings = {
+        'auto_pause_enabled': true,
+        'auto_pause_start_hour': startUTC['hour'],
+        'auto_pause_start_minute': startUTC['minute'],
+        'auto_pause_end_hour': endUTC['hour'],
+        'auto_pause_end_minute': endUTC['minute'],
+      };
+    }
+
     final success = await draftProvider.createDraft(
       token: authProvider.token!,
       leagueId: widget.leagueId,
@@ -55,13 +69,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       thirdRoundReversal: _thirdRoundReversal,
       pickTimeSeconds: _pickTimeSeconds,
       rounds: _rounds,
-      settings: _autoPauseEnabled ? {
-        'auto_pause_enabled': true,
-        'auto_pause_start_hour': _autoPauseStartTime.hour,
-        'auto_pause_start_minute': _autoPauseStartTime.minute,
-        'auto_pause_end_hour': _autoPauseEndTime.hour,
-        'auto_pause_end_minute': _autoPauseEndTime.minute,
-      } : null,
+      settings: draftSettings,
     );
 
     if (mounted) {
@@ -448,6 +456,21 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
         return '$minutes:${seconds.toString().padLeft(2, '0')}';
       }
     }
+  }
+
+  /// Convert local TimeOfDay to UTC
+  Map<String, int> _localTimeOfDayToUTC(TimeOfDay localTime) {
+    // Create a local DateTime for today with the given time
+    final now = DateTime.now();
+    final localDateTime = DateTime(now.year, now.month, now.day, localTime.hour, localTime.minute);
+
+    // Convert to UTC
+    final utcTime = localDateTime.toUtc();
+
+    return {
+      'hour': utcTime.hour,
+      'minute': utcTime.minute,
+    };
   }
 
   Widget _buildSummaryRow(String label, String value) {
