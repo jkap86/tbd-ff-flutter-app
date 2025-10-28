@@ -68,6 +68,9 @@ jobs:
           CODE_SIGN_STYLE=Manual \
           CODE_SIGN_IDENTITY="Apple Distribution" \
           PROVISIONING_PROFILE_SPECIFIER="487f232e-03ad-403f-a3fa-0b9b8e64b80f" \
+          CODE_SIGN_IDENTITY[sdk=iphoneos*]="Apple Distribution" \
+          OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/app-signing.keychain-db" \
+          -allowProvisioningUpdates \
           archive
     
     - name: Export IPA
