@@ -13,7 +13,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TBD Fantasy Football'),
+        title: const Text('HypeTrain'),
         actions: [
           // Theme toggle button
           Consumer<ThemeProvider>(
