@@ -1,0 +1,9 @@
+app_identifier("com.jkap86.fantasyfootball")
+apple_id("jkap86@gmail.com")
+team_id("FK8K2ZKZT5")
+
+for_platform :ios do
+  app_identifier("com.jkap86.fantasyfootball")
+  apple_id("jkap86@gmail.com")
+  team_id("FK8K2ZKZT5")
+end
