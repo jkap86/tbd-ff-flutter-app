@@ -9,26 +9,10 @@ rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
-
 subprojects {
     project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
-}
-
-// Global properties for all projects
-subprojects {
-    afterEvaluate {
-        if (it.hasProperty('android')) {
-            android {
-                compileSdkVersion 34
-                
-                if (namespace == null) {
-                    namespace = group ?: "com.example.${project.name.replace('-', '_')}"
-                }
-            }
-        }
-    }
 }
