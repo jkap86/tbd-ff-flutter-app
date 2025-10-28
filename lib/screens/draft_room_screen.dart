@@ -54,6 +54,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   bool _sortAscending = false; // Default to descending (highest first)
   bool _isSorting = false; // Track if we're currently sorting
 
+  // Scroll controllers for stats rows
+  final Map<String, ScrollController> _statsScrollControllers = {};
+  double _currentStatsScrollOffset = 0.0; // Track current scroll position for all rows
+  bool _isScrolling = false; // Prevent concurrent scroll operations
+
   @override
   void initState() {
     super.initState();
@@ -146,6 +151,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     _drawerTabController.dispose();
     _searchController.dispose();
     _timerAnimationController.dispose();
+
+    // Dispose all scroll controllers
+    for (final controller in _statsScrollControllers.values) {
+      controller.dispose();
+    }
+    _statsScrollControllers.clear();
 
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -1287,35 +1298,62 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     final cacheKey = '${player.playerId}_$_statsMode';
     final stats = _playerStats[cacheKey];
 
-    // Use universal stat columns for all players
+    // Use universal stat columns for all players (not position-specific)
     final allStats = _getUniversalStatColumns();
 
-    return Row(
-      children: [
-        // FPTS - always first
-        Expanded(
-          flex: 2,
-          child: _buildStatColumn('FPTS', _getFantasyPoints(stats), sortable: true),
-        ),
-        _buildStatDivider(),
-        // GP - always second
-        Expanded(
-          child: _buildStatColumn('GP', _getGamesPlayed(stats), sortable: true),
-        ),
-        // Universal stats (same for all players)
-        ...allStats.expand((stat) => [
-          _buildStatDivider(),
-          Expanded(
-            child: _buildStatColumn(stat, _getStatValue(stats, stat, player.position), sortable: true),
+    // Get or create scroll controller for this player
+    final scrollKey = player.playerId;
+    if (!_statsScrollControllers.containsKey(scrollKey)) {
+      // Create new controller with initial scroll position
+      _statsScrollControllers[scrollKey] = ScrollController(
+        initialScrollOffset: _currentStatsScrollOffset,
+      );
+    }
+
+    // Ensure the controller syncs after being attached
+    final controller = _statsScrollControllers[scrollKey]!;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (controller.hasClients &&
+          controller.offset != _currentStatsScrollOffset) {
+        try {
+          if (_currentStatsScrollOffset <= controller.position.maxScrollExtent) {
+            controller.jumpTo(_currentStatsScrollOffset);
+          } else {
+            controller.jumpTo(controller.position.maxScrollExtent);
+          }
+        } catch (e) {
+          // Ignore if controller isn't ready
+        }
+      }
+    });
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      controller: controller,
+      child: Row(
+        children: [
+          // FPTS - always first, fixed width
+          SizedBox(
+            width: 65,
+            child: _buildStatColumn('FPTS', _getFantasyPoints(stats), sortable: true),
           ),
-        ]),
-      ],
+          _buildStatDivider(),
+          // Universal stats (same for all players) with fixed widths
+          ...allStats.expand((stat) => [
+            _buildStatDivider(),
+            SizedBox(
+              width: 70,
+              child: _buildStatColumn(stat, _getStatValue(stats, stat, player.position), sortable: true),
+            ),
+          ]),
+        ],
+      ),
     );
   }
 
   List<String> _getUniversalStatColumns() {
-    // Return a universal set of stat columns that apply to all offensive players
-    // This ensures consistent column ordering across all positions
+    // Return universal stat columns shown for all players
+    // This ensures consistent scrolling across all positions
     return [
       'PASS_YDS',
       'PASS_TD',
@@ -1325,6 +1363,60 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       'REC_YDS',
       'REC_TD',
     ];
+  }
+
+  void _scrollToColumn(String columnLabel) async {
+    // Prevent concurrent scroll operations
+    if (_isScrolling) return;
+    _isScrolling = true;
+
+    try {
+      // Calculate scroll position (same for all players now)
+      double scrollOffset = 0.0;
+
+      if (columnLabel == 'FPTS') {
+        // FPTS is always first, scroll to start
+        scrollOffset = 0.0;
+      } else {
+        // Get universal stat columns
+        final allStats = _getUniversalStatColumns();
+        final columnIndex = allStats.indexOf(columnLabel);
+
+        if (columnIndex >= 0) {
+          // FPTS width + divider
+          scrollOffset = 65 + 5;
+
+          // Add widths for columns before this one
+          for (int i = 0; i < columnIndex; i++) {
+            scrollOffset += 70 + 5; // column width + divider
+          }
+        }
+      }
+
+      // Store the current scroll offset for new controllers
+      _currentStatsScrollOffset = scrollOffset;
+
+      // Scroll all existing player rows to the same position
+      // Use jumpTo instead of animateTo for better performance with many controllers
+      for (final controller in _statsScrollControllers.values) {
+        if (controller.hasClients) {
+          try {
+            // Check if we can scroll to this position
+            if (scrollOffset <= controller.position.maxScrollExtent) {
+              controller.jumpTo(scrollOffset);
+            } else {
+              // Scroll to max if target is beyond scroll extent
+              controller.jumpTo(controller.position.maxScrollExtent);
+            }
+          } catch (e) {
+            // Controller might not be fully initialized, skip it
+            // It will use _currentStatsScrollOffset when initialized
+          }
+        }
+      }
+    } finally {
+      _isScrolling = false;
+    }
   }
 
   Widget _buildStatDivider() {
@@ -1372,23 +1464,13 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
   String _getStatValue(Map<String, dynamic>? data, String statKey, String position) {
     if (data == null) {
-      print('[$statKey] data is null');
       return '--';
     }
 
     // The actual stats are nested inside 'stats' property
     final stats = data['stats'] as Map<String, dynamic>?;
     if (stats == null) {
-      print('[$statKey] stats is null');
       return '--';
-    }
-
-    // Debug: Print ALL available keys once per position
-    if (statKey == 'PASS_YDS' && stats.isNotEmpty) {
-      print('[$position] ALL stat keys (${stats.keys.length}): ${stats.keys.join(", ")}');
-      // Also check for any keys containing 'yd'
-      final ydKeys = stats.keys.where((k) => k.toString().contains('yd')).toList();
-      print('[$position] Keys containing "yd": ${ydKeys.join(", ")}');
     }
 
     // Map display keys to possible API keys (Sleeper uses 'yd' not 'yds')
@@ -1447,11 +1529,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         }
         return value.toString();
       }
-    }
-
-    // Debug: Log when we can't find a stat
-    if (statKey == 'PASS_YDS' || statKey == 'RUSH_YDS' || statKey == 'REC_YDS') {
-      print('[$position] Could not find $statKey. Tried keys: ${possibleKeys.join(", ")}');
     }
 
     return '--';
@@ -1531,34 +1608,25 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         for (var entry in currentStats.entries) {
           _playerStats['${entry.key}_current_season'] = entry.value;
         }
-        print('Cached ${currentStats.length} current season stats');
       }
 
       if (previousStats != null) {
         for (var entry in previousStats.entries) {
           _playerStats['${entry.key}_previous_season'] = entry.value;
         }
-        print('Cached ${previousStats.length} previous season stats');
       }
 
       if (projections != null) {
         for (var entry in projections.entries) {
           _playerStats['${entry.key}_projections'] = entry.value;
         }
-        if (currentWeek != null && currentWeek <= endWeek) {
-          print('Cached ${projections.length} projections for weeks $currentWeek-$endWeek (remaining)');
-        } else {
-          print('Cached ${projections.length} projections');
-        }
       }
 
       if (mounted) {
         setState(() => _isLoadingStats = false);
       }
-
-      print('Loaded stats for ${playerIds.length} players, total cached: ${_playerStats.length}');
     } catch (e) {
-      print('Error loading all player stats: $e');
+      print('Error loading player stats: $e');
       if (mounted) {
         setState(() => _isLoadingStats = false);
       }
@@ -1635,7 +1703,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
               child: Text(
                 label,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: isCurrentSort ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
                 ),
@@ -1647,7 +1715,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
               const SizedBox(width: 2),
               Icon(
                 _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 9,
+                size: 10,
                 color: Theme.of(context).colorScheme.primary,
               ),
             ],
@@ -1657,7 +1725,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         Text(
           value,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: isCurrentSort ? Theme.of(context).colorScheme.primary : null,
           ),
@@ -1681,6 +1749,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
           await Future.delayed(const Duration(milliseconds: 10));
 
           if (mounted) {
+            String? columnToScrollTo;
+
             setState(() {
               if (_sortBy == label) {
                 // Toggle sort direction or clear sort
@@ -1688,17 +1758,30 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                   // Was descending, now clear sort
                   _sortBy = null;
                   _sortAscending = false;
+                  columnToScrollTo = null; // Don't scroll when clearing
                 } else {
                   // Was ascending, now descending
                   _sortAscending = false;
+                  columnToScrollTo = label;
                 }
               } else {
                 // New sort column, start with descending
                 _sortBy = label;
                 _sortAscending = false;
+                columnToScrollTo = label;
               }
               _isSorting = false;
             });
+
+            // Wait for UI to update, then scroll
+            if (columnToScrollTo != null) {
+              // Wait for the next frame to ensure all widgets are built
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _scrollToColumn(columnToScrollTo!);
+                }
+              });
+            }
           }
         },
         child: Padding(
