@@ -21,7 +21,7 @@ dependencies:
   json_annotation: ^4.9.0
 
   # Deep linking
-  app_links: ^6.3.2
+  app_links: ^3.5.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

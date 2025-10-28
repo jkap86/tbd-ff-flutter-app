@@ -125,7 +125,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _handleInitialLink() async {
     try {
-      final initialUri = await _appLinks.getInitialLink();
+      final initialUri = await _appLinks.getInitialAppLink();
       if (initialUri != null && mounted) {
         _handleDeepLink(initialUri);
       }
