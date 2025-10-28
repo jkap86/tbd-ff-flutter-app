@@ -64,22 +64,20 @@ jobs:
         # Build Flutter app first
         flutter build ios --release --no-codesign
         
-        # Archive with targeted provisioning profile
+        # Archive with automatic signing - NO PROVISIONING_PROFILE!
         xcodebuild -workspace Runner.xcworkspace \
           -scheme Runner \
           -configuration Release \
           -archivePath build/Runner.xcarchive \
           archive \
           DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-          PROVISIONING_PROFILE="487f232e-03ad-403f-a3fa-0b9b8e64b80f" \
-          CODE_SIGN_IDENTITY="iPhone Distribution" \
           -allowProvisioningUpdates
 
     - name: Export IPA
       run: |
         cd ios
         
-        # Create ExportOptions.plist with explicit provisioning
+        # Create ExportOptions.plist for automatic signing
         cat > ExportOptions.plist <<EOF
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -93,11 +91,6 @@ jobs:
             <true/>
             <key>compileBitcode</key>
             <false/>
-            <key>provisioningProfiles</key>
-            <dict>
-                <key>com.jkap86.fantasyfootball</key>
-                <string>487f232e-03ad-403f-a3fa-0b9b8e64b80f</string>
-            </dict>
         </dict>
         </plist>
         EOF
