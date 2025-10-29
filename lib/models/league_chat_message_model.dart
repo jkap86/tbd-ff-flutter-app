@@ -1,7 +1,7 @@
 class LeagueChatMessage {
   final int id;
   final int leagueId;
-  final int userId;
+  final int? userId; // Nullable for system messages
   final String message;
   final String messageType; // 'chat', 'system'
   final Map<String, dynamic>? metadata;
@@ -13,7 +13,7 @@ class LeagueChatMessage {
   LeagueChatMessage({
     required this.id,
     required this.leagueId,
-    required this.userId,
+    this.userId, // Optional for system messages
     required this.message,
     required this.messageType,
     this.metadata,
@@ -25,7 +25,7 @@ class LeagueChatMessage {
     return LeagueChatMessage(
       id: json['id'] as int,
       leagueId: json['league_id'] as int,
-      userId: json['user_id'] as int,
+      userId: json['user_id'] as int?,
       message: json['message'] as String,
       messageType: json['message_type'] as String? ?? 'chat',
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -50,5 +50,5 @@ class LeagueChatMessage {
   bool get isChat => messageType == 'chat';
   bool get isSystem => messageType == 'system';
 
-  String get displayUsername => username ?? 'User $userId';
+  String get displayUsername => username ?? (userId != null ? 'User $userId' : 'System');
 }
