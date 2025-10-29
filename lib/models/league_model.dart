@@ -9,6 +9,8 @@ class League {
   final String leagueType; // redraft, keeper, dynasty
   final List<dynamic>? rosterPositions;
   final int totalRosters;
+  final String tradeNotificationSetting; // always_off, always_on, proposer_choice
+  final String tradeDetailsSetting; // always_off, always_on, proposer_choice
   final DateTime createdAt;
   final DateTime updatedAt;
   final int? commissionerId;
@@ -25,6 +27,8 @@ class League {
     required this.leagueType,
     this.rosterPositions,
     required this.totalRosters,
+    this.tradeNotificationSetting = 'proposer_choice',
+    this.tradeDetailsSetting = 'proposer_choice',
     required this.createdAt,
     required this.updatedAt,
     this.commissionerId,
@@ -55,6 +59,8 @@ class League {
       leagueType: json['league_type'] as String? ?? 'redraft',
       rosterPositions: json['roster_positions'] as List<dynamic>?,
       totalRosters: json['total_rosters'] as int,
+      tradeNotificationSetting: json['trade_notification_setting'] as String? ?? 'proposer_choice',
+      tradeDetailsSetting: json['trade_details_setting'] as String? ?? 'proposer_choice',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       commissionerId: extractedCommissionerId,
@@ -74,6 +80,8 @@ class League {
       'league_type': leagueType,
       'roster_positions': rosterPositions,
       'total_rosters': totalRosters,
+      'trade_notification_setting': tradeNotificationSetting,
+      'trade_details_setting': tradeDetailsSetting,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'commissioner_id': commissionerId,

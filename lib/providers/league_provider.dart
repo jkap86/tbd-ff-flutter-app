@@ -163,6 +163,8 @@ class LeagueProvider with ChangeNotifier {
     Map<String, dynamic>? settings,
     Map<String, dynamic>? scoringSettings,
     List<dynamic>? rosterPositions,
+    String? tradeNotificationSetting,
+    String? tradeDetailsSetting,
   }) async {
     _status = LeagueStatus.loading;
     _errorMessage = null;
@@ -178,6 +180,8 @@ class LeagueProvider with ChangeNotifier {
         settings: settings,
         scoringSettings: scoringSettings,
         rosterPositions: rosterPositions,
+        tradeNotificationSetting: tradeNotificationSetting,
+        tradeDetailsSetting: tradeDetailsSetting,
       );
 
       if (updatedLeague != null) {

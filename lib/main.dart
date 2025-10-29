@@ -10,6 +10,7 @@ import 'providers/invite_provider.dart';
 import 'providers/draft_provider.dart';
 import 'providers/matchup_provider.dart';
 import 'providers/waiver_provider.dart';
+import 'providers/trade_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/reset_password_screen.dart';
@@ -36,6 +37,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DraftProvider()),
         ChangeNotifierProvider(create: (_) => MatchupProvider()),
         ChangeNotifierProvider(create: (_) => WaiverProvider()),
+        ChangeNotifierProvider(create: (_) => TradeProvider()),
       ],
       child: const MyAppContent(),
     );

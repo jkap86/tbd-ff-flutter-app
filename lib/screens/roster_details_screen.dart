@@ -211,12 +211,14 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
       final fullRoster = await _rosterService.getRosterWithPlayers(token, widget.rosterId);
 
-      // Merge: use weekly lineup starters but full roster's bench/taxi/ir
+      // Use weekly lineup starters with bench from full roster
       if (weeklyLineup != null && fullRoster != null) {
         roster = {
           ...fullRoster,
           'starters': weeklyLineup['starters'],
         };
+
+        debugPrint('[RosterDetails] Using weekly lineup starters + bench array from full roster');
       } else {
         roster = fullRoster; // Fallback to full roster if weekly lineup doesn't exist
       }
@@ -363,12 +365,9 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final taxi = _rosterData!['taxi'] as List<dynamic>? ?? [];
     final ir = _rosterData!['ir'] as List<dynamic>? ?? [];
 
-    // Count total players - for starters (including BN slots), count non-null slots
-    int starterCount = _isEditMode
-        ? starters.where((s) => s['player'] != null).length
-        : starters.where((s) => s['player'] != null).length;
-    // Note: bench array is deprecated - bench players are now in BN slots within starters
-    final totalPlayers = starterCount + taxi.length + ir.length;
+    // Count total players
+    final starterCount = starters.where((s) => s['player'] != null).length;
+    final totalPlayers = starterCount + bench.length + taxi.length + ir.length;
 
     // Get positions that exist in roster slots (to determine which positions to show)
     final rosterPositions = <String>{};
@@ -601,29 +600,50 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
               const SizedBox(height: 24),
             ],
 
-            // Starters Section (Position Slots)
-            if (starters.isNotEmpty) ...[
-              _buildSectionHeader('Starters', starterCount, Colors.green),
-              const SizedBox(height: 8),
-              ...List.generate(starters.length, (index) {
-                final slotData = starters[index];
-                return _buildSlotCard(slotData, index);
-              }),
-              const SizedBox(height: 24),
-            ] else ...[
-              _buildSectionHeader('Starters', 0, Colors.green),
-              const SizedBox(height: 8),
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      'No starter slots configured',
-                      style: TextStyle(fontStyle: FontStyle.italic),
+            // Starters Section
+            () {
+              final starterCount = starters.where((s) => s['player'] != null).length;
+
+              if (starters.isNotEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader('Starters', starterCount, Colors.green),
+                    const SizedBox(height: 8),
+                    ...List.generate(starters.length, (index) {
+                      return _buildSlotCard(starters[index], index);
+                    }),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              } else {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader('Starters', 0, Colors.green),
+                    const SizedBox(height: 8),
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: Text(
+                            'No starter slots configured',
+                            style: TextStyle(fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }
+            }(),
+
+            // Bench Section (bench array only)
+            if (bench.isNotEmpty) ...[
+              _buildSectionHeader('Bench', bench.length, Colors.orange),
+              const SizedBox(height: 8),
+              ...bench.map((player) => _buildPlayerCard(player, 'bench')),
               const SizedBox(height: 24),
             ],
 

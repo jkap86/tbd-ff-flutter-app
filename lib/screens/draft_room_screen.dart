@@ -9,6 +9,8 @@ import '../models/draft_model.dart';
 import '../models/draft_order_model.dart';
 import '../widgets/draft_board_widget.dart';
 import '../widgets/league_chat_tab_widget.dart';
+import '../widgets/time_management_dialog.dart';
+import '../widgets/chess_timer_team_list_widget.dart';
 import '../services/player_stats_service.dart';
 import '../services/nfl_service.dart';
 
@@ -62,7 +64,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _drawerTabController = TabController(length: 3, vsync: this); // Players, Queue, and Chat tabs
+
+    // Will update drawer tab count after loading draft
+    _drawerTabController = TabController(length: 3, vsync: this); // Players, Queue, and Chat tabs (will add Team Times if chess mode)
     _timerAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -713,6 +717,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                 if (_drawerHeight > 0.2)
                                   TabBar(
                                     controller: _drawerTabController,
+                                    isScrollable: draftProvider.isChessTimerMode,
                                     tabs: [
                                       const Tab(
                                         icon: Icon(Icons.people, size: 20),
@@ -745,6 +750,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                         ),
                                         text: 'Queue',
                                       ),
+                                      if (draftProvider.isChessTimerMode)
+                                        const Tab(
+                                          icon: Icon(Icons.hourglass_bottom, size: 20),
+                                          text: 'Team Times',
+                                        ),
                                       const Tab(
                                         icon: Icon(Icons.chat_bubble_outline, size: 20),
                                         text: 'Chat',
@@ -755,41 +765,55 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                 if (_drawerHeight <= 0.2)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        _buildCollapsedTab(
-                                          icon: Icons.people,
-                                          label: 'Players',
-                                          onTap: () {
-                                            setState(() {
-                                              _drawerTabController.index = 0;
-                                              _drawerHeight = 0.5;
-                                            });
-                                          },
-                                        ),
-                                        _buildCollapsedTab(
-                                          icon: Icons.playlist_add_check,
-                                          label: 'Queue',
-                                          badge: _draftQueue.isNotEmpty ? _draftQueue.length : null,
-                                          onTap: () {
-                                            setState(() {
-                                              _drawerTabController.index = 1;
-                                              _drawerHeight = 0.5;
-                                            });
-                                          },
-                                        ),
-                                        _buildCollapsedTab(
-                                          icon: Icons.chat_bubble_outline,
-                                          label: 'Chat',
-                                          onTap: () {
-                                            setState(() {
-                                              _drawerTabController.index = 2;
-                                              _drawerHeight = 0.5;
-                                            });
-                                          },
-                                        ),
-                                      ],
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          _buildCollapsedTab(
+                                            icon: Icons.people,
+                                            label: 'Players',
+                                            onTap: () {
+                                              setState(() {
+                                                _drawerTabController.index = 0;
+                                                _drawerHeight = 0.5;
+                                              });
+                                            },
+                                          ),
+                                          _buildCollapsedTab(
+                                            icon: Icons.playlist_add_check,
+                                            label: 'Queue',
+                                            badge: _draftQueue.isNotEmpty ? _draftQueue.length : null,
+                                            onTap: () {
+                                              setState(() {
+                                                _drawerTabController.index = 1;
+                                                _drawerHeight = 0.5;
+                                              });
+                                            },
+                                          ),
+                                          if (draftProvider.isChessTimerMode)
+                                            _buildCollapsedTab(
+                                              icon: Icons.hourglass_bottom,
+                                              label: 'Times',
+                                              onTap: () {
+                                                setState(() {
+                                                  _drawerTabController.index = 2;
+                                                  _drawerHeight = 0.5;
+                                                });
+                                              },
+                                            ),
+                                          _buildCollapsedTab(
+                                            icon: Icons.chat_bubble_outline,
+                                            label: 'Chat',
+                                            onTap: () {
+                                              setState(() {
+                                                _drawerTabController.index = draftProvider.isChessTimerMode ? 3 : 2;
+                                                _drawerHeight = 0.5;
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 // Content area - always present but with constrained height
@@ -929,6 +953,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                         ),
                                         // Queue Tab
                                         _buildQueueTab(draftProvider, authProvider),
+                                        // Team Times Tab (chess timer mode only)
+                                        if (draftProvider.isChessTimerMode)
+                                          const ChessTimerTeamListWidget(),
                                         // Chat Tab
                                         LeagueChatTabWidget(leagueId: widget.leagueId),
                                       ],
@@ -1961,6 +1988,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         // Auto-draft and pause/resume buttons (when draft is started)
         if (draft != null && !draft.isNotStarted) ...[
           _buildAutoDraftButton(context, draftProvider, authProvider),
+          // Manage Time button (commissioner only, chess mode only)
+          if (isCommissioner && draftProvider.isChessTimerMode)
+            _buildManageTimeButton(context, draftProvider, authProvider),
           _buildPauseResumeButton(context, draft.status, draftProvider, authProvider),
         ],
       ],
@@ -2020,6 +2050,63 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     );
   }
 
+  Widget _buildManageTimeButton(
+    BuildContext context,
+    DraftProvider draftProvider,
+    AuthProvider authProvider,
+  ) {
+    return PopupMenuButton<DraftOrder>(
+      icon: const Icon(Icons.access_time),
+      tooltip: 'Manage Team Time',
+      onSelected: (DraftOrder order) {
+        showDialog(
+          context: context,
+          builder: (context) => TimeManagementDialog(roster: order),
+        );
+      },
+      itemBuilder: (context) {
+        return draftProvider.draftOrder.map((order) {
+          final timeRemaining = draftProvider.getRosterTimeRemaining(order.rosterId);
+          final isLow = timeRemaining != null && timeRemaining < 300;
+          final isCritical = timeRemaining != null && timeRemaining < 60;
+
+          return PopupMenuItem<DraftOrder>(
+            value: order,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: order.rosterId == draftProvider.currentDraft?.currentRosterId
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: Text(
+                  '${order.draftPosition}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: order.rosterId == draftProvider.currentDraft?.currentRosterId
+                        ? Colors.white
+                        : null,
+                  ),
+                ),
+              ),
+              title: Text(order.displayName),
+              trailing: timeRemaining != null
+                  ? Text(
+                      _formatChessTime(timeRemaining),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isCritical
+                            ? Colors.red
+                            : (isLow ? Colors.orange : null),
+                      ),
+                    )
+                  : const Icon(Icons.timer_off, color: Colors.grey, size: 18),
+            ),
+          );
+        }).toList();
+      },
+    );
+  }
+
   Widget _buildPauseResumeButton(
     BuildContext context,
     String draftStatus,
@@ -2070,6 +2157,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
   Widget _buildStickyStatusBar(DraftProvider draftProvider, AuthProvider authProvider) {
     final draft = draftProvider.currentDraft!;
+
+    // Check if chess timer mode
+    if (draftProvider.isChessTimerMode) {
+      return _buildChessTimerStatusBar(draftProvider, authProvider);
+    }
+
     final timeRemaining = draftProvider.timeRemaining ?? Duration.zero;
 
     DraftOrder? currentRoster;
@@ -2222,6 +2315,197 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildChessTimerStatusBar(DraftProvider draftProvider, AuthProvider authProvider) {
+    final draft = draftProvider.currentDraft!;
+
+    DraftOrder? currentRoster;
+    try {
+      currentRoster = draftProvider.draftOrder.firstWhere(
+        (order) => order.rosterId == draft.currentRosterId,
+      );
+    } catch (e) {
+      currentRoster = null;
+    }
+
+    final isUsersTurn = authProvider.user != null &&
+        currentRoster != null &&
+        currentRoster.userId == authProvider.user!.id;
+
+    final timeRemaining = currentRoster != null
+        ? draftProvider.getRosterTimeRemaining(currentRoster.rosterId)
+        : null;
+
+    final isLow = timeRemaining != null && timeRemaining < 300; // < 5 minutes
+    final isCritical = timeRemaining != null && timeRemaining < 60; // < 1 minute
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isUsersTurn
+              ? [Colors.green.shade700, Colors.green.shade900]
+              : isCritical
+                  ? [Colors.red.shade700, Colors.red.shade900]
+                  : isLow
+                      ? [Colors.orange.shade700, Colors.orange.shade900]
+                      : [
+                          Theme.of(context).colorScheme.primaryContainer,
+                          Theme.of(context).colorScheme.primary,
+                        ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          if (isUsersTurn)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withValues(alpha: 0.5),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AnimatedBuilder(
+                    animation: _timerAnimationController,
+                    builder: (context, child) => Transform.scale(
+                      scale: 1.0 + (math.sin(_timerAnimationController.value * 2 * math.pi) * 0.1),
+                      child: const Icon(Icons.alarm, color: Colors.black, size: 24),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "YOU'RE ON THE CLOCK!",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Round ${draft.currentRound} • Pick ${draft.currentPick}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isUsersTurn ? Colors.white : Colors.white,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          currentRoster?.displayName ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isUsersTurn ? Colors.white70 : Colors.white70,
+                          ),
+                        ),
+                        if (currentRoster?.isAutodrafting == true) ...[
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: 'Autodraft enabled',
+                            child: Icon(
+                              Icons.auto_mode,
+                              color: isUsersTurn ? Colors.white70 : Colors.white70,
+                              size: 16,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.hourglass_bottom,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatChessTime(timeRemaining ?? 0),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isCritical)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'TIME CRITICAL!',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Time Remaining',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isUsersTurn ? Colors.white70 : Colors.white70,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatChessTime(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    } else {
+      return '$minutes:${secs.toString().padLeft(2, '0')}';
+    }
   }
 
   Widget _buildBottomPickButton(DraftProvider draftProvider, AuthProvider authProvider) {

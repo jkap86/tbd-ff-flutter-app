@@ -56,6 +56,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   String _processSchedule = 'daily';
   bool _isLoadingWaiverSettings = false;
 
+  // Trade notification settings
+  String _tradeNotificationSetting = 'proposer_choice';
+  String _tradeDetailsSetting = 'proposer_choice';
 
   // Scoring settings fields
   late TextEditingController _passingTouchdownsController;
@@ -77,6 +80,10 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     _endWeek = widget.league.settings?['end_week'] ?? 17;
     _playoffWeekStart = widget.league.settings?['playoff_week_start'] ?? 15;
     _scoringSettings = widget.league.scoringSettings ?? {};
+
+    // Initialize trade notification settings
+    _tradeNotificationSetting = widget.league.tradeNotificationSetting;
+    _tradeDetailsSetting = widget.league.tradeDetailsSetting;
 
     // Initialize draft settings (will be loaded separately)
     _loadDraftSettings();
@@ -1501,7 +1508,126 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Section 6: Commissioner Settings (Collapsible)
+                // Section 6: Trade Notification Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Trade Notification Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Control trade proposal notifications'),
+                    initiallyExpanded: false,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Notification setting
+                            const Text(
+                              'League Chat Notifications',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'always_off',
+                                  label: Text('Always Off'),
+                                  icon: Icon(Icons.notifications_off, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'proposer_choice',
+                                  label: Text('Proposer Choice'),
+                                  icon: Icon(Icons.people, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'always_on',
+                                  label: Text('Always On'),
+                                  icon: Icon(Icons.notifications_active, size: 18),
+                                ),
+                              ],
+                              selected: {_tradeNotificationSetting},
+                              onSelectionChanged: (Set<String> selection) {
+                                setState(() {
+                                  _tradeNotificationSetting = selection.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            // Details setting
+                            const Text(
+                              'Show Trade Details',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'always_off',
+                                  label: Text('Always Off'),
+                                  icon: Icon(Icons.visibility_off, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'proposer_choice',
+                                  label: Text('Proposer Choice'),
+                                  icon: Icon(Icons.people, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'always_on',
+                                  label: Text('Always On'),
+                                  icon: Icon(Icons.visibility, size: 18),
+                                ),
+                              ],
+                              selected: {_tradeDetailsSetting},
+                              onSelectionChanged: (Set<String> selection) {
+                                setState(() {
+                                  _tradeDetailsSetting = selection.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Info text
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'About These Settings:',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    '• Always Off: Trade proposals will never post to league chat',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '• Proposer Choice: Trade proposer can choose whether to notify (default)',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '• Always On: Trade proposals will always post to league chat',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 7: Commissioner Settings (Collapsible)
                 Consumer<LeagueProvider>(
                   builder: (context, leagueProvider, child) {
                     final rosters = leagueProvider.selectedLeagueRosters;
@@ -1753,6 +1879,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       settings: settings,
       scoringSettings: scoringSettings,
       rosterPositions: rosterPositions,
+      tradeNotificationSetting: _tradeNotificationSetting,
+      tradeDetailsSetting: _tradeDetailsSetting,
     );
 
     if (!success) {
@@ -1913,4 +2041,5 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       selectedColor: Theme.of(context).colorScheme.primaryContainer,
     );
   }
+
 }

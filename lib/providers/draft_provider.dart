@@ -31,6 +31,9 @@ class DraftProvider with ChangeNotifier {
   Timer? _timer;
   Duration? _timeRemaining;
 
+  // Chess timer state - tracks remaining time for each roster
+  Map<int, int> _rosterTimeRemaining = {};
+
   // Getters
   DraftStatus get status => _status;
   Draft? get currentDraft => _currentDraft;
@@ -41,6 +44,12 @@ class DraftProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Duration? get timeRemaining => _timeRemaining;
   bool get isSocketConnected => _socketService.isConnected;
+
+  // Get remaining time for a specific roster (chess timer mode)
+  int? getRosterTimeRemaining(int rosterId) => _rosterTimeRemaining[rosterId];
+
+  // Check if chess timer mode is enabled
+  bool get isChessTimerMode => _currentDraft?.isChessTimer ?? false;
 
   DraftProvider() {
     _setupSocketListeners();
@@ -106,6 +115,46 @@ class DraftProvider with ChangeNotifier {
 
       notifyListeners();
     };
+
+    // Chess timer update event
+    _socketService.onChessTimerUpdate = (data) {
+      debugPrint('Chess timer update: $data');
+      final rosterId = data['roster_id'] as int;
+      final timeRemaining = data['time_remaining_seconds'] as int;
+
+      // Update local chess timer state
+      _rosterTimeRemaining[rosterId] = timeRemaining;
+
+      // Update draft order with new time
+      _draftOrder = _draftOrder.map((order) {
+        if (order.rosterId == rosterId) {
+          return order.copyWith(timeRemainingSeconds: timeRemaining);
+        }
+        return order;
+      }).toList();
+
+      notifyListeners();
+    };
+
+    // Time adjustment event (commissioner adjusted time)
+    _socketService.onTimeAdjusted = (data) {
+      debugPrint('Time adjusted: $data');
+      final rosterId = data['roster_id'] as int;
+      final newTimeRemaining = data['new_time_remaining_seconds'] as int;
+
+      // Update local chess timer state
+      _rosterTimeRemaining[rosterId] = newTimeRemaining;
+
+      // Update draft order with new time
+      _draftOrder = _draftOrder.map((order) {
+        if (order.rosterId == rosterId) {
+          return order.copyWith(timeRemainingSeconds: newTimeRemaining);
+        }
+        return order;
+      }).toList();
+
+      notifyListeners();
+    };
   }
 
   // Create a new draft
@@ -116,6 +165,8 @@ class DraftProvider with ChangeNotifier {
     bool thirdRoundReversal = false,
     int pickTimeSeconds = 90,
     int rounds = 15,
+    String timerMode = 'traditional',
+    int? teamTimeBudgetSeconds,
     Map<String, dynamic>? settings,
   }) async {
     _status = DraftStatus.loading;
@@ -130,6 +181,8 @@ class DraftProvider with ChangeNotifier {
         thirdRoundReversal: thirdRoundReversal,
         pickTimeSeconds: pickTimeSeconds,
         rounds: rounds,
+        timerMode: timerMode,
+        teamTimeBudgetSeconds: teamTimeBudgetSeconds,
         settings: settings,
       );
 
@@ -169,6 +222,7 @@ class DraftProvider with ChangeNotifier {
           _loadAvailablePlayers(draft.id),
           _loadChatMessages(draft.id),
         ]);
+        _initializeChessTimerState();
         _resetTimer();
         _status = DraftStatus.loaded;
       } else {
@@ -178,6 +232,7 @@ class DraftProvider with ChangeNotifier {
         _draftPicks = [];
         _availablePlayers = [];
         _chatMessages = [];
+        _rosterTimeRemaining = {};
         _status = DraftStatus.loaded;
       }
       notifyListeners();
@@ -519,11 +574,53 @@ class DraftProvider with ChangeNotifier {
     if (draft != null) {
       _currentDraft = draft;
       await Future.wait([
+        _loadDraftOrder(_currentDraft!.id),
         _loadDraftPicks(_currentDraft!.id),
         _loadAvailablePlayers(_currentDraft!.id),
       ]);
+      _initializeChessTimerState();
       _resetTimer();
       notifyListeners();
+    }
+  }
+
+  // Initialize chess timer state from draft order
+  void _initializeChessTimerState() {
+    if (_currentDraft?.isChessTimer == true) {
+      _rosterTimeRemaining.clear();
+      for (final order in _draftOrder) {
+        if (order.timeRemainingSeconds != null) {
+          _rosterTimeRemaining[order.rosterId] = order.timeRemainingSeconds!;
+        }
+      }
+      debugPrint('Initialized chess timer state: $_rosterTimeRemaining');
+    }
+  }
+
+  // Adjust roster time (commissioner only)
+  Future<bool> adjustRosterTime({
+    required String token,
+    required int draftId,
+    required int rosterId,
+    required int adjustmentSeconds,
+  }) async {
+    try {
+      final success = await _draftService.adjustRosterTime(
+        token: token,
+        draftId: draftId,
+        rosterId: rosterId,
+        adjustmentSeconds: adjustmentSeconds,
+      );
+
+      if (success) {
+        // Socket event will handle updating the state
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = 'Error adjusting roster time: ${e.toString()}';
+      notifyListeners();
+      return false;
     }
   }
 }

@@ -142,6 +142,8 @@ class LeagueService {
     Map<String, dynamic>? settings,
     Map<String, dynamic>? scoringSettings,
     List<dynamic>? rosterPositions,
+    String? tradeNotificationSetting,
+    String? tradeDetailsSetting,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -152,6 +154,8 @@ class LeagueService {
       if (settings != null) body['settings'] = settings;
       if (scoringSettings != null) body['scoring_settings'] = scoringSettings;
       if (rosterPositions != null) body['roster_positions'] = rosterPositions;
+      if (tradeNotificationSetting != null) body['trade_notification_setting'] = tradeNotificationSetting;
+      if (tradeDetailsSetting != null) body['trade_details_setting'] = tradeDetailsSetting;
 
       final response = await http.put(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),

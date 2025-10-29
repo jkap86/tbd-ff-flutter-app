@@ -8,6 +8,7 @@ class DraftPick {
   final int? playerId;
   final bool isAutoPick;
   final DateTime pickedAt;
+  final DateTime? pickStartedAt;
   final int? pickTimeSeconds;
   final DateTime createdAt;
 
@@ -28,6 +29,7 @@ class DraftPick {
     this.playerId,
     required this.isAutoPick,
     required this.pickedAt,
+    this.pickStartedAt,
     this.pickTimeSeconds,
     required this.createdAt,
     this.playerName,
@@ -48,6 +50,9 @@ class DraftPick {
       playerId: json['player_id'] as int?,
       isAutoPick: json['is_auto_pick'] as bool? ?? false,
       pickedAt: DateTime.parse(json['picked_at'] as String),
+      pickStartedAt: json['pick_started_at'] != null
+          ? DateTime.parse(json['pick_started_at'] as String)
+          : null,
       pickTimeSeconds: json['pick_time_seconds'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),
       playerName: json['player_name'] as String?,
@@ -69,6 +74,7 @@ class DraftPick {
       'player_id': playerId,
       'is_auto_pick': isAutoPick,
       'picked_at': pickedAt.toIso8601String(),
+      'pick_started_at': pickStartedAt?.toIso8601String(),
       'pick_time_seconds': pickTimeSeconds,
       'created_at': createdAt.toIso8601String(),
       'player_name': playerName,
