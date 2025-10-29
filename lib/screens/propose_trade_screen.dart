@@ -103,6 +103,12 @@ class _ProposeTradeScreenState extends State<ProposeTradeScreen> {
     final myRoster = leagueProvider.selectedLeagueRosters
         .firstWhere((r) => r.id == widget.myRosterId);
 
+    final league = leagueProvider.selectedLeague;
+    final canChooseNotification = league?.tradeNotificationSetting == 'proposer_choice';
+    final canChooseDetails = league?.tradeDetailsSetting == 'proposer_choice';
+    final forceNotification = league?.tradeNotificationSetting == 'always_on';
+    final forceDetails = league?.tradeDetailsSetting == 'always_on';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Propose Trade'),
@@ -202,38 +208,48 @@ class _ProposeTradeScreenState extends State<ProposeTradeScreen> {
             ],
 
             // Trade settings
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Notify League Chat'),
-                    subtitle: const Text('Post trade proposal notification to league chat'),
-                    value: _notifyLeagueChat,
-                    onChanged: (value) {
-                      setState(() {
-                        _notifyLeagueChat = value;
-                        if (!value) {
-                          _showProposalDetails = false; // Reset when notification is turned off
-                        }
-                      });
-                    },
-                  ),
-                  if (_notifyLeagueChat) ...[
-                    const Divider(height: 1),
-                    SwitchListTile(
-                      title: const Text('Show Proposal Details'),
-                      subtitle: const Text('Display full trade details in league chat'),
-                      value: _showProposalDetails,
-                      onChanged: (value) {
-                        setState(() {
-                          _showProposalDetails = value;
-                        });
-                      },
-                    ),
+            if (canChooseNotification || canChooseDetails || forceNotification)
+              Card(
+                child: Column(
+                  children: [
+                    if (canChooseNotification || forceNotification)
+                      SwitchListTile(
+                        title: const Text('Notify League Chat'),
+                        subtitle: Text(
+                          canChooseNotification
+                            ? 'Post trade proposal notification to league chat'
+                            : 'League setting: Notifications are ${forceNotification ? 'always on' : 'always off'}',
+                        ),
+                        value: forceNotification ? true : (league?.tradeNotificationSetting == 'always_off' ? false : _notifyLeagueChat),
+                        onChanged: canChooseNotification ? (value) {
+                          setState(() {
+                            _notifyLeagueChat = value;
+                            if (!value) {
+                              _showProposalDetails = false;
+                            }
+                          });
+                        } : null,
+                      ),
+                    if ((canChooseNotification ? _notifyLeagueChat : forceNotification) && (canChooseDetails || forceDetails)) ...[
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text('Show Proposal Details'),
+                        subtitle: Text(
+                          canChooseDetails
+                            ? 'Display full trade details in league chat'
+                            : 'League setting: Details are ${forceDetails ? 'always shown' : 'always hidden'}',
+                        ),
+                        value: forceDetails ? true : (league?.tradeDetailsSetting == 'always_off' ? false : _showProposalDetails),
+                        onChanged: canChooseDetails ? (value) {
+                          setState(() {
+                            _showProposalDetails = value;
+                          });
+                        } : null,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
             const SizedBox(height: 24),
 
             // Submit button

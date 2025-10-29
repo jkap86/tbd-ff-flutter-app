@@ -30,7 +30,7 @@ class MatchupsScreen extends StatefulWidget {
 }
 
 class _MatchupsScreenState extends State<MatchupsScreen> {
-  late int _selectedWeek;
+  int? _selectedWeek;
   final SocketService _socketService = SocketService();
   final NflService _nflService = NflService();
   bool _isLoadingWeek = true;
@@ -57,6 +57,8 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
   }
 
   void _setupLiveScores() {
+    if (_selectedWeek == null) return; // Don't set up until week is initialized
+
     // Set up socket for live score updates
     _socketService.onMatchupScoresUpdated = (data) {
       final leagueId = data['league_id'] as int?;
@@ -80,23 +82,25 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
     // Join the matchup room for live updates
     _socketService.joinLeagueMatchups(
       leagueId: widget.leagueId,
-      week: _selectedWeek,
+      week: _selectedWeek!,
     );
   }
 
   @override
   void dispose() {
     // Leave the matchup room when leaving the screen
-    _socketService.leaveLeagueMatchups(
-      leagueId: widget.leagueId,
-      week: _selectedWeek,
-    );
+    if (_selectedWeek != null) {
+      _socketService.leaveLeagueMatchups(
+        leagueId: widget.leagueId,
+        week: _selectedWeek!,
+      );
+    }
     _socketService.clearCallbacks();
     super.dispose();
   }
 
   Future<void> _loadMatchups() async {
-    if (_isLoadingWeek) return; // Don't load until we know the current week
+    if (_isLoadingWeek || _selectedWeek == null) return; // Don't load until we know the current week
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
@@ -105,7 +109,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
       await matchupProvider.loadMatchupsByWeek(
         token: authProvider.token!,
         leagueId: widget.leagueId,
-        week: _selectedWeek,
+        week: _selectedWeek!,
         season: widget.season, // Pass season for auto-update
       );
     }
@@ -113,6 +117,16 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator until week is initialized
+    if (_selectedWeek == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('${widget.leagueName} - Matchups'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.leagueName} - Matchups'),
@@ -121,7 +135,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: DropdownButton<int>(
-              value: _selectedWeek,
+              value: _selectedWeek!,
               dropdownColor: Theme.of(context).colorScheme.surface,
               underline: const SizedBox(),
               items: List.generate(
@@ -141,7 +155,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                   // Leave old room
                   _socketService.leaveLeagueMatchups(
                     leagueId: widget.leagueId,
-                    week: _selectedWeek,
+                    week: _selectedWeek!,
                   );
 
                   setState(() => _selectedWeek = week);
@@ -150,7 +164,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                   // Join new room
                   _socketService.joinLeagueMatchups(
                     leagueId: widget.leagueId,
-                    week: _selectedWeek,
+                    week: _selectedWeek!,
                   );
                 }
               },
@@ -199,7 +213,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'No matchups for Week $_selectedWeek',
+                        'No matchups for Week ${_selectedWeek!}',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),

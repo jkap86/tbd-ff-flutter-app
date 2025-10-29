@@ -10,6 +10,8 @@ class Draft {
   final int pickTimeSeconds;
   final DateTime? pickDeadline;
   final int rounds;
+  final String timerMode; // 'traditional' or 'chess'
+  final int? teamTimeBudgetSeconds; // Budget for chess timer mode
   final DateTime? startedAt;
   final DateTime? completedAt;
   final Map<String, dynamic>? settings;
@@ -28,6 +30,8 @@ class Draft {
     required this.pickTimeSeconds,
     this.pickDeadline,
     required this.rounds,
+    this.timerMode = 'traditional',
+    this.teamTimeBudgetSeconds,
     this.startedAt,
     this.completedAt,
     this.settings,
@@ -50,6 +54,8 @@ class Draft {
           ? DateTime.parse(json['pick_deadline'] as String)
           : null,
       rounds: json['rounds'] as int? ?? 15,
+      timerMode: json['timer_mode'] as String? ?? 'traditional',
+      teamTimeBudgetSeconds: json['team_time_budget_seconds'] as int?,
       startedAt: json['started_at'] != null
           ? DateTime.parse(json['started_at'] as String)
           : null,
@@ -75,6 +81,8 @@ class Draft {
       'pick_time_seconds': pickTimeSeconds,
       'pick_deadline': pickDeadline?.toIso8601String(),
       'rounds': rounds,
+      'timer_mode': timerMode,
+      'team_time_budget_seconds': teamTimeBudgetSeconds,
       'started_at': startedAt?.toIso8601String(),
       'completed_at': completedAt?.toIso8601String(),
       'settings': settings,
@@ -89,6 +97,8 @@ class Draft {
   bool get isCompleted => status == 'completed';
   bool get isSnake => draftType == 'snake';
   bool get isLinear => draftType == 'linear';
+  bool get isTraditionalTimer => timerMode == 'traditional';
+  bool get isChessTimer => timerMode == 'chess';
 
   int get totalPicks => rounds * 12; // Assuming max 12 teams for now
 
@@ -116,6 +126,8 @@ class Draft {
     int? pickTimeSeconds,
     DateTime? pickDeadline,
     int? rounds,
+    String? timerMode,
+    int? teamTimeBudgetSeconds,
     DateTime? startedAt,
     DateTime? completedAt,
     Map<String, dynamic>? settings,
@@ -134,6 +146,8 @@ class Draft {
       pickTimeSeconds: pickTimeSeconds ?? this.pickTimeSeconds,
       pickDeadline: pickDeadline ?? this.pickDeadline,
       rounds: rounds ?? this.rounds,
+      timerMode: timerMode ?? this.timerMode,
+      teamTimeBudgetSeconds: teamTimeBudgetSeconds ?? this.teamTimeBudgetSeconds,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
       settings: settings ?? this.settings,

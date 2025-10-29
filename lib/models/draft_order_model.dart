@@ -11,6 +11,10 @@ class DraftOrder {
   final int? userId;
   final String? username;
 
+  // Chess timer fields
+  final int? timeRemainingSeconds;
+  final int timeUsedSeconds;
+
   DraftOrder({
     required this.id,
     required this.draftId,
@@ -21,6 +25,8 @@ class DraftOrder {
     this.rosterNumber,
     this.userId,
     this.username,
+    this.timeRemainingSeconds,
+    this.timeUsedSeconds = 0,
   });
 
   factory DraftOrder.fromJson(Map<String, dynamic> json) {
@@ -34,6 +40,8 @@ class DraftOrder {
       rosterNumber: json['roster_number'] as int?,
       userId: json['user_id'] as int?,
       username: json['username'] as String?,
+      timeRemainingSeconds: json['time_remaining_seconds'] as int?,
+      timeUsedSeconds: json['time_used_seconds'] as int? ?? 0,
     );
   }
 
@@ -48,12 +56,43 @@ class DraftOrder {
       'roster_number': rosterNumber,
       'user_id': userId,
       'username': username,
+      'time_remaining_seconds': timeRemainingSeconds,
+      'time_used_seconds': timeUsedSeconds,
     };
   }
 
   String get positionLabel => '#$draftPosition';
 
   String get displayName => username ?? 'Team $rosterNumber';
+
+  // Format time remaining for chess timer mode
+  String get formattedTimeRemaining {
+    if (timeRemainingSeconds == null) return '--';
+
+    final hours = timeRemainingSeconds! ~/ 3600;
+    final minutes = (timeRemainingSeconds! % 3600) ~/ 60;
+    final seconds = timeRemainingSeconds! % 60;
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
+  }
+
+  // Check if time is running low (< 5 minutes)
+  bool get isTimeLow {
+    if (timeRemainingSeconds == null) return false;
+    return timeRemainingSeconds! < 300; // 5 minutes
+  }
+
+  // Check if time is critical (< 1 minute)
+  bool get isTimeCritical {
+    if (timeRemainingSeconds == null) return false;
+    return timeRemainingSeconds! < 60; // 1 minute
+  }
 
   DraftOrder copyWith({
     int? id,
@@ -65,6 +104,8 @@ class DraftOrder {
     int? rosterNumber,
     int? userId,
     String? username,
+    int? timeRemainingSeconds,
+    int? timeUsedSeconds,
   }) {
     return DraftOrder(
       id: id ?? this.id,
@@ -76,6 +117,8 @@ class DraftOrder {
       rosterNumber: rosterNumber ?? this.rosterNumber,
       userId: userId ?? this.userId,
       username: username ?? this.username,
+      timeRemainingSeconds: timeRemainingSeconds ?? this.timeRemainingSeconds,
+      timeUsedSeconds: timeUsedSeconds ?? this.timeUsedSeconds,
     );
   }
 }

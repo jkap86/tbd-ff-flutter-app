@@ -247,6 +247,7 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
     }
 
     final starters = rosterData['starters'] as List<dynamic>? ?? [];
+    final bench = rosterData['bench'] as List<dynamic>? ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,6 +281,17 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
         ),
         const SizedBox(height: 8),
         ...starters.map((starter) => _buildPlayerRow(starter, isStarter: true)),
+
+        // Bench section
+        if (bench.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Bench',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          ...bench.map((player) => _buildBenchPlayerRow(player)),
+        ],
       ],
     );
   }
@@ -343,6 +355,68 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: isStarter ? null : Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: _getPositionColor(position),
+              child: Text(
+                position,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fullName,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    team ?? position,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              score.toStringAsFixed(2),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenchPlayerRow(dynamic player) {
+    // Player object from bench array
+    final playerData = player as Map<String, dynamic>;
+    final fullName = playerData['full_name'] as String? ?? 'Unknown Player';
+    final position = playerData['position'] as String? ?? '';
+    final team = playerData['team'] as String?;
+    final fantasyPoints = playerData['fantasy_points'];
+    final score = fantasyPoints is num
+        ? fantasyPoints.toDouble()
+        : (fantasyPoints is String ? double.tryParse(fantasyPoints) ?? 0.0 : 0.0);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      color: Colors.grey.shade100,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
