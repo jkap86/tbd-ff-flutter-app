@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../widgets/responsive_container.dart';
 import 'draft_room_screen.dart';
+import 'auction_draft_screen.dart';
 
 class DraftSetupScreen extends StatefulWidget {
   final int leagueId;
@@ -33,6 +34,13 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   bool _autoPauseEnabled = false;
   TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0); // 11:00 PM
   TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0); // 8:00 AM
+
+  // Auction-specific fields
+  int _startingBudget = 200;
+  int _minBid = 1;
+  int _maxSimultaneousNominations = 1;
+  int _nominationTimerHours = 24;
+  bool _reserveBudgetPerSlot = false;
 
   bool _isCreating = false;
 
@@ -78,20 +86,57 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       timerMode: _timerMode,
       teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
       settings: draftSettings,
+      // Auction-specific params
+      startingBudget: (_draftType == 'auction' || _draftType == 'slow_auction') ? _startingBudget : null,
+      minBid: (_draftType == 'auction' || _draftType == 'slow_auction') ? _minBid : null,
+      maxSimultaneousNominations: _draftType == 'slow_auction' ? _maxSimultaneousNominations : null,
+      nominationTimerHours: _draftType == 'slow_auction' ? _nominationTimerHours : null,
+      reserveBudgetPerSlot: (_draftType == 'auction' || _draftType == 'slow_auction') ? _reserveBudgetPerSlot : null,
     );
 
     if (mounted) {
       setState(() => _isCreating = false);
 
       if (success) {
-        // Navigate directly to draft room
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => DraftRoomScreen(
+        // Navigate to appropriate draft screen based on type
+        Widget draftScreen;
+        switch (_draftType) {
+          case 'snake':
+          case 'linear':
+            draftScreen = DraftRoomScreen(
               leagueId: widget.leagueId,
               leagueName: widget.leagueName,
-            ),
-          ),
+            );
+            break;
+          case 'auction':
+          case 'slow_auction':
+            // For auction drafts, we need draft ID and roster ID
+            // These will be available from draftProvider.currentDraft
+            if (draftProvider.currentDraft != null) {
+              // TODO: Get user's roster ID for this league
+              // For now, navigate to auction screen placeholder
+              draftScreen = AuctionDraftScreen(
+                draftId: draftProvider.currentDraft!.id,
+                myRosterId: 0, // TODO: Get actual roster ID
+                draftName: widget.leagueName,
+              );
+            } else {
+              // Fallback to draft room if draft not available
+              draftScreen = DraftRoomScreen(
+                leagueId: widget.leagueId,
+                leagueName: widget.leagueName,
+              );
+            }
+            break;
+          default:
+            draftScreen = DraftRoomScreen(
+              leagueId: widget.leagueId,
+              leagueName: widget.leagueName,
+            );
+        }
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => draftScreen),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,35 +191,38 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'snake',
-                      label: Text('Snake'),
-                      icon: Icon(Icons.swap_vert),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Snake'),
+                      selected: _draftType == 'snake',
+                      onSelected: (_) => setState(() => _draftType = 'snake'),
                     ),
-                    ButtonSegment(
-                      value: 'linear',
-                      label: Text('Linear'),
-                      icon: Icon(Icons.arrow_downward),
+                    ChoiceChip(
+                      label: const Text('Linear'),
+                      selected: _draftType == 'linear',
+                      onSelected: (_) => setState(() {
+                        _draftType = 'linear';
+                        _thirdRoundReversal = false;
+                      }),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Auction'),
+                      selected: _draftType == 'auction',
+                      onSelected: (_) => setState(() => _draftType = 'auction'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Slow Auction'),
+                      selected: _draftType == 'slow_auction',
+                      onSelected: (_) => setState(() => _draftType = 'slow_auction'),
                     ),
                   ],
-                  selected: {_draftType},
-                  onSelectionChanged: (Set<String> selection) {
-                    setState(() {
-                      _draftType = selection.first;
-                      // Reset 3RR if switching to linear
-                      if (_draftType == 'linear') {
-                        _thirdRoundReversal = false;
-                      }
-                    });
-                  },
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  _draftType == 'snake'
-                      ? 'Draft order reverses every round (1-12, 12-1, 1-12...)'
-                      : 'Same draft order every round (1-12, 1-12, 1-12...)',
+                  _getDraftTypeDescription(),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 24),
@@ -195,172 +243,180 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   const SizedBox(height: 24),
                 ],
 
-                // Timer Mode Selection
-                Text(
-                  'Timer Mode',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'traditional',
-                      label: Text('Traditional'),
-                      icon: Icon(Icons.timer),
-                    ),
-                    ButtonSegment(
-                      value: 'chess',
-                      label: Text('Chess Timer'),
-                      icon: Icon(Icons.hourglass_bottom),
-                    ),
-                  ],
-                  selected: {_timerMode},
-                  onSelectionChanged: (Set<String> selection) {
-                    setState(() {
-                      _timerMode = selection.first;
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _timerMode == 'traditional'
-                      ? 'Fixed time per pick. Timer resets after each selection.'
-                      : 'Each team has a total time budget. Time bank runs down during their picks.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 24),
-
-                // Chess Timer Budget (only visible when chess mode selected)
-                if (_timerMode == 'chess') ...[
-                  Text(
-                    'Team Time Budget',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Time per team',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                              Text(
-                                _getTimeBudgetDisplay(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Slider(
-                            value: _teamTimeBudgetMinutes.toDouble(),
-                            min: 15,
-                            max: 360,
-                            divisions: 69, // 5-minute increments
-                            label: _getTimeBudgetDisplay(),
-                            onChanged: (value) {
-                              setState(() {
-                                // Round to nearest 5 minutes
-                                _teamTimeBudgetMinutes = (value / 5).round() * 5;
-                              });
-                            },
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('15m',
-                                  style: Theme.of(context).textTheme.bodySmall),
-                              Text('6h',
-                                  style: Theme.of(context).textTheme.bodySmall),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Quick preset buttons
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _buildPresetButton(30, '30 min'),
-                              _buildPresetButton(60, '1 hour'),
-                              _buildPresetButton(120, '2 hours'),
-                              _buildPresetButton(180, '3 hours'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // Auction Settings (only for auction/slow_auction)
+                if (_draftType == 'auction' || _draftType == 'slow_auction') ...[
+                  ..._buildAuctionSettings(),
                   const SizedBox(height: 24),
                 ],
 
-                // Pick Time (Traditional mode only)
-                if (_timerMode == 'traditional') ...[
+                // Timer Mode Selection (only for snake/linear)
+                if (_draftType == 'snake' || _draftType == 'linear') ...[
                   Text(
-                    'Pick Timer',
+                    'Timer Mode',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _getTimerLabel(),
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
-                            Text(
-                              _getTimerDisplay(),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Slider(
-                          value: _pickTimeSeconds.toDouble(),
-                          min: 10,
-                          max: 300,
-                          divisions: 29,
-                          label: _getTimerDisplay(),
-                          onChanged: (value) {
-                            setState(() => _pickTimeSeconds = value.toInt());
-                          },
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('10s',
-                                style: Theme.of(context).textTheme.bodySmall),
-                            Text('5m',
-                                style: Theme.of(context).textTheme.bodySmall),
-                          ],
-                        ),
-                      ],
-                    ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'traditional',
+                        label: Text('Traditional'),
+                        icon: Icon(Icons.timer),
+                      ),
+                      ButtonSegment(
+                        value: 'chess',
+                        label: Text('Chess Timer'),
+                        icon: Icon(Icons.hourglass_bottom),
+                      ),
+                    ],
+                    selected: {_timerMode},
+                    onSelectionChanged: (Set<String> selection) {
+                      setState(() {
+                        _timerMode = selection.first;
+                      });
+                    },
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+                  Text(
+                    _timerMode == 'traditional'
+                        ? 'Fixed time per pick. Timer resets after each selection.'
+                        : 'Each team has a total time budget. Time bank runs down during their picks.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Chess Timer Budget (only visible when chess mode selected)
+                  if (_timerMode == 'chess') ...[
+                    Text(
+                      'Team Time Budget',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Time per team',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                Text(
+                                  _getTimeBudgetDisplay(),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color:
+                                            Theme.of(context).colorScheme.primary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Slider(
+                              value: _teamTimeBudgetMinutes.toDouble(),
+                              min: 15,
+                              max: 360,
+                              divisions: 69, // 5-minute increments
+                              label: _getTimeBudgetDisplay(),
+                              onChanged: (value) {
+                                setState(() {
+                                  // Round to nearest 5 minutes
+                                  _teamTimeBudgetMinutes = (value / 5).round() * 5;
+                                });
+                              },
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('15m',
+                                    style: Theme.of(context).textTheme.bodySmall),
+                                Text('6h',
+                                    style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            // Quick preset buttons
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _buildPresetButton(30, '30 min'),
+                                _buildPresetButton(60, '1 hour'),
+                                _buildPresetButton(120, '2 hours'),
+                                _buildPresetButton(180, '3 hours'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Pick Time (Traditional mode only)
+                  if (_timerMode == 'traditional') ...[
+                    Text(
+                      'Pick Timer',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _getTimerLabel(),
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                Text(
+                                  _getTimerDisplay(),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color:
+                                            Theme.of(context).colorScheme.primary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Slider(
+                              value: _pickTimeSeconds.toDouble(),
+                              min: 10,
+                              max: 300,
+                              divisions: 29,
+                              label: _getTimerDisplay(),
+                              onChanged: (value) {
+                                setState(() => _pickTimeSeconds = value.toInt());
+                              },
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('10s',
+                                    style: Theme.of(context).textTheme.bodySmall),
+                                Text('5m',
+                                    style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ],
 
                 // Number of Rounds
@@ -637,5 +693,167 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       backgroundColor: isSelected ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
       selectedColor: Theme.of(context).colorScheme.primaryContainer,
     );
+  }
+
+  String _getDraftTypeDescription() {
+    switch (_draftType) {
+      case 'snake':
+        return 'Traditional snake draft with alternating pick order';
+      case 'linear':
+        return 'Same pick order every round';
+      case 'auction':
+        return 'Live auction - all teams online at once, one player at a time';
+      case 'slow_auction':
+        return 'Asynchronous auction - multiple players nominated simultaneously over days/weeks';
+      default:
+        return '';
+    }
+  }
+
+  List<Widget> _buildAuctionSettings() {
+    return [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Budget Settings',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+
+              // Starting Budget
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Starting Budget',
+                  prefixText: '\$',
+                  helperText: 'How much money each team starts with',
+                ),
+                keyboardType: TextInputType.number,
+                controller: TextEditingController(text: _startingBudget.toString())
+                  ..selection = TextSelection.collapsed(offset: _startingBudget.toString().length),
+                onChanged: (value) {
+                  final parsed = int.tryParse(value);
+                  if (parsed != null) {
+                    setState(() => _startingBudget = parsed);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Min Bid
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Minimum Bid',
+                  prefixText: '\$',
+                  helperText: 'Minimum bid increment',
+                ),
+                keyboardType: TextInputType.number,
+                controller: TextEditingController(text: _minBid.toString())
+                  ..selection = TextSelection.collapsed(offset: _minBid.toString().length),
+                onChanged: (value) {
+                  final parsed = int.tryParse(value);
+                  if (parsed != null) {
+                    setState(() => _minBid = parsed);
+                  }
+                },
+              ),
+
+              const SizedBox(height: 16),
+
+              // Reserve Budget Toggle
+              SwitchListTile(
+                title: const Text('Reserve \$1 Per Roster Slot'),
+                subtitle: const Text('Prevents teams from running out of money'),
+                value: _reserveBudgetPerSlot,
+                onChanged: (value) {
+                  setState(() => _reserveBudgetPerSlot = value);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+
+      const SizedBox(height: 16),
+
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Nomination Settings',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+
+              if (_draftType == 'auction') ...[
+                // Pick Time (for regular auction)
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Bidding Time',
+                    suffixText: 'seconds',
+                    helperText: 'Time limit for each player nomination',
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: _pickTimeSeconds.toString())
+                    ..selection = TextSelection.collapsed(offset: _pickTimeSeconds.toString().length),
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value);
+                    if (parsed != null) {
+                      setState(() => _pickTimeSeconds = parsed);
+                    }
+                  },
+                ),
+              ],
+
+              if (_draftType == 'slow_auction') ...[
+                // Max Simultaneous Nominations
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Max Simultaneous Nominations',
+                    helperText: 'How many players can be up for bid at once (20-30 recommended)',
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: _maxSimultaneousNominations.toString())
+                    ..selection = TextSelection.collapsed(offset: _maxSimultaneousNominations.toString().length),
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value);
+                    if (parsed != null) {
+                      setState(() => _maxSimultaneousNominations = parsed);
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Nomination Timer
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Nomination Timer',
+                    suffixText: 'hours',
+                    helperText: 'Hours until player is awarded (resets with new bid)',
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: _nominationTimerHours.toString())
+                    ..selection = TextSelection.collapsed(offset: _nominationTimerHours.toString().length),
+                  onChanged: (value) {
+                    final parsed = int.tryParse(value);
+                    if (parsed != null) {
+                      setState(() => _nominationTimerHours = parsed);
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 }

@@ -20,6 +20,12 @@ class DraftService {
     String timerMode = 'traditional',
     int? teamTimeBudgetSeconds,
     Map<String, dynamic>? settings,
+    // Auction-specific
+    int? startingBudget,
+    int? minBid,
+    int? maxSimultaneousNominations,
+    int? nominationTimerHours,
+    bool? reserveBudgetPerSlot,
   }) async {
     try {
       // Validate chess timer mode
@@ -41,6 +47,23 @@ class DraftService {
       // Add chess timer budget if provided
       if (teamTimeBudgetSeconds != null) {
         body['team_time_budget_seconds'] = teamTimeBudgetSeconds;
+      }
+
+      // Add auction-specific parameters if provided
+      if (startingBudget != null) {
+        body['starting_budget'] = startingBudget;
+      }
+      if (minBid != null) {
+        body['min_bid'] = minBid;
+      }
+      if (maxSimultaneousNominations != null) {
+        body['max_simultaneous_nominations'] = maxSimultaneousNominations;
+      }
+      if (nominationTimerHours != null) {
+        body['nomination_timer_hours'] = nominationTimerHours;
+      }
+      if (reserveBudgetPerSlot != null) {
+        body['reserve_budget_per_slot'] = reserveBudgetPerSlot;
       }
 
       final response = await http.post(

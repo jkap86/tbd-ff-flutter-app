@@ -168,6 +168,12 @@ class DraftProvider with ChangeNotifier {
     String timerMode = 'traditional',
     int? teamTimeBudgetSeconds,
     Map<String, dynamic>? settings,
+    // Auction-specific
+    int? startingBudget,
+    int? minBid,
+    int? maxSimultaneousNominations,
+    int? nominationTimerHours,
+    bool? reserveBudgetPerSlot,
   }) async {
     _status = DraftStatus.loading;
     _errorMessage = null;
@@ -184,6 +190,12 @@ class DraftProvider with ChangeNotifier {
         timerMode: timerMode,
         teamTimeBudgetSeconds: teamTimeBudgetSeconds,
         settings: settings,
+        // Auction-specific
+        startingBudget: startingBudget,
+        minBid: minBid,
+        maxSimultaneousNominations: maxSimultaneousNominations,
+        nominationTimerHours: nominationTimerHours,
+        reserveBudgetPerSlot: reserveBudgetPerSlot,
       );
 
       if (draft != null) {
