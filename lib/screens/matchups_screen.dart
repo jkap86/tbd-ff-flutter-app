@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../models/matchup_model.dart';
 import '../widgets/responsive_container.dart';
+import '../widgets/league_chat_tab_widget.dart';
 import '../services/socket_service.dart';
 import '../services/nfl_service.dart';
 import 'matchup_detail_screen.dart';
@@ -34,6 +35,7 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
   final SocketService _socketService = SocketService();
   final NflService _nflService = NflService();
   bool _isLoadingWeek = true;
+  double _chatDrawerHeight = 0.1; // Start collapsed showing preview
 
   @override
   void initState() {
@@ -127,6 +129,8 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
       );
     }
 
+    final drawerHeight = MediaQuery.of(context).size.height * _chatDrawerHeight;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.leagueName} - Matchups'),
@@ -173,8 +177,16 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
         ],
       ),
       body: SafeArea(
-        child: ResponsiveContainer(
-          child: Consumer2<MatchupProvider, LeagueProvider>(
+        child: Stack(
+          children: [
+            // Main content
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: drawerHeight,
+              child: ResponsiveContainer(
+                child: Consumer2<MatchupProvider, LeagueProvider>(
             builder: (context, matchupProvider, leagueProvider, child) {
               if (matchupProvider.status == MatchupStatus.loading) {
                 return const Center(child: CircularProgressIndicator());
@@ -239,7 +251,99 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                 ),
               );
             },
-          ),
+                ),
+              ),
+            ),
+            // Chat Drawer (bottom)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: drawerHeight,
+              child: GestureDetector(
+                onVerticalDragUpdate: (details) {
+                  setState(() {
+                    final screenHeight = MediaQuery.of(context).size.height;
+                    _chatDrawerHeight -= details.delta.dy / screenHeight;
+                    _chatDrawerHeight = _chatDrawerHeight.clamp(0.1, 0.9);
+                  });
+                },
+                onVerticalDragEnd: (details) {
+                  setState(() {
+                    if (_chatDrawerHeight < 0.3) {
+                      _chatDrawerHeight = 0.1;
+                    } else if (_chatDrawerHeight < 0.7) {
+                      _chatDrawerHeight = 0.5;
+                    } else {
+                      _chatDrawerHeight = 0.9;
+                    }
+                  });
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Handle bar and header
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _chatDrawerHeight = _chatDrawerHeight <= 0.2 ? 0.5 : 0.1;
+                          });
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Column(
+                            children: [
+                              // Handle bar
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              // Title
+                              Row(
+                                children: [
+                                  const Icon(Icons.chat_bubble_outline, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'League Chat',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      // Chat content
+                      if (_chatDrawerHeight > 0.2)
+                        Expanded(
+                          child: LeagueChatTabWidget(leagueId: widget.leagueId),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
