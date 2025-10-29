@@ -911,21 +911,22 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 const SizedBox(height: 24),
 
                 // Section 4: Draft Settings (Collapsible)
-                Consumer<DraftProvider>(
-                  builder: (context, draftProvider, child) {
-                    final hasDraft = draftProvider.currentDraft != null;
-
-                    return Card(
-                      child: ExpansionTile(
-                        title: Text(
-                          'Draft Settings',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        subtitle: Text(
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Draft Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: Consumer<DraftProvider>(
+                      builder: (context, draftProvider, child) {
+                        final hasDraft = draftProvider.currentDraft != null;
+                        return Text(
                           hasDraft
                             ? 'Configure draft type and timer'
                             : 'Create a draft to configure settings'
-                        ),
+                        );
+                      },
+                    ),
                         initiallyExpanded: false,
                         children: [
                           Padding(
@@ -1195,20 +1196,28 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                             ),
                             const SizedBox(height: 24),
 
-                            // Create Draft Button (only show if no draft exists)
-                            if (!hasDraft)
-                              FilledButton.icon(
-                                onPressed: _handleCreateDraft,
-                                icon: const Icon(Icons.add_circle),
-                                label: const Text('Create Draft with These Settings'),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(50),
-                                  backgroundColor: Colors.green,
-                                ),
-                              ),
+                            // Create Draft Button and Draft Order Section
+                            Consumer<DraftProvider>(
+                              builder: (context, draftProvider, child) {
+                                final hasDraft = draftProvider.currentDraft != null;
 
-                            // Draft Order Section (only show if draft exists and not started)
-                            if (hasDraft && draftProvider.currentDraft!.status == 'not_started') ...[
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Create Draft Button (only show if no draft exists)
+                                    if (!hasDraft)
+                                      FilledButton.icon(
+                                        onPressed: _handleCreateDraft,
+                                        icon: const Icon(Icons.add_circle),
+                                        label: const Text('Create Draft with These Settings'),
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size.fromHeight(50),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      ),
+
+                                    // Draft Order Section (only show if draft exists and not started)
+                                    if (hasDraft && draftProvider.currentDraft!.status == 'not_started') ...[
                               const SizedBox(height: 24),
                               const Divider(),
                               const SizedBox(height: 16),
@@ -1287,15 +1296,17 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                            ],
+                                        ),
+                                    ],
+                                  ],
+                                );
+                              },
+                            ),
                               ],
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
                 ),
                 const SizedBox(height: 24),
 
