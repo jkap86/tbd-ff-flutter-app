@@ -138,6 +138,10 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         _thirdRoundReversal = draft.thirdRoundReversal;
         _pickTimeSeconds = draft.pickTimeSeconds;
         _draftRounds = draft.rounds;
+        _timerMode = draft.timerMode;
+        _teamTimeBudgetMinutes = draft.teamTimeBudgetSeconds != null
+            ? (draft.teamTimeBudgetSeconds! / 60).round()
+            : 60;
 
         // Load overnight pause settings (stored in UTC, convert to local)
         final settings = draft.settings;
@@ -328,6 +332,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       thirdRoundReversal: _thirdRoundReversal,
       pickTimeSeconds: _pickTimeSeconds,
       rounds: _draftRounds,
+      timerMode: _timerMode,
+      teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
     );
 
     if (draft != null && mounted) {
@@ -997,6 +1003,104 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                               },
                             ),
                             const SizedBox(height: 12),
+                            const SizedBox(height: 12),
+
+                            // Timer Mode Selection
+                            DropdownButtonFormField<String>(
+                              value: _timerMode,
+                              decoration: const InputDecoration(
+                                labelText: 'Timer Mode',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.timer_outlined),
+                                helperText: 'Choose timer type',
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'traditional',
+                                  child: Text('Traditional (Per Pick)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'chess',
+                                  child: Text('Chess Timer (Team Budget)'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _timerMode = value!);
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _timerMode == 'traditional'
+                                  ? 'Fixed time per pick. Timer resets after each selection.'
+                                  : 'Each team has a total time budget for the entire draft.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Chess Timer Budget (only visible when chess mode selected)
+                            if (_timerMode == 'chess') ...[
+                              Card(
+                                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Team Time Budget',
+                                            style: Theme.of(context).textTheme.titleMedium,
+                                          ),
+                                          Text(
+                                            _getTimeBudgetDisplay(),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .headlineSmall
+                                                ?.copyWith(
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Slider(
+                                        value: _teamTimeBudgetMinutes.toDouble(),
+                                        min: 15,
+                                        max: 360,
+                                        divisions: 69,
+                                        label: _getTimeBudgetDisplay(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _teamTimeBudgetMinutes = (value / 5).round() * 5;
+                                          });
+                                        },
+                                      ),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('15m', style: Theme.of(context).textTheme.bodySmall),
+                                          Text('6h', style: Theme.of(context).textTheme.bodySmall),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          _buildTimeBudgetPreset(30, '30 min'),
+                                          _buildTimeBudgetPreset(60, '1 hour'),
+                                          _buildTimeBudgetPreset(120, '2 hours'),
+                                          _buildTimeBudgetPreset(180, '3 hours'),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
 
                             // Draft Rounds
                             DropdownButtonFormField<int>(
@@ -1671,6 +1775,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         thirdRoundReversal: _thirdRoundReversal,
         pickTimeSeconds: _pickTimeSeconds,
         rounds: _draftRounds,
+        timerMode: _timerMode,
+        teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
         settings: draftSettings,
       );
 
@@ -1764,6 +1870,62 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+  String _getTimeBudgetDisplay() {
+    final hours = _teamTimeBudgetMinutes ~/ 60;
+    final minutes = _teamTimeBudgetMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (hours > 0) {
+      return '${hours}h';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  Widget _buildTimeBudgetPreset(int minutes, String label) {
+    final isSelected = _teamTimeBudgetMinutes == minutes;
+    return FilterChip(
+      selected: isSelected,
+      label: Text(label),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _teamTimeBudgetMinutes = minutes);
+        }
+      },
+      backgroundColor: isSelected ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+    );
+
+  String _getTimeBudgetDisplay() {
+    final hours = _teamTimeBudgetMinutes ~/ 60;
+    final minutes = _teamTimeBudgetMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (hours > 0) {
+      return '${hours}h';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  Widget _buildTimeBudgetPreset(int minutes, String label) {
+    final isSelected = _teamTimeBudgetMinutes == minutes;
+    return FilterChip(
+      selected: isSelected,
+      label: Text(label),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _teamTimeBudgetMinutes = minutes);
+        }
+      },
+      backgroundColor: isSelected ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
     );
   }
 }

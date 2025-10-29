@@ -17,20 +17,36 @@ class DraftService {
     bool thirdRoundReversal = false,
     int pickTimeSeconds = 90,
     int rounds = 15,
+    String timerMode = 'traditional',
+    int? teamTimeBudgetSeconds,
     Map<String, dynamic>? settings,
   }) async {
     try {
+      // Validate chess timer mode
+      if (timerMode == 'chess' && teamTimeBudgetSeconds == null) {
+        debugPrint('Chess timer mode requires teamTimeBudgetSeconds');
+        return null;
+      }
+
+      final body = {
+        'league_id': leagueId,
+        'draft_type': draftType,
+        'third_round_reversal': thirdRoundReversal,
+        'pick_time_seconds': pickTimeSeconds,
+        'rounds': rounds,
+        'timer_mode': timerMode,
+        'settings': settings ?? {},
+      };
+
+      // Add chess timer budget if provided
+      if (teamTimeBudgetSeconds != null) {
+        body['team_time_budget_seconds'] = teamTimeBudgetSeconds;
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/api/drafts/create'),
         headers: ApiConfig.getAuthHeaders(token),
-        body: jsonEncode({
-          'league_id': leagueId,
-          'draft_type': draftType,
-          'third_round_reversal': thirdRoundReversal,
-          'pick_time_seconds': pickTimeSeconds,
-          'rounds': rounds,
-          'settings': settings ?? {},
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 201) {
@@ -228,6 +244,8 @@ class DraftService {
     int? pickTimeSeconds,
     int? rounds,
     Map<String, dynamic>? settings,
+    String? timerMode,
+    int? teamTimeBudgetSeconds,
   }) async {
     try {
       final response = await http.put(
@@ -239,6 +257,8 @@ class DraftService {
           if (pickTimeSeconds != null) 'pick_time_seconds': pickTimeSeconds,
           if (rounds != null) 'rounds': rounds,
           if (settings != null) 'settings': settings,
+          if (timerMode != null) 'timer_mode': timerMode,
+          if (teamTimeBudgetSeconds != null) 'team_time_budget_seconds': teamTimeBudgetSeconds,
         }),
       );
 
@@ -437,6 +457,30 @@ class DraftService {
     } catch (e) {
       debugPrint('Get players error: $e');
       return [];
+    }
+  }
+
+  // Adjust roster time (commissioner only, chess timer mode)
+  Future<bool> adjustRosterTime({
+    required String token,
+    required int draftId,
+    required int rosterId,
+    required int adjustmentSeconds,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/adjust-time'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode({
+          'roster_id': rosterId,
+          'adjustment_seconds': adjustmentSeconds,
+        }),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Adjust roster time error: $e');
+      return false;
     }
   }
 }
