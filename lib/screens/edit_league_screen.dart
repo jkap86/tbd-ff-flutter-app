@@ -700,11 +700,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 // Public/Private toggle
                 Card(
                   child: SwitchListTile(
-                    title: const Text('Public League'),
+                    title: Text(_isPublic ? 'Public League' : 'Private League'),
                     subtitle: Text(
                       _isPublic
                           ? 'Anyone can find and join this league'
-                          : 'Invite-only league',
+                          : 'Private - Invite only',
                       style: TextStyle(
                         fontSize: 12,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
