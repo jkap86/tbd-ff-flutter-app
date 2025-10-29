@@ -21,6 +21,8 @@ class SocketService {
   Function(Map<String, dynamic>)? onTimerTick;
   Function(Draft)? onDraftState;
   Function(Map<String, dynamic>)? onAutodraftToggled;
+  Function(Map<String, dynamic>)? onChessTimerUpdate;
+  Function(Map<String, dynamic>)? onTimeAdjusted;
   Function(String)? onError;
 
   // League event callbacks
@@ -30,6 +32,12 @@ class SocketService {
 
   // Matchup event callbacks
   Function(Map<String, dynamic>)? onMatchupScoresUpdated;
+
+  // Trade event callbacks
+  Function(Map<String, dynamic>)? onTradeProposed;
+  Function(Map<String, dynamic>)? onTradeProcessed;
+  Function(Map<String, dynamic>)? onTradeRejected;
+  Function(Map<String, dynamic>)? onTradeCancelled;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -146,6 +154,18 @@ class SocketService {
       onAutodraftToggled?.call(data);
     });
 
+    // Chess timer update
+    _socket!.on('chess_timer_update', (data) {
+      debugPrint('Chess timer update: $data');
+      onChessTimerUpdate?.call(data);
+    });
+
+    // Time adjusted (commissioner adjustment)
+    _socket!.on('time_adjusted', (data) {
+      debugPrint('Time adjusted: $data');
+      onTimeAdjusted?.call(data);
+    });
+
     // Joined draft confirmation
     _socket!.on('joined_draft', (data) {
       debugPrint('Joined draft: $data');
@@ -199,6 +219,30 @@ class SocketService {
     // Joined matchup room confirmation
     _socket!.on('joined_matchup_room', (data) {
       debugPrint('Joined matchup room: $data');
+    });
+
+    // Trade proposed
+    _socket!.on('trade_proposed', (data) {
+      debugPrint('Trade proposed: $data');
+      onTradeProposed?.call(data);
+    });
+
+    // Trade processed (accepted)
+    _socket!.on('trade_processed', (data) {
+      debugPrint('Trade processed: $data');
+      onTradeProcessed?.call(data);
+    });
+
+    // Trade rejected
+    _socket!.on('trade_rejected', (data) {
+      debugPrint('Trade rejected: $data');
+      onTradeRejected?.call(data);
+    });
+
+    // Trade cancelled
+    _socket!.on('trade_cancelled', (data) {
+      debugPrint('Trade cancelled: $data');
+      onTradeCancelled?.call(data);
     });
   }
 
@@ -430,10 +474,17 @@ class SocketService {
     onUserLeft = null;
     onTimerTick = null;
     onDraftState = null;
+    onAutodraftToggled = null;
+    onChessTimerUpdate = null;
+    onTimeAdjusted = null;
     onError = null;
     onLeagueChatMessage = null;
     onUserJoinedLeague = null;
     onUserLeftLeague = null;
     onMatchupScoresUpdated = null;
+    onTradeProposed = null;
+    onTradeProcessed = null;
+    onTradeRejected = null;
+    onTradeCancelled = null;
   }
 }

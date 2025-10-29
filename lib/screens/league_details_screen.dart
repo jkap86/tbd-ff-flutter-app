@@ -14,6 +14,8 @@ import 'edit_league_screen.dart';
 import 'draft_room_screen.dart';
 import 'roster_details_screen.dart';
 import 'matchups_screen.dart';
+import 'waivers/waivers_hub_screen.dart';
+import 'trades_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -464,59 +466,154 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             _buildScoringSettingsSection(league),
                             const SizedBox(height: 16),
                             const Divider(height: 1),
-                            const SizedBox(height: 16),
-                            // Draft button
+                                      ],
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                            ),
+                            // Footer with action buttons - Always visible
                             Consumer<DraftProvider>(
                               builder: (context, draftProvider, child) {
                                 final isDrafting = league.status == 'drafting';
                                 final hasDraft = draftProvider.currentDraft != null &&
                                     draftProvider.currentDraft!.leagueId == league.id;
+                                final showInSeasonButtons = league.status == 'in_season' || league.status == 'post_draft';
 
-                                return SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: hasDraft ? () async {
-                                      await Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => DraftRoomScreen(
-                                            leagueId: league.id,
-                                            leagueName: league.name,
-                                          ),
-                                        ),
-                                      );
-                                      await _loadLeagueDetails();
-                                    } : null,
-                                    icon: Icon(
-                                      Icons.list_alt,
-                                      color: hasDraft
-                                          ? (isDrafting ? Colors.white : null)
-                                          : Colors.grey,
-                                    ),
-                                    label: Text(
-                                      hasDraft ? 'Draft' : 'No Draft',
-                                      style: TextStyle(
-                                        color: hasDraft
-                                            ? (isDrafting ? Colors.white : null)
-                                            : Colors.grey,
-                                        fontWeight: isDrafting ? FontWeight.bold : null,
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                    border: Border(
+                                      top: BorderSide(
+                                        color: Theme.of(context).dividerColor,
+                                        width: 1,
                                       ),
                                     ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: hasDraft
-                                          ? (isDrafting
-                                              ? Colors.orange
-                                              : Theme.of(context).colorScheme.primaryContainer)
-                                          : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                      padding: const EdgeInsets.symmetric(vertical: 12),
-                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  width: double.infinity,
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      // Draft button (always shown)
+                                      SizedBox(
+                                        width: 120,
+                                        child: ElevatedButton.icon(
+                                          onPressed: hasDraft ? () async {
+                                            await Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (context) => DraftRoomScreen(
+                                                  leagueId: league.id,
+                                                  leagueName: league.name,
+                                                ),
+                                              ),
+                                            );
+                                            await _loadLeagueDetails();
+                                          } : null,
+                                          icon: Icon(
+                                            Icons.list_alt,
+                                            size: 18,
+                                            color: hasDraft
+                                                ? (isDrafting ? Colors.white : null)
+                                                : Colors.grey,
+                                          ),
+                                          label: Text(
+                                            hasDraft ? 'Draft' : 'No Draft',
+                                            style: TextStyle(
+                                              color: hasDraft
+                                                  ? (isDrafting ? Colors.white : null)
+                                                  : Colors.grey,
+                                              fontWeight: isDrafting ? FontWeight.bold : null,
+                                            ),
+                                          ),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: hasDraft
+                                                ? (isDrafting
+                                                    ? Colors.orange
+                                                    : Theme.of(context).colorScheme.primaryContainer)
+                                                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                          ),
+                                        ),
+                                      ),
+                                      // In-season buttons (Matchups, Trades, Waivers)
+                                      if (showInSeasonButtons) ...[
+                                        // Matchups button
+                                        SizedBox(
+                                          width: 130,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => MatchupsScreen(
+                                                    leagueId: league.id,
+                                                    leagueName: league.name,
+                                                    season: league.season,
+                                                    startWeek: league.startWeek,
+                                                    playoffWeekStart: league.playoffWeekStart,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.scoreboard, size: 18),
+                                            label: const Text('Matchups'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        // Trades button
+                                        SizedBox(
+                                          width: 110,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => TradesScreen(
+                                                    leagueId: league.id,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.swap_calls, size: 18),
+                                            label: const Text('Trades'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        // Waivers button
+                                        SizedBox(
+                                          width: 120,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              final userRoster = rosters.firstWhere(
+                                                (r) => r.userId == currentUserId,
+                                                orElse: () => rosters.first,
+                                              );
+
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => WaiversHubScreen(
+                                                    leagueId: league.id,
+                                                    userRoster: userRoster,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.swap_horiz, size: 18),
+                                            label: const Text('Waivers'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 );
                               },
-                            ),
-                                      ],
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
                             ),
                           ],
                         ),
@@ -537,31 +634,6 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   ),
                 ),
               ),
-              // Matchups Button (only show after draft completes or league is in_season)
-              if (league.status == 'in_season' || league.status == 'post_draft')
-                Positioned(
-                  bottom: drawerHeight + 16,
-                  right: 16,
-                  child: FloatingActionButton.extended(
-                    heroTag: 'matchups_button',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => MatchupsScreen(
-                            leagueId: league.id,
-                            leagueName: league.name,
-                            season: league.season,
-                            startWeek: league.startWeek,
-                            playoffWeekStart: league.playoffWeekStart,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.scoreboard),
-                    label: const Text('Matchups'),
-                    backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                  ),
-                ),
               // Chat Drawer (bottom)
               Positioned(
                 left: 0,
@@ -1301,43 +1373,219 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   }
 
   Widget _buildMessageBubble(BuildContext context, LeagueChatMessage message, bool isMe) {
+    final hasTradeDetails = message.metadata != null &&
+                            message.metadata!['show_details'] == true &&
+                            message.metadata!['trade_details'] != null;
+
+    return _TradeNotificationBubble(
+      message: message,
+      isMe: isMe,
+      hasTradeDetails: hasTradeDetails,
+    );
+  }
+}
+
+class _TradeNotificationBubble extends StatefulWidget {
+  final LeagueChatMessage message;
+  final bool isMe;
+  final bool hasTradeDetails;
+
+  const _TradeNotificationBubble({
+    required this.message,
+    required this.isMe,
+    required this.hasTradeDetails,
+  });
+
+  @override
+  State<_TradeNotificationBubble> createState() => _TradeNotificationBubbleState();
+}
+
+class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isMe
+          color: widget.isMe
               ? Theme.of(context).colorScheme.primaryContainer
               : Theme.of(context).colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(12),
         ),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: MediaQuery.of(context).size.width * 0.85,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!isMe)
-              Text(
-                message.displayUsername,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+            InkWell(
+              onTap: widget.hasTradeDetails ? () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              } : null,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!widget.isMe)
+                            Text(
+                              widget.message.displayUsername,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                          if (!widget.isMe) const SizedBox(height: 4),
+                          Text(
+                            widget.message.message,
+                            style: TextStyle(
+                              color: widget.isMe
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.onSecondaryContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.hasTradeDetails) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 20,
+                        color: widget.isMe
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : Theme.of(context).colorScheme.onSecondaryContainer,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            if (!isMe) const SizedBox(height: 4),
-            Text(
-              message.message,
-              style: TextStyle(
-                color: isMe
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Theme.of(context).colorScheme.onSecondaryContainer,
-              ),
             ),
+            if (_isExpanded && widget.hasTradeDetails)
+              _buildTradeDetails(context),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTradeDetails(BuildContext context) {
+    final tradeDetails = widget.message.metadata!['trade_details'] as Map<String, dynamic>;
+    final items = (tradeDetails['items'] as List<dynamic>?) ?? [];
+
+    // Handle both int and String types for roster IDs
+    final proposerRosterId = tradeDetails['proposer_roster_id'] is int
+        ? tradeDetails['proposer_roster_id'] as int
+        : int.tryParse(tradeDetails['proposer_roster_id']?.toString() ?? '0') ?? 0;
+
+    final receiverRosterId = tradeDetails['receiver_roster_id'] is int
+        ? tradeDetails['receiver_roster_id'] as int
+        : int.tryParse(tradeDetails['receiver_roster_id']?.toString() ?? '0') ?? 0;
+
+    if (proposerRosterId == 0 || receiverRosterId == 0) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: Text('Unable to load trade details', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+      );
+    }
+
+    // Items FROM the proposer are what the proposer gives
+    final proposerGivingItems = items.where((item) {
+      final fromRosterId = item['from_roster_id'] is int
+          ? item['from_roster_id'] as int
+          : int.tryParse(item['from_roster_id']?.toString() ?? '0') ?? 0;
+      return fromRosterId == proposerRosterId;
+    }).toList();
+
+    // Items FROM the receiver are what the receiver gives
+    final receiverGivingItems = items.where((item) {
+      final fromRosterId = item['from_roster_id'] is int
+          ? item['from_roster_id'] as int
+          : int.tryParse(item['from_roster_id']?.toString() ?? '0') ?? 0;
+      return fromRosterId == receiverRosterId;
+    }).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${tradeDetails['proposer_team']} Gives:',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (proposerGivingItems.isEmpty)
+                      const Text('Nothing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic))
+                    else
+                      ...proposerGivingItems.map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${tradeDetails['receiver_team']} Gives:',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (receiverGivingItems.isEmpty)
+                      const Text('Nothing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic))
+                    else
+                      ...receiverGivingItems.map((item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
