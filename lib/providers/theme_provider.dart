@@ -3,10 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
   static const String _themeKey = 'theme_mode';
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light; // Default to light instead of system
+  bool _isLoaded = false;
 
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
+  bool get isLoaded => _isLoaded;
 
   ThemeProvider() {
     _loadThemeMode();
@@ -21,13 +23,16 @@ class ThemeProvider with ChangeNotifier {
       if (savedTheme != null) {
         _themeMode = ThemeMode.values.firstWhere(
           (mode) => mode.toString() == savedTheme,
-          orElse: () => ThemeMode.system,
+          orElse: () => ThemeMode.light,
         );
-        notifyListeners();
       }
+      _isLoaded = true;
+      notifyListeners();
     } catch (e) {
-      // If error loading, default to system theme
-      _themeMode = ThemeMode.system;
+      // If error loading, default to light theme
+      _themeMode = ThemeMode.light;
+      _isLoaded = true;
+      notifyListeners();
     }
   }
 
