@@ -9,6 +9,7 @@ import 'providers/league_provider.dart';
 import 'providers/invite_provider.dart';
 import 'providers/draft_provider.dart';
 import 'providers/matchup_provider.dart';
+import 'providers/waiver_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/reset_password_screen.dart';
@@ -34,6 +35,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => InviteProvider()),
         ChangeNotifierProvider(create: (_) => DraftProvider()),
         ChangeNotifierProvider(create: (_) => MatchupProvider()),
+        ChangeNotifierProvider(create: (_) => WaiverProvider()),
       ],
       child: const MyAppContent(),
     );
@@ -47,6 +49,18 @@ class MyAppContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
+        // Wait for theme to load before showing app
+        if (!themeProvider.isLoaded) {
+          return const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
+
         return MaterialApp(
           title: 'HypeTrain',
           debugShowCheckedModeBanner: false,
