@@ -40,6 +40,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   bool _thirdRoundReversal = false;
   int _pickTimeSeconds = 90;
   int _draftRounds = 15;
+  String _timerMode = 'traditional';
+  int _teamTimeBudgetMinutes = 60;
 
   // Overnight pause settings
   bool _autoPauseEnabled = false;
@@ -1872,34 +1874,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       ),
     );
   }
-}
-
-  String _getTimeBudgetDisplay() {
-    final hours = _teamTimeBudgetMinutes ~/ 60;
-    final minutes = _teamTimeBudgetMinutes % 60;
-
-    if (hours > 0 && minutes > 0) {
-      return '${hours}h ${minutes}m';
-    } else if (hours > 0) {
-      return '${hours}h';
-    } else {
-      return '${minutes}m';
-    }
-  }
-
-  Widget _buildTimeBudgetPreset(int minutes, String label) {
-    final isSelected = _teamTimeBudgetMinutes == minutes;
-    return FilterChip(
-      selected: isSelected,
-      label: Text(label),
-      onSelected: (selected) {
-        if (selected) {
-          setState(() => _teamTimeBudgetMinutes = minutes);
-        }
-      },
-      backgroundColor: isSelected ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
-      selectedColor: Theme.of(context).colorScheme.primaryContainer,
-    );
 
   String _getTimeBudgetDisplay() {
     final hours = _teamTimeBudgetMinutes ~/ 60;
