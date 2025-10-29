@@ -236,6 +236,7 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       labelText: 'League Format',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.category),
+                      helperText: 'Only Redraft is currently available',
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -244,11 +245,18 @@ class _CreateLeagueScreenState extends State<CreateLeagueScreen> {
                       ),
                       DropdownMenuItem(
                         value: 'keeper',
-                        child: Text('Keeper'),
+                        enabled: false,
+                        child: Text('Keeper (Coming Soon)'),
                       ),
                       DropdownMenuItem(
                         value: 'dynasty',
-                        child: Text('Dynasty'),
+                        enabled: false,
+                        child: Text('Dynasty (Coming Soon)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'devy',
+                        enabled: false,
+                        child: Text('Devy (Coming Soon)'),
                       ),
                     ],
                     onChanged: (value) {
