@@ -9,6 +9,7 @@ import '../models/roster_model.dart';
 import '../services/draft_service.dart';
 import '../services/league_service.dart';
 import '../widgets/responsive_container.dart';
+import '../models/waiver_settings_model.dart';
 
 class EditLeagueScreen extends StatefulWidget {
   final League league;
@@ -45,6 +46,14 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0);
   TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0);
 
+  // Waiver settings
+  WaiverSettings? _waiverSettings;
+  String _waiverType = 'faab';
+  int _faabBudget = 100;
+  int _waiverPeriodDays = 2;
+  String _processSchedule = 'daily';
+  bool _isLoadingWaiverSettings = false;
+
 
   // Scoring settings fields
   late TextEditingController _passingTouchdownsController;
@@ -69,6 +78,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     // Initialize draft settings (will be loaded separately)
     _loadDraftSettings();
+
+    // Load waiver settings
+    _loadWaiverSettings();
 
     // Initialize roster positions from league data
     _rosterPositions = {
@@ -146,6 +158,35 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     }
   }
 
+  Future<void> _loadWaiverSettings() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token == null) return;
+
+    setState(() {
+      _isLoadingWaiverSettings = true;
+    });
+
+    final settings = await LeagueService().getWaiverSettings(
+      token: authProvider.token!,
+      leagueId: widget.league.id,
+    );
+
+    if (mounted && settings != null) {
+      setState(() {
+        _waiverSettings = settings;
+        _waiverType = settings.waiverType;
+        _faabBudget = settings.faabBudget;
+        _waiverPeriodDays = settings.waiverPeriodDays;
+        _processSchedule = settings.processSchedule;
+        _isLoadingWaiverSettings = false;
+      });
+    } else if (mounted) {
+      setState(() {
+        _isLoadingWaiverSettings = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -157,6 +198,47 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     _receivingYardsController.dispose();
     _receivingReceptionsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSaveWaiverSettings() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not authenticated')),
+      );
+      return;
+    }
+
+    final updatedSettings = await LeagueService().updateWaiverSettings(
+      token: authProvider.token!,
+      leagueId: widget.league.id,
+      waiverType: _waiverType,
+      faabBudget: _faabBudget,
+      waiverPeriodDays: _waiverPeriodDays,
+      processSchedule: _processSchedule,
+    );
+
+    if (mounted) {
+      if (updatedSettings != null) {
+        setState(() {
+          _waiverSettings = updatedSettings;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Waiver settings updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update waiver settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleSaveChanges() async {
@@ -1111,7 +1193,198 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Section 5: Commissioner Settings (Collapsible)
+                // Section 5: Waiver Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Waiver & Free Agent Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Configure waivers and free agents'),
+                    initiallyExpanded: false,
+                    children: [
+                      if (_isLoadingWaiverSettings)
+                        const Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Waiver Type
+                              DropdownButtonFormField<String>(
+                                value: _waiverType,
+                                decoration: const InputDecoration(
+                                  labelText: 'Waiver Type',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.gavel),
+                                  helperText: 'How players are claimed',
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'faab',
+                                    child: Text('FAAB (Blind Bidding)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'rolling',
+                                    child: Text('Rolling Waivers'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'none',
+                                    child: Text('Free Agents Only'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _waiverType = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // FAAB Budget (only show if FAAB type)
+                              if (_waiverType == 'faab') ...[
+                                TextFormField(
+                                  initialValue: _faabBudget.toString(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'FAAB Budget',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.attach_money),
+                                    helperText: 'Starting budget for each team',
+                                  ),
+                                  onChanged: (value) {
+                                    final budget = int.tryParse(value);
+                                    if (budget != null && budget >= 0) {
+                                      setState(() {
+                                        _faabBudget = budget;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Waiver Period Days
+                              DropdownButtonFormField<int>(
+                                value: _waiverPeriodDays,
+                                decoration: const InputDecoration(
+                                  labelText: 'Waiver Period',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.timer),
+                                  helperText: 'Days before players become free agents',
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 0, child: Text('No Wait (Instant FA)')),
+                                  DropdownMenuItem(value: 1, child: Text('1 Day')),
+                                  DropdownMenuItem(value: 2, child: Text('2 Days')),
+                                  DropdownMenuItem(value: 3, child: Text('3 Days')),
+                                  DropdownMenuItem(value: 4, child: Text('4 Days')),
+                                  DropdownMenuItem(value: 5, child: Text('5 Days')),
+                                  DropdownMenuItem(value: 7, child: Text('1 Week')),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _waiverPeriodDays = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Process Schedule
+                              DropdownButtonFormField<String>(
+                                value: _processSchedule,
+                                decoration: const InputDecoration(
+                                  labelText: 'Processing Schedule',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.schedule),
+                                  helperText: 'When waivers are processed',
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'daily',
+                                    child: Text('Daily (3:00 AM)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'twice_weekly',
+                                    child: Text('Twice Weekly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'weekly',
+                                    child: Text('Weekly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'manual',
+                                    child: Text('Manual (Commissioner Only)'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _processSchedule = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Info box
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _waiverType == 'faab'
+                                            ? 'Teams bid on players using their FAAB budget. Highest bid wins.'
+                                            : _waiverType == 'rolling'
+                                            ? 'Teams are assigned waiver priority. Lowest priority team gets first pick.'
+                                            : 'All players are immediately available as free agents.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Save button
+                              FilledButton.icon(
+                                onPressed: _handleSaveWaiverSettings,
+                                icon: const Icon(Icons.save),
+                                label: const Text('Save Waiver Settings'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 6: Commissioner Settings (Collapsible)
                 Consumer<LeagueProvider>(
                   builder: (context, leagueProvider, child) {
                     final rosters = leagueProvider.selectedLeagueRosters;

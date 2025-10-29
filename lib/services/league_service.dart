@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/league_model.dart';
 import '../models/roster_model.dart';
+import '../models/waiver_settings_model.dart';
 
 class LeagueService {
   // Create a new league
@@ -303,6 +304,64 @@ class LeagueService {
     } catch (e) {
       debugPrint('Delete league error: $e');
       return false;
+    }
+  }
+
+  /// Get waiver settings for a league
+  Future<WaiverSettings?> getWaiverSettings({
+    required String token,
+    required int leagueId,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/waivers/settings'),
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return WaiverSettings.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Get waiver settings error: $e');
+      return null;
+    }
+  }
+
+  /// Update waiver settings for a league (commissioner only)
+  Future<WaiverSettings?> updateWaiverSettings({
+    required String token,
+    required int leagueId,
+    String? waiverType,
+    int? faabBudget,
+    int? waiverPeriodDays,
+    String? processSchedule,
+    String? processTime,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+
+      if (waiverType != null) body['waiver_type'] = waiverType;
+      if (faabBudget != null) body['faab_budget'] = faabBudget;
+      if (waiverPeriodDays != null) body['waiver_period_days'] = waiverPeriodDays;
+      if (processSchedule != null) body['process_schedule'] = processSchedule;
+      if (processTime != null) body['process_time'] = processTime;
+
+      final response = await http.put(
+        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/waivers/settings'),
+        headers: ApiConfig.getAuthHeaders(token),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return WaiverSettings.fromJson(data['data']);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Update waiver settings error: $e');
+      return null;
     }
   }
 }
