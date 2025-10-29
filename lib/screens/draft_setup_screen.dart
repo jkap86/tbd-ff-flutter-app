@@ -25,6 +25,10 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   int _pickTimeSeconds = 90;
   int _rounds = 15;
 
+  // Timer mode settings
+  String _timerMode = 'traditional'; // 'traditional' or 'chess'
+  int _teamTimeBudgetMinutes = 60; // Only used in chess mode
+
   // Overnight pause settings
   bool _autoPauseEnabled = false;
   TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0); // 11:00 PM
@@ -49,17 +53,19 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
     }
 
     // Convert local time to UTC before saving
-    Map<String, dynamic>? draftSettings;
+    Map<String, dynamic> draftSettings = {};
+
+    // Add overnight pause settings
     if (_autoPauseEnabled) {
       final startUTC = _localTimeOfDayToUTC(_autoPauseStartTime);
       final endUTC = _localTimeOfDayToUTC(_autoPauseEndTime);
-      draftSettings = {
+      draftSettings.addAll({
         'auto_pause_enabled': true,
         'auto_pause_start_hour': startUTC['hour'],
         'auto_pause_start_minute': startUTC['minute'],
         'auto_pause_end_hour': endUTC['hour'],
         'auto_pause_end_minute': endUTC['minute'],
-      };
+      });
     }
 
     final success = await draftProvider.createDraft(
@@ -69,6 +75,8 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       thirdRoundReversal: _thirdRoundReversal,
       pickTimeSeconds: _pickTimeSeconds,
       rounds: _rounds,
+      timerMode: _timerMode,
+      teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
       settings: draftSettings,
     );
 
@@ -187,11 +195,121 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   const SizedBox(height: 24),
                 ],
 
-                // Pick Time
+                // Timer Mode Selection
                 Text(
-                  'Pick Timer',
+                  'Timer Mode',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'traditional',
+                      label: Text('Traditional'),
+                      icon: Icon(Icons.timer),
+                    ),
+                    ButtonSegment(
+                      value: 'chess',
+                      label: Text('Chess Timer'),
+                      icon: Icon(Icons.hourglass_bottom),
+                    ),
+                  ],
+                  selected: {_timerMode},
+                  onSelectionChanged: (Set<String> selection) {
+                    setState(() {
+                      _timerMode = selection.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _timerMode == 'traditional'
+                      ? 'Fixed time per pick. Timer resets after each selection.'
+                      : 'Each team has a total time budget. Time bank runs down during their picks.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 24),
+
+                // Chess Timer Budget (only visible when chess mode selected)
+                if (_timerMode == 'chess') ...[
+                  Text(
+                    'Team Time Budget',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Time per team',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              Text(
+                                _getTimeBudgetDisplay(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Slider(
+                            value: _teamTimeBudgetMinutes.toDouble(),
+                            min: 15,
+                            max: 360,
+                            divisions: 69, // 5-minute increments
+                            label: _getTimeBudgetDisplay(),
+                            onChanged: (value) {
+                              setState(() {
+                                // Round to nearest 5 minutes
+                                _teamTimeBudgetMinutes = (value / 5).round() * 5;
+                              });
+                            },
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('15m',
+                                  style: Theme.of(context).textTheme.bodySmall),
+                              Text('6h',
+                                  style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          // Quick preset buttons
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _buildPresetButton(30, '30 min'),
+                              _buildPresetButton(60, '1 hour'),
+                              _buildPresetButton(120, '2 hours'),
+                              _buildPresetButton(180, '3 hours'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Pick Time (Traditional mode only)
+                if (_timerMode == 'traditional') ...[
+                  Text(
+                    'Pick Timer',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 const SizedBox(height: 12),
                 Card(
                   child: Padding(
@@ -243,6 +361,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                ],
 
                 // Number of Rounds
                 Text(
@@ -397,8 +516,11 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         _buildSummaryRow('Type', _draftType.toUpperCase()),
                         if (_draftType == 'snake' && _thirdRoundReversal)
                           _buildSummaryRow('3RR', 'Enabled'),
-                        _buildSummaryRow(
-                            'Pick Timer', _getTimerSummary()),
+                        _buildSummaryRow('Timer Mode', _timerMode == 'traditional' ? 'Traditional' : 'Chess Timer'),
+                        if (_timerMode == 'traditional')
+                          _buildSummaryRow('Pick Timer', _getTimerSummary())
+                        else
+                          _buildSummaryRow('Team Budget', _getTimeBudgetDisplay()),
                         _buildSummaryRow('Rounds', '$_rounds'),
                         _buildSummaryRow('Total Picks',
                             '${_rounds * 12}'), // Assuming 12 teams
@@ -486,6 +608,34 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _getTimeBudgetDisplay() {
+    final hours = _teamTimeBudgetMinutes ~/ 60;
+    final minutes = _teamTimeBudgetMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+      return '${hours}h ${minutes}m';
+    } else if (hours > 0) {
+      return '${hours}h';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  Widget _buildPresetButton(int minutes, String label) {
+    final isSelected = _teamTimeBudgetMinutes == minutes;
+    return FilterChip(
+      selected: isSelected,
+      label: Text(label),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _teamTimeBudgetMinutes = minutes);
+        }
+      },
+      backgroundColor: isSelected ? null : Theme.of(context).colorScheme.surfaceContainerHighest,
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
     );
   }
 }
