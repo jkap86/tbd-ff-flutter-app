@@ -312,7 +312,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                       color: isNominating
                           ? Colors.green.shade100
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(BorderRadius.md),
+                      borderRadius: BorderRadius.circular(AppBorderRadius.md),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -342,7 +342,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(BorderRadius.md),
+                                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
                                 ),
                                 child: const Text(
                                   'YOU',
@@ -569,7 +569,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                   padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                   decoration: BoxDecoration(
                     color: isMyWinningBid ? Colors.green.shade50 : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(BorderRadius.md),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
                     border: Border.all(
                       color: isMyWinningBid ? Colors.green.shade300 : Colors.grey.shade300,
                       width: 1,
@@ -607,7 +607,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                   padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                   decoration: BoxDecoration(
                     color: timeRemaining.inHours < 1 ? Colors.red.shade50 : Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(BorderRadius.md),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.md),
                     border: Border.all(
                       color: timeRemaining.inHours < 1 ? Colors.red.shade300 : Colors.orange.shade300,
                       width: 1,
@@ -667,7 +667,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
               padding: const EdgeInsets.symmetric(vertical: Spacing.md),
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(BorderRadius.md),
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 border: Border.all(color: Colors.blue.shade300),
               ),
               child: Text(
@@ -1307,7 +1307,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                             ),
                             decoration: BoxDecoration(
                               color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(BorderRadius.lg),
+                              borderRadius: BorderRadius.circular(AppBorderRadius.lg),
                               border: Border.all(color: Colors.blue.shade200),
                             ),
                             child: Text(
@@ -1634,7 +1634,7 @@ class BidHistoryWidget extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.green,
-                    borderRadius: BorderRadius.circular(BorderRadius.sm),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.sm),
                   ),
                   child: const Text(
                     'WINNING',

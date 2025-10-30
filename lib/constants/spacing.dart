@@ -67,8 +67,8 @@ class TouchTargets {
 ///
 /// These values create a cohesive visual language for card corners,
 /// button shapes, and other UI elements with rounded edges.
-class BorderRadius {
-  BorderRadius._(); // Private constructor to prevent instantiation
+class AppBorderRadius {
+  AppBorderRadius._(); // Private constructor to prevent instantiation
 
   /// Small border radius: 4px
   /// Use for: Subtle rounding, chips, small buttons
