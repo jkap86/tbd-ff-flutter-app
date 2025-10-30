@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../constants/spacing.dart';
 import '../models/auction_model.dart';
 import '../models/player_model.dart';
 import '../models/draft_model.dart';
@@ -102,12 +103,12 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: Spacing.lg),
                   Text(
                     auctionProvider.errorMessage ?? 'An error occurred',
                     style: const TextStyle(color: Colors.red),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: Spacing.lg),
                   ElevatedButton(
                     onPressed: _loadAuctionData,
                     child: const Text('Retry'),
@@ -195,7 +196,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
+                                        vertical: Spacing.lg),
                                     child: Center(
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
@@ -209,11 +210,11 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                                   BorderRadius.circular(10),
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
+                                          const SizedBox(height: Spacing.xs),
                                           Text(
                                             'Drag to expand',
                                             style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: FontSizes.small,
                                               color: Colors.grey.shade500,
                                             ),
                                           ),
@@ -284,8 +285,8 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           ),
           child: DataTable(
             headingRowHeight: 70,
-            columnSpacing: 16,
-            horizontalMargin: 12,
+            columnSpacing: Spacing.lg,
+            horizontalMargin: Spacing.md,
             columns: [
               const DataColumn(
                 label: Center(
@@ -306,12 +307,12 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                   label: Container(
                     constraints: const BoxConstraints(minWidth: 120),
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.md),
                     decoration: BoxDecoration(
                       color: isNominating
                           ? Colors.green.shade100
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(BorderRadius.md),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -323,7 +324,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                               child: Text(
                                 teamName,
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: FontSizes.subtitle,
                                   fontWeight: isMyRoster
                                       ? FontWeight.bold
                                       : FontWeight.w500,
@@ -341,13 +342,13 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.blue,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(BorderRadius.md),
                                 ),
                                 child: const Text(
                                   'YOU',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 9,
+                                    fontSize: FontSizes.small,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -361,11 +362,11 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                           ],
                         ),
                         if (budget != null) ...[
-                          const SizedBox(height: 4),
+                          const SizedBox(height: Spacing.xs),
                           Text(
                             '\$${budget['available']} left',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: FontSizes.small,
                               fontWeight: FontWeight.w500,
                               color: isNominating
                                   ? Colors.green.shade700
@@ -424,8 +425,8 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
             ),
             child: DataTable(
               headingRowHeight: 0, // Hide header since it's shown separately
-              columnSpacing: 12,
-              horizontalMargin: 8,
+              columnSpacing: Spacing.md,
+              horizontalMargin: Spacing.sm,
               columns: [
                 const DataColumn(label: SizedBox.shrink()),
                 ...rosters.map(
@@ -455,7 +456,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
 
                         return DataCell(
                           Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(Spacing.xs),
                             decoration: BoxDecoration(
                               color: isNominating
                                   ? Colors.green.shade50
@@ -468,7 +469,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                 Text(
                                   playerName,
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: FontSizes.small,
                                     fontWeight: FontWeight.w500,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -476,7 +477,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                 Text(
                                   '$position - \$$winningBid',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: FontSizes.small,
                                     color: Colors.grey.shade600,
                                   ),
                                 ),
@@ -487,7 +488,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                       } else {
                         return DataCell(
                           Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(Spacing.xs),
                             decoration: BoxDecoration(
                               color: isNominating
                                   ? Colors.green.shade50
@@ -523,13 +524,13 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(Spacing.lg),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
+            blurRadius: Spacing.xs,
             offset: const Offset(0, 2),
           ),
         ],
@@ -542,22 +543,22 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           Text(
             nomination.playerName ?? 'Unknown Player',
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: FontSizes.title,
               fontWeight: FontWeight.bold,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Spacing.xs),
           Text(
             nomination.playerPositionTeam,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: FontSizes.subtitle,
               color: Colors.grey.shade600,
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: Spacing.lg),
 
           // Bid and Timer section
           Row(
@@ -565,10 +566,10 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
               // Current bid container
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                   decoration: BoxDecoration(
                     color: isMyWinningBid ? Colors.green.shade50 : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(BorderRadius.md),
                     border: Border.all(
                       color: isMyWinningBid ? Colors.green.shade300 : Colors.grey.shade300,
                       width: 1,
@@ -580,15 +581,15 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                       Text(
                         'Current Bid',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: FontSizes.small,
                           color: Colors.grey.shade600,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: Spacing.xs),
                       Text(
                         '\$${currentBid > 0 ? currentBid : minBid}',
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: FontSizes.heading,
                           fontWeight: FontWeight.bold,
                           color: isMyWinningBid ? Colors.green.shade700 : Colors.black,
                         ),
@@ -598,15 +599,15 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                 ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: Spacing.md),
 
               // Timer container
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.sm),
                   decoration: BoxDecoration(
                     color: timeRemaining.inHours < 1 ? Colors.red.shade50 : Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(BorderRadius.md),
                     border: Border.all(
                       color: timeRemaining.inHours < 1 ? Colors.red.shade300 : Colors.orange.shade300,
                       width: 1,
@@ -620,11 +621,11 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                         size: 20,
                         color: timeRemaining.inHours < 1 ? Colors.red.shade700 : Colors.orange.shade700,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: Spacing.xs),
                       Text(
                         _formatDuration(timeRemaining),
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: FontSizes.body,
                           fontWeight: FontWeight.bold,
                           color: timeRemaining.inHours < 1 ? Colors.red.shade700 : Colors.orange.shade700,
                         ),
@@ -636,7 +637,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: Spacing.lg),
 
           // Bidding button or status
           if (myBudget != null && !isMyNomination)
@@ -648,13 +649,13 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isMyWinningBid ? Colors.orange : Colors.blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  minimumSize: const Size(100, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.md),
+                  minimumSize: const Size(100, TouchTargets.minimum),
                 ),
                 child: Text(
                   isMyWinningBid ? 'Raise to \$${nextMinBid}' : 'Bid \$${nextMinBid}',
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: FontSizes.body,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -663,17 +664,17 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           else if (isMyNomination)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: Spacing.md),
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(BorderRadius.md),
                 border: Border.all(color: Colors.blue.shade300),
               ),
               child: Text(
                 'Your Nomination',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: FontSizes.body,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue.shade700,
                 ),
@@ -718,7 +719,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
       children: [
         // Search and filter
         Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(Spacing.sm),
           child: Row(
             children: [
               Expanded(
@@ -729,12 +730,12 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Spacing.sm),
               DropdownButton<String>(
                 value: _selectedPosition,
                 hint: const Text('Position'),
@@ -765,31 +766,31 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                     return Column(
                       children: [
                         ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.sm),
                           title: Text(
                             player.displayName,
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: FontSizes.body,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.only(top: Spacing.xs),
                             child: Text(
                               player.positionTeam,
-                              style: const TextStyle(fontSize: 13),
+                              style: const TextStyle(fontSize: FontSizes.subtitle),
                             ),
                           ),
                           trailing: ElevatedButton(
                             onPressed: () => _nominatePlayer(player),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              minimumSize: const Size(100, 44),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: Spacing.md),
+                              minimumSize: const Size(100, TouchTargets.minimum),
                             ),
                             child: const Text(
                               'Nominate',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: FontSizes.body,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -798,8 +799,8 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                         if (!isLast)
                           Divider(
                             height: 1,
-                            indent: 16,
-                            endIndent: 16,
+                            indent: Spacing.lg,
+                            endIndent: Spacing.lg,
                             color: Colors.grey.shade300,
                           ),
                       ],
@@ -959,7 +960,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
 
   Widget _buildDraftControls(Draft draft, AuctionProvider auctionProvider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
         border: Border(
@@ -984,7 +985,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                         ? Colors.orange
                         : Colors.grey,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: Spacing.sm),
               Text(
                 draft.status == 'in_progress'
                     ? 'In Progress'
@@ -992,7 +993,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                         ? 'Paused'
                         : 'Not Started',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: FontSizes.body,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1127,7 +1128,7 @@ class BudgetDisplayWidget extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.lg, vertical: Spacing.md),
       decoration: BoxDecoration(
         color: isDark
             ? theme.colorScheme.surfaceContainerHighest
@@ -1188,16 +1189,16 @@ class BudgetDisplayWidget extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            fontSize: 11,
+            fontSize: FontSizes.small,
             color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: Spacing.xs),
         Text(
           value,
           style: TextStyle(
-            fontSize: isHighlight ? 22 : 18,
+            fontSize: isHighlight ? 22 : FontSizes.title,
             fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
             color: color,
           ),
@@ -1270,7 +1271,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
 
         return SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1278,41 +1279,41 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                 Card(
                   elevation: 4,
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(Spacing.lg),
                     child: Column(
                       children: [
                         Text(
                           widget.nomination.playerName ?? 'Unknown Player',
                           style: const TextStyle(
-                            fontSize: 24,
+                            fontSize: FontSizes.heading,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Spacing.sm),
                         Text(
                           widget.nomination.playerPositionTeam,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: FontSizes.body,
                             color: Colors.grey.shade700,
                           ),
                         ),
                         if (widget.nomination.nominatingTeamName != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: Spacing.sm),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
+                              horizontal: Spacing.md,
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(BorderRadius.lg),
                               border: Border.all(color: Colors.blue.shade200),
                             ),
                             child: Text(
                               'Nominated by ${widget.nomination.nominatingTeamName}',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: FontSizes.subtitle,
                                 color: Colors.blue.shade900,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1323,13 +1324,13 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.lg),
 
                 // Current bid info
                 Card(
                   color: widget.isMyBid ? Colors.green.shade50 : null,
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(Spacing.lg),
                     child: Column(
                       children: [
                         Row(
@@ -1342,7 +1343,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                                   'Current Bid',
                                   style: TextStyle(
                                     color: Colors.grey.shade700,
-                                    fontSize: 14,
+                                    fontSize: FontSizes.body,
                                   ),
                                 ),
                                 Text(
@@ -1362,13 +1363,13 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                                     'Time Remaining',
                                     style: TextStyle(
                                       color: Colors.grey.shade700,
-                                      fontSize: 14,
+                                      fontSize: FontSizes.body,
                                     ),
                                   ),
                                   Text(
                                     _formatDuration(timeRemaining),
                                     style: TextStyle(
-                                      fontSize: 24,
+                                      fontSize: FontSizes.heading,
                                       fontWeight: FontWeight.bold,
                                       color: timeRemaining.inSeconds < 30
                                           ? Colors.red
@@ -1385,7 +1386,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                                     'No Time Limit',
                                     style: TextStyle(
                                       color: Colors.grey.shade600,
-                                      fontSize: 14,
+                                      fontSize: FontSizes.body,
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
@@ -1394,7 +1395,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                           ],
                         ),
                         if (widget.nomination.winningTeamName != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: Spacing.sm),
                           Text(
                             'Winning Team: ${widget.nomination.winningTeamName}',
                             style: TextStyle(
@@ -1411,30 +1412,30 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: Spacing.lg),
 
                 // Bidding controls
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(Spacing.lg),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Text(
                           'Place Your Bid',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: FontSizes.body,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: Spacing.lg),
                         // Bid amount display
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
                               'Your Bid:',
-                              style: TextStyle(fontSize: 16),
+                              style: TextStyle(fontSize: FontSizes.body),
                             ),
                             Text(
                               '\$${_sliderValue.round()}',
@@ -1446,7 +1447,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Spacing.sm),
                         // Slider
                         Slider(
                           value: _sliderValue,
@@ -1468,27 +1469,27 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                             Text(
                               '\$${currentBid + 1}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: FontSizes.small,
                                 color: Colors.grey.shade600,
                               ),
                             ),
                             Text(
                               '\$${currentBid + 100}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: FontSizes.small,
                                 color: Colors.grey.shade600,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: Spacing.lg),
                         const Divider(),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Spacing.sm),
                         const Text(
                           'Or enter exact amount',
-                          style: TextStyle(fontSize: 14),
+                          style: TextStyle(fontSize: FontSizes.body),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: Spacing.sm),
                         TextField(
                           controller: _bidController,
                           keyboardType: TextInputType.number,
@@ -1510,17 +1511,17 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
                             }
                           },
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: Spacing.lg),
                         ElevatedButton(
                           onPressed: _placeBid,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
                             backgroundColor: Theme.of(context).primaryColor,
                           ),
                           child: const Text(
                             'Place Bid',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: FontSizes.title,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -1628,18 +1629,18 @@ class BidHistoryWidget extends StatelessWidget {
           trailing: bid.isWinning
               ? Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: Spacing.sm,
+                    vertical: Spacing.xs,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.green,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(BorderRadius.sm),
                   ),
                   child: const Text(
                     'WINNING',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: FontSizes.small,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
