@@ -23,6 +23,10 @@ class SocketService {
   Function(Map<String, dynamic>)? onAutodraftToggled;
   Function(Map<String, dynamic>)? onChessTimerUpdate;
   Function(Map<String, dynamic>)? onTimeAdjusted;
+  Function(Map<String, dynamic>)? onTimerUpdate;
+  Function(Map<String, dynamic>)? onDraftStarted;
+  Function(Map<String, dynamic>)? onDraftPaused;
+  Function(Map<String, dynamic>)? onDraftResumed;
   Function(String)? onError;
 
   // League event callbacks
@@ -162,6 +166,30 @@ class SocketService {
     _socket!.on('autodraft_toggled', (data) {
       debugPrint('Autodraft toggled: $data');
       onAutodraftToggled?.call(data);
+    });
+
+    // Timer update (server broadcasts deadline every 5 seconds)
+    _socket!.on('timer_update', (data) {
+      debugPrint('Timer update: $data');
+      onTimerUpdate?.call(data);
+    });
+
+    // Draft started
+    _socket!.on('draft_started', (data) {
+      debugPrint('Draft started: $data');
+      onDraftStarted?.call(data);
+    });
+
+    // Draft paused
+    _socket!.on('draft_paused', (data) {
+      debugPrint('Draft paused: $data');
+      onDraftPaused?.call(data);
+    });
+
+    // Draft resumed
+    _socket!.on('draft_resumed', (data) {
+      debugPrint('Draft resumed: $data');
+      onDraftResumed?.call(data);
     });
 
     // Chess timer update
