@@ -195,16 +195,29 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
+                                        vertical: 16),
                                     child: Center(
-                                      child: Container(
-                                        width: 50,
-                                        height: 5,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade400,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 60,
+                                            height: 5,
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade400,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Drag to expand',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -271,8 +284,8 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           ),
           child: DataTable(
             headingRowHeight: 70,
-            columnSpacing: 12,
-            horizontalMargin: 8,
+            columnSpacing: 16,
+            horizontalMargin: 12,
             columns: [
               const DataColumn(
                 label: Center(
@@ -291,13 +304,14 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
 
                 return DataColumn(
                   label: Container(
+                    constraints: const BoxConstraints(minWidth: 120),
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                     decoration: BoxDecoration(
                       color: isNominating
                           ? Colors.green.shade100
                           : Colors.transparent,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -305,22 +319,26 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                       children: [
                         Row(
                           children: [
-                            Text(
-                              teamName,
-                              style: TextStyle(
-                                fontWeight: isMyRoster
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isNominating
-                                    ? Colors.green.shade900
-                                    : (isMyRoster ? Colors.blue : Colors.black),
+                            Flexible(
+                              child: Text(
+                                teamName,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isMyRoster
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  color: isNominating
+                                      ? Colors.green.shade900
+                                      : (isMyRoster ? Colors.blue : Colors.black),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (isMyRoster) ...[
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 1),
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.blue,
                                   borderRadius: BorderRadius.circular(8),
@@ -329,29 +347,32 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                                   'YOU',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 8,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
                             ],
                             if (isNominating) ...[
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
                               const Icon(Icons.gavel,
                                   size: 16, color: Colors.green),
                             ],
                           ],
                         ),
-                        if (budget != null)
+                        if (budget != null) ...[
+                          const SizedBox(height: 4),
                           Text(
                             '\$${budget['available']} left',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                               color: isNominating
                                   ? Colors.green.shade700
                                   : Colors.grey.shade600,
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -502,7 +523,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -513,102 +534,149 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Player info section
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  nomination.playerName ?? 'Unknown Player',
+          Text(
+            nomination.playerName ?? 'Unknown Player',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            nomination.playerPositionTeam,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Bid and Timer section
+          Row(
+            children: [
+              // Current bid container
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isMyWinningBid ? Colors.green.shade50 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isMyWinningBid ? Colors.green.shade300 : Colors.grey.shade300,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Current Bid',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${currentBid > 0 ? currentBid : minBid}',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: isMyWinningBid ? Colors.green.shade700 : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Timer container
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: timeRemaining.inHours < 1 ? Colors.red.shade50 : Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: timeRemaining.inHours < 1 ? Colors.red.shade300 : Colors.orange.shade300,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.timer,
+                        size: 20,
+                        color: timeRemaining.inHours < 1 ? Colors.red.shade700 : Colors.orange.shade700,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDuration(timeRemaining),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: timeRemaining.inHours < 1 ? Colors.red.shade700 : Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Bidding button or status
+          if (myBudget != null && !isMyNomination)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: myBudget.canAfford(nextMinBid)
+                    ? () => _placeBidOnNomination(nomination.id, nextMinBid)
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isMyWinningBid ? Colors.orange : Colors.blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  minimumSize: const Size(100, 48),
+                ),
+                child: Text(
+                  isMyWinningBid ? 'Raise to \$${nextMinBid}' : 'Bid \$${nextMinBid}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  nomination.playerPositionTeam,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Current bid section
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Bid',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                '\$${currentBid > 0 ? currentBid : minBid}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isMyWinningBid ? Colors.green : Colors.black,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(width: 8),
-
-          // Timer section
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.timer, size: 16, color: Colors.orange.shade700),
-              Text(
-                _formatDuration(timeRemaining),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: timeRemaining.inHours < 1 ? Colors.red : Colors.orange.shade700,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(width: 12),
-
-          // Bidding section
-          if (myBudget != null && !isMyNomination)
-            ElevatedButton(
-              onPressed: myBudget.canAfford(nextMinBid)
-                  ? () => _placeBidOnNomination(nomination.id, nextMinBid)
-                  : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isMyWinningBid ? Colors.orange : Colors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                minimumSize: const Size(0, 32),
-              ),
-              child: Text(
-                isMyWinningBid ? 'Raise \$${nextMinBid}' : 'Bid \$${nextMinBid}',
-                style: const TextStyle(fontSize: 12),
               ),
             )
           else if (isMyNomination)
-            Text(
-              'Your Nomination',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade700,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade300),
+              ),
+              child: Text(
+                'Your Nomination',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
               ),
             ),
         ],
@@ -693,13 +761,48 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                   itemCount: filteredPlayers.length,
                   itemBuilder: (context, index) {
                     final player = filteredPlayers[index];
-                    return ListTile(
-                      title: Text(player.displayName),
-                      subtitle: Text(player.positionTeam),
-                      trailing: ElevatedButton(
-                        onPressed: () => _nominatePlayer(player),
-                        child: const Text('Nominate'),
-                      ),
+                    final isLast = index == filteredPlayers.length - 1;
+                    return Column(
+                      children: [
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          title: Text(
+                            player.displayName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              player.positionTeam,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          trailing: ElevatedButton(
+                            onPressed: () => _nominatePlayer(player),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              minimumSize: const Size(100, 44),
+                            ),
+                            child: const Text(
+                              'Nominate',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!isLast)
+                          Divider(
+                            height: 1,
+                            indent: 16,
+                            endIndent: 16,
+                            color: Colors.grey.shade300,
+                          ),
+                      ],
                     );
                   },
                 ),

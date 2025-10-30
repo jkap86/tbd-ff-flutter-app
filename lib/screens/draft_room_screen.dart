@@ -325,7 +325,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-    await draftProvider.loadDraftByLeague(widget.leagueId);
+    if (authProvider.token == null) return;
+
+    await draftProvider.loadDraftByLeague(authProvider.token!, widget.leagueId);
 
     if (mounted && draftProvider.currentDraft != null && authProvider.user != null) {
       draftProvider.joinDraftRoom(

@@ -103,11 +103,14 @@ class DraftService {
   }
 
   // Get draft by league ID
-  Future<Draft?> getDraftByLeague(int leagueId) async {
+  Future<Draft?> getDraftByLeague({
+    required String token,
+    required int leagueId,
+  }) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/draft'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {
