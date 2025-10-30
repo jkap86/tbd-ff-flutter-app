@@ -428,7 +428,10 @@ class AuctionProvider with ChangeNotifier {
       }
 
       // Load rosters from league details
-      final leagueDetails = await _leagueService.getLeagueDetails(leagueId);
+      final leagueDetails = await _leagueService.getLeagueDetails(
+        token: token,
+        leagueId: leagueId,
+      );
       if (leagueDetails != null && leagueDetails['rosters'] != null) {
         _rosters = (leagueDetails['rosters'] as List<dynamic>)
             .map((r) => r as Roster)
