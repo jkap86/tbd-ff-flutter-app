@@ -91,7 +91,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     await leagueProvider.loadLeagueDetails(token, widget.leagueId);
 
     // Load draft for this league to check if it exists
-    await draftProvider.loadDraftByLeague(widget.leagueId);
+    await draftProvider.loadDraftByLeague(token, widget.leagueId);
 
     if (authProvider.token != null) {
       await leagueProvider.checkIsCommissioner(
@@ -106,8 +106,16 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   }
 
   Future<void> _loadMessages() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+
+    if (token == null) return;
+
     setState(() => _isChatLoading = true);
-    final messages = await _chatService.getChatMessages(widget.leagueId);
+    final messages = await _chatService.getChatMessages(
+      token: token,
+      leagueId: widget.leagueId,
+    );
     setState(() {
       _messages = messages;
       _isChatLoading = false;

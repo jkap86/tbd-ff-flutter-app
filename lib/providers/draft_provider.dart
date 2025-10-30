@@ -218,13 +218,16 @@ class DraftProvider with ChangeNotifier {
   }
 
   // Load draft by league ID
-  Future<void> loadDraftByLeague(int leagueId) async {
+  Future<void> loadDraftByLeague(String token, int leagueId) async {
     _status = DraftStatus.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final draft = await _draftService.getDraftByLeague(leagueId);
+      final draft = await _draftService.getDraftByLeague(
+        token: token,
+        leagueId: leagueId,
+      );
       if (draft != null) {
         _currentDraft = draft;
         // Load related data

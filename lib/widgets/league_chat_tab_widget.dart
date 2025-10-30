@@ -49,8 +49,16 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
   }
 
   Future<void> _loadMessages() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+
+    if (token == null) return;
+
     setState(() => _isLoading = true);
-    final messages = await _chatService.getChatMessages(widget.leagueId);
+    final messages = await _chatService.getChatMessages(
+      token: token,
+      leagueId: widget.leagueId,
+    );
     setState(() {
       _messages = messages;
       _isLoading = false;

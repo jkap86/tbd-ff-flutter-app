@@ -6,12 +6,15 @@ import '../models/league_chat_message_model.dart';
 
 class LeagueChatService {
   // Get chat messages for a league
-  Future<List<LeagueChatMessage>> getChatMessages(int leagueId,
-      {int limit = 100}) async {
+  Future<List<LeagueChatMessage>> getChatMessages({
+    required String token,
+    required int leagueId,
+    int limit = 100,
+  }) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/chat?limit=$limit'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {

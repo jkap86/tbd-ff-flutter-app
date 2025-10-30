@@ -144,8 +144,12 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   }
 
   Future<void> _loadDraftSettings() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-    await draftProvider.loadDraftByLeague(widget.league.id);
+
+    if (authProvider.token == null) return;
+
+    await draftProvider.loadDraftByLeague(authProvider.token!, widget.league.id);
 
     if (mounted && draftProvider.currentDraft != null) {
       final draft = draftProvider.currentDraft!;
@@ -366,7 +370,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     if (draft != null && mounted) {
       // Reload draft provider
-      await draftProvider.loadDraftByLeague(widget.league.id);
+      await draftProvider.loadDraftByLeague(authProvider.token!, widget.league.id);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
