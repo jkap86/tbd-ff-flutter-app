@@ -8,6 +8,7 @@ import '../models/league_model.dart';
 import '../models/roster_model.dart';
 import '../services/draft_service.dart';
 import '../services/league_service.dart';
+import '../services/league_median_service.dart';
 import '../widgets/responsive_container.dart';
 import '../models/waiver_settings_model.dart';
 
@@ -67,6 +68,12 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   String _tradeNotificationSetting = 'proposer_choice';
   String _tradeDetailsSetting = 'proposer_choice';
 
+  // League median settings
+  bool _enableLeagueMedian = false;
+  int? _medianMatchupWeekStart;
+  int? _medianMatchupWeekEnd;
+  bool _isLoadingMedianSettings = false;
+
   // Scoring settings fields
   late TextEditingController _passingTouchdownsController;
   late TextEditingController _passingYardsController;
@@ -97,6 +104,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     // Load waiver settings
     _loadWaiverSettings();
+
+    // Load league median settings
+    _loadLeagueMedianSettings();
 
     // Initialize roster positions from league data
     _rosterPositions = {
@@ -218,6 +228,33 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     }
   }
 
+  Future<void> _loadLeagueMedianSettings() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.token == null) return;
+
+    setState(() {
+      _isLoadingMedianSettings = true;
+    });
+
+    final settings = await LeagueMedianService.getLeagueMedianSettings(
+      authProvider.token!,
+      widget.league.id,
+    );
+
+    if (mounted && settings != null) {
+      setState(() {
+        _enableLeagueMedian = settings.enableLeagueMedian;
+        _medianMatchupWeekStart = settings.medianMatchupWeekStart;
+        _medianMatchupWeekEnd = settings.medianMatchupWeekEnd;
+        _isLoadingMedianSettings = false;
+      });
+    } else if (mounted) {
+      setState(() {
+        _isLoadingMedianSettings = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -265,6 +302,105 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to update waiver settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveLeagueMedianSettings() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not authenticated')),
+      );
+      return;
+    }
+
+    // Validate week range
+    if (_enableLeagueMedian) {
+      if (_medianMatchupWeekStart == null || _medianMatchupWeekEnd == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please set both start and end weeks'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (_medianMatchupWeekEnd! < _medianMatchupWeekStart!) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('End week must be greater than or equal to start week'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
+    final result = await LeagueMedianService.updateLeagueMedianSettings(
+      authProvider.token!,
+      widget.league.id,
+      enableLeagueMedian: _enableLeagueMedian,
+      medianMatchupWeekStart: _medianMatchupWeekStart,
+      medianMatchupWeekEnd: _medianMatchupWeekEnd,
+    );
+
+    if (mounted) {
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('League median settings updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to update league median settings'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _generateMedianMatchups() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    if (authProvider.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not authenticated')),
+      );
+      return;
+    }
+
+    final result = await LeagueMedianService.generateMedianMatchups(
+      authProvider.token!,
+      widget.league.id,
+      widget.league.season,
+    );
+
+    if (mounted) {
+      if (result != null) {
+        final matchupsCreated = result['matchups_created'] ?? 0;
+        final weeksGenerated = result['weeks_generated'] ?? 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Generated $matchupsCreated median matchups for $weeksGenerated weeks',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to generate median matchups'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1782,7 +1918,189 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Section 7: Commissioner Settings (Collapsible)
+                // Section 7: League Median Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'League Median Scoring',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Configure median matchups'),
+                    initiallyExpanded: false,
+                    children: [
+                      if (_isLoadingMedianSettings)
+                        const Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Enable/Disable Toggle
+                              Card(
+                                child: SwitchListTile(
+                                  title: const Text('Enable League Median Scoring'),
+                                  subtitle: const Text(
+                                    'Teams compete against opponent + league median each week',
+                                  ),
+                                  value: _enableLeagueMedian,
+                                  onChanged: (bool value) {
+                                    setState(() {
+                                      _enableLeagueMedian = value;
+                                    });
+                                  },
+                                  secondary: Icon(
+                                    _enableLeagueMedian ? Icons.check_circle : Icons.circle_outlined,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Week Range Pickers (only shown if enabled)
+                              if (_enableLeagueMedian) ...[
+                                ListTile(
+                                  title: const Text('Median Matchup Start Week'),
+                                  trailing: DropdownButton<int>(
+                                    value: _medianMatchupWeekStart,
+                                    hint: const Text('Select Week'),
+                                    items: List.generate(18, (i) => i + 1).map((week) {
+                                      return DropdownMenuItem(
+                                        value: week,
+                                        child: Text('Week $week'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _medianMatchupWeekStart = value;
+                                        // Ensure end week is not before start week
+                                        if (_medianMatchupWeekEnd != null &&
+                                            _medianMatchupWeekEnd! < value!) {
+                                          _medianMatchupWeekEnd = value;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  title: const Text('Median Matchup End Week'),
+                                  trailing: DropdownButton<int>(
+                                    value: _medianMatchupWeekEnd,
+                                    hint: const Text('Select Week'),
+                                    items: List.generate(18, (i) => i + 1)
+                                        .where((week) =>
+                                          _medianMatchupWeekStart == null ||
+                                          week >= _medianMatchupWeekStart!)
+                                        .map((week) {
+                                      return DropdownMenuItem(
+                                        value: week,
+                                        child: Text('Week $week'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _medianMatchupWeekEnd = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Generate Matchups Button (commissioner only)
+                                Consumer<AuthProvider>(
+                                  builder: (context, authProvider, child) {
+                                    final isCommissioner = widget.league.isUserCommissioner(
+                                      authProvider.user?.id ?? 0,
+                                    );
+
+                                    if (!isCommissioner) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        FilledButton.icon(
+                                          onPressed: _generateMedianMatchups,
+                                          icon: const Icon(Icons.auto_awesome),
+                                          label: const Text('Generate Median Matchups'),
+                                          style: FilledButton.styleFrom(
+                                            minimumSize: const Size.fromHeight(48),
+                                            backgroundColor: Theme.of(context).colorScheme.tertiary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'This will create median matchups for all weeks in the configured range',
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 16),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
+
+                              // Info box
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _enableLeagueMedian
+                                            ? 'Each team gets 2 matchups per week: one against an opponent and one against the league median score.'
+                                            : 'Enable League Median to give teams an additional matchup against the league median score each week.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Save button
+                              FilledButton.icon(
+                                onPressed: _saveLeagueMedianSettings,
+                                icon: const Icon(Icons.save),
+                                label: const Text('Save League Median Settings'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 8: Commissioner Settings (Collapsible)
                 Consumer<LeagueProvider>(
                   builder: (context, leagueProvider, child) {
                     final rosters = leagueProvider.selectedLeagueRosters;

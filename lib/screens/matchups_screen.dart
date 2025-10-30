@@ -239,14 +239,45 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                 );
               }
 
+              // Separate regular and median matchups
+              final allMatchups = matchupProvider.matchups;
+              final regularMatchups = allMatchups
+                  .where((m) => m.isMedianMatchup != true)
+                  .toList();
+              final medianMatchups = allMatchups
+                  .where((m) => m.isMedianMatchup == true)
+                  .toList();
+
+              // Group matchups by roster1_id for display
+              final Map<int, List<Matchup>> matchupsByRoster = {};
+              for (final matchup in regularMatchups) {
+                matchupsByRoster.putIfAbsent(matchup.roster1Id, () => []).add(matchup);
+              }
+              for (final matchup in medianMatchups) {
+                matchupsByRoster.putIfAbsent(matchup.roster1Id, () => []).add(matchup);
+              }
+
               return RefreshIndicator(
                 onRefresh: _loadMatchups,
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: matchupProvider.matchups.length,
+                  itemCount: matchupsByRoster.length,
                   itemBuilder: (context, index) {
-                    final matchup = matchupProvider.matchups[index];
-                    return _buildMatchupCard(matchup);
+                    final rosterId = matchupsByRoster.keys.elementAt(index);
+                    final rosterMatchups = matchupsByRoster[rosterId]!;
+
+                    // Separate regular and median for this roster
+                    final regularMatchup = rosterMatchups
+                        .where((m) => m.isMedianMatchup != true)
+                        .firstOrNull;
+                    final medianMatchup = rosterMatchups
+                        .where((m) => m.isMedianMatchup == true)
+                        .firstOrNull;
+
+                    return _buildDualMatchupCard(
+                      regularMatchup: regularMatchup,
+                      medianMatchup: medianMatchup,
+                    );
                   },
                 ),
               );
@@ -349,6 +380,56 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
     );
   }
 
+  Widget _buildDualMatchupCard({
+    Matchup? regularMatchup,
+    Matchup? medianMatchup,
+  }) {
+    // If there's no regular matchup, just show the median matchup
+    if (regularMatchup == null && medianMatchup != null) {
+      return _buildMedianMatchupCard(medianMatchup);
+    }
+
+    // If there's no median matchup, just show the regular matchup
+    if (regularMatchup != null && medianMatchup == null) {
+      return _buildMatchupCard(regularMatchup);
+    }
+
+    // If both exist, show them in a combined card
+    if (regularMatchup != null && medianMatchup != null) {
+      return Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          children: [
+            // Regular matchup section (tappable)
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MatchupDetailScreen(matchup: regularMatchup),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: _buildMatchupContent(regularMatchup),
+              ),
+            ),
+            const Divider(height: 1),
+            // Median matchup section
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildMedianMatchupContent(medianMatchup),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Fallback - no matchups
+    return const SizedBox.shrink();
+  }
+
   Widget _buildMatchupCard(Matchup matchup) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -363,8 +444,15 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
         },
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-          children: [
+          child: _buildMatchupContent(matchup),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchupContent(Matchup matchup) {
+    return Column(
+      children: [
             // Status indicator
             if (matchup.isInProgress)
               Container(
@@ -519,9 +607,162 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
                       ),
               ),
           ],
-        ),
-        ),
+    );
+  }
+
+  Widget _buildMedianMatchupCard(Matchup matchup) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _buildMedianMatchupContent(matchup),
       ),
+    );
+  }
+
+  Widget _buildMedianMatchupContent(Matchup matchup) {
+    final userScore = matchup.roster1Score;
+    final medianScore = matchup.medianScore ?? 0.0;
+    final isWin = matchup.isMedianWin;
+    final isLoss = matchup.isMedianLoss;
+    final isTie = matchup.isMedianTie;
+
+    Color statusColor = Colors.grey;
+    String statusText = '-';
+    IconData statusIcon = Icons.remove;
+
+    if (isWin) {
+      statusColor = Colors.green;
+      statusText = 'W';
+      statusIcon = Icons.arrow_upward;
+    } else if (isLoss) {
+      statusColor = Colors.red;
+      statusText = 'L';
+      statusIcon = Icons.arrow_downward;
+    } else if (isTie) {
+      statusColor = Colors.orange;
+      statusText = 'T';
+      statusIcon = Icons.remove;
+    }
+
+    return Column(
+      children: [
+        // Header with icon
+        Row(
+          children: [
+            Icon(
+              Icons.analytics_outlined,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'vs League Median',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Score comparison
+        Row(
+          children: [
+            // Team score
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    matchup.roster1Display,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    userScore.toStringAsFixed(2),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Status indicator
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  Icon(
+                    statusIcon,
+                    color: statusColor,
+                    size: 24,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Median score
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'League Median',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    medianScore.toStringAsFixed(2),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // Result text
+        if (matchup.isCompleted)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              isWin
+                  ? 'Beat median by ${(userScore - medianScore).toStringAsFixed(2)}'
+                  : isLoss
+                      ? 'Below median by ${(medianScore - userScore).toStringAsFixed(2)}'
+                      : 'Tied with median',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

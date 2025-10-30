@@ -87,6 +87,11 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
       return const Center(child: Text('No data available'));
     }
 
+    // Handle median matchup separately
+    if (widget.matchup.isMedianMatchupType) {
+      return _buildMedianMatchupContent();
+    }
+
     final roster1 = _matchupDetails!['roster1'];
     final roster2 = _matchupDetails!['roster2'];
 
@@ -139,6 +144,183 @@ class _MatchupDetailScreenState extends State<MatchupDetailScreen> {
                     ),
                 ],
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMedianMatchupContent() {
+    if (_matchupDetails == null) {
+      return const Center(child: Text('No data available'));
+    }
+
+    final roster1 = _matchupDetails!['roster1'];
+    final teamName = widget.matchup.roster1Display;
+    final teamScore = widget.matchup.roster1Score;
+    final medianScore = widget.matchup.medianScore ?? 0.0;
+
+    final isWin = widget.matchup.isMedianWin;
+    final isLoss = widget.matchup.isMedianLoss;
+
+    Color statusColor = isWin ? Colors.green : (isLoss ? Colors.red : Colors.orange);
+    String statusText = isWin ? 'WIN' : (isLoss ? 'LOSS' : 'TIE');
+
+    return ResponsiveContainer(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Median Matchup Header
+            Card(
+              elevation: 4,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'League Median Matchup',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Score comparison
+                    Row(
+                      children: [
+                        // Team
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                teamName,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: isWin ? Colors.green : null,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                teamScore.toStringAsFixed(2),
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // VS
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Column(
+                            children: [
+                              Text(
+                                'VS',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  statusText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Median
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'League Median',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                medianScore.toStringAsFixed(2),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Result description
+                    if (widget.matchup.isCompleted)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Text(
+                          isWin
+                              ? 'Beat median by ${(teamScore - medianScore).toStringAsFixed(2)} points'
+                              : isLoss
+                                  ? 'Below median by ${(medianScore - teamScore).toStringAsFixed(2)} points'
+                                  : 'Tied with the league median',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Team roster
+            _buildTeamSection(
+              teamName: teamName,
+              totalScore: teamScore,
+              rosterData: roster1,
+              rosterId: widget.matchup.roster1Id,
+            ),
           ],
         ),
       ),

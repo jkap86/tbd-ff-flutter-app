@@ -14,6 +14,8 @@ class Matchup {
   final String? roster2Username;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool? isMedianMatchup;
+  final double? medianScore;
 
   Matchup({
     required this.id,
@@ -31,6 +33,8 @@ class Matchup {
     this.roster2Username,
     required this.createdAt,
     required this.updatedAt,
+    this.isMedianMatchup,
+    this.medianScore,
   });
 
   factory Matchup.fromJson(Map<String, dynamic> json) {
@@ -50,6 +54,10 @@ class Matchup {
       roster2Username: json['roster2_username'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      isMedianMatchup: json['is_median_matchup'] as bool?,
+      medianScore: json['median_score'] != null
+          ? (json['median_score'] as num).toDouble()
+          : null,
     );
   }
 
@@ -78,6 +86,8 @@ class Matchup {
       'roster2_username': roster2Username,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'is_median_matchup': isMedianMatchup,
+      'median_score': medianScore,
     };
   }
 
@@ -107,4 +117,22 @@ class Matchup {
 
   double get scoreDifference =>
       isByeWeek ? 0 : (roster1Score - roster2Score).abs();
+
+  // Median matchup helpers
+  bool get isMedianMatchupType => isMedianMatchup == true;
+
+  bool get isMedianWin {
+    if (!isMedianMatchupType || medianScore == null) return false;
+    return roster1Score > medianScore!;
+  }
+
+  bool get isMedianLoss {
+    if (!isMedianMatchupType || medianScore == null) return false;
+    return roster1Score < medianScore!;
+  }
+
+  bool get isMedianTie {
+    if (!isMedianMatchupType || medianScore == null) return false;
+    return roster1Score == medianScore!;
+  }
 }

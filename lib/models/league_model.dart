@@ -15,6 +15,9 @@ class League {
   final DateTime updatedAt;
   final int? commissionerId;
   final int? currentRosters;
+  final bool? enableLeagueMedian;
+  final int? medianMatchupWeekStart;
+  final int? medianMatchupWeekEnd;
 
   League({
     required this.id,
@@ -33,6 +36,9 @@ class League {
     required this.updatedAt,
     this.commissionerId,
     this.currentRosters,
+    this.enableLeagueMedian,
+    this.medianMatchupWeekStart,
+    this.medianMatchupWeekEnd,
   });
 
   factory League.fromJson(Map<String, dynamic> json) {
@@ -65,6 +71,9 @@ class League {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       commissionerId: extractedCommissionerId,
       currentRosters: json['current_rosters'] as int?,
+      enableLeagueMedian: json['enable_league_median'] as bool?,
+      medianMatchupWeekStart: json['median_matchup_week_start'] as int?,
+      medianMatchupWeekEnd: json['median_matchup_week_end'] as int?,
     );
   }
 
@@ -86,6 +95,9 @@ class League {
       'updated_at': updatedAt.toIso8601String(),
       'commissioner_id': commissionerId,
       'current_rosters': currentRosters,
+      'enable_league_median': enableLeagueMedian,
+      'median_matchup_week_start': medianMatchupWeekStart,
+      'median_matchup_week_end': medianMatchupWeekEnd,
     };
   }
 
