@@ -93,13 +93,16 @@ class LeagueProvider with ChangeNotifier {
   }
 
   // Load league details with rosters
-  Future<void> loadLeagueDetails(int leagueId) async {
+  Future<void> loadLeagueDetails(String token, int leagueId) async {
     _status = LeagueStatus.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final details = await _leagueService.getLeagueDetails(leagueId);
+      final details = await _leagueService.getLeagueDetails(
+        token: token,
+        leagueId: leagueId,
+      );
 
       if (details != null) {
         _selectedLeague = details['league'];

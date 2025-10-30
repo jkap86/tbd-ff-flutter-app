@@ -82,7 +82,13 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
 
-    await leagueProvider.loadLeagueDetails(widget.leagueId);
+    final token = authProvider.token;
+    if (token == null) {
+      // User not authenticated, shouldn't happen but handle gracefully
+      return;
+    }
+
+    await leagueProvider.loadLeagueDetails(token, widget.leagueId);
 
     // Load draft for this league to check if it exists
     await draftProvider.loadDraftByLeague(widget.leagueId);

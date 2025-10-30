@@ -80,11 +80,14 @@ class LeagueService {
   }
 
   // Get league details with rosters
-  Future<Map<String, dynamic>?> getLeagueDetails(int leagueId) async {
+  Future<Map<String, dynamic>?> getLeagueDetails({
+    required String token,
+    required int leagueId,
+  }) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {

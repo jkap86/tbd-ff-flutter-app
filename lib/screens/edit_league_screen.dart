@@ -479,7 +479,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
       if (success) {
         // Reload league data
-        await leagueProvider.loadLeagueDetails(widget.league.id);
+        await leagueProvider.loadLeagueDetails(authProvider.token!, widget.league.id);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -540,7 +540,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                       ),
                     );
                     // Reload league data to refresh the page
-                    await leagueProvider.loadLeagueDetails(widget.league.id);
+                    await leagueProvider.loadLeagueDetails(authProvider.token!, widget.league.id);
                     if (mounted) {
                       Navigator.of(context).pop(); // Close edit screen
                     }
