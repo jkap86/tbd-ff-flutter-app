@@ -20,6 +20,12 @@ class DraftService {
     String timerMode = 'traditional',
     int? teamTimeBudgetSeconds,
     Map<String, dynamic>? settings,
+    // Auction-specific
+    int? startingBudget,
+    int? minBid,
+    int? nominationsPerManager,
+    int? nominationTimerHours,
+    bool? reserveBudgetPerSlot,
   }) async {
     try {
       // Validate chess timer mode
@@ -41,6 +47,23 @@ class DraftService {
       // Add chess timer budget if provided
       if (teamTimeBudgetSeconds != null) {
         body['team_time_budget_seconds'] = teamTimeBudgetSeconds;
+      }
+
+      // Add auction-specific parameters if provided
+      if (startingBudget != null) {
+        body['starting_budget'] = startingBudget;
+      }
+      if (minBid != null) {
+        body['min_bid'] = minBid;
+      }
+      if (nominationsPerManager != null) {
+        body['nominations_per_manager'] = nominationsPerManager;
+      }
+      if (nominationTimerHours != null) {
+        body['nomination_timer_hours'] = nominationTimerHours;
+      }
+      if (reserveBudgetPerSlot != null) {
+        body['reserve_budget_per_slot'] = reserveBudgetPerSlot;
       }
 
       final response = await http.post(
@@ -246,6 +269,12 @@ class DraftService {
     Map<String, dynamic>? settings,
     String? timerMode,
     int? teamTimeBudgetSeconds,
+    // Auction-specific
+    int? startingBudget,
+    int? minBid,
+    int? nominationsPerManager,
+    int? nominationTimerHours,
+    bool? reserveBudgetPerSlot,
   }) async {
     try {
       final response = await http.put(
@@ -259,6 +288,11 @@ class DraftService {
           if (settings != null) 'settings': settings,
           if (timerMode != null) 'timer_mode': timerMode,
           if (teamTimeBudgetSeconds != null) 'team_time_budget_seconds': teamTimeBudgetSeconds,
+          if (startingBudget != null) 'starting_budget': startingBudget,
+          if (minBid != null) 'min_bid': minBid,
+          if (nominationsPerManager != null) 'nominations_per_manager': nominationsPerManager,
+          if (nominationTimerHours != null) 'nomination_timer_hours': nominationTimerHours,
+          if (reserveBudgetPerSlot != null) 'reserve_budget_per_slot': reserveBudgetPerSlot,
         }),
       );
 

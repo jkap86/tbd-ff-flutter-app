@@ -1,7 +1,7 @@
 class Draft {
   final int id;
   final int leagueId;
-  final String draftType; // 'snake' or 'linear'
+  final String draftType; // 'snake', 'linear', 'auction', 'slow_auction'
   final bool thirdRoundReversal;
   final String status; // 'not_started', 'in_progress', 'paused', 'completed'
   final int currentPick;
@@ -17,6 +17,13 @@ class Draft {
   final Map<String, dynamic>? settings;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  // Auction-specific fields
+  final int startingBudget;
+  final int minBid;
+  final int nominationsPerManager;
+  final int? nominationTimerHours;
+  final bool reserveBudgetPerSlot;
 
   Draft({
     required this.id,
@@ -37,6 +44,12 @@ class Draft {
     this.settings,
     required this.createdAt,
     required this.updatedAt,
+    // Auction-specific params
+    this.startingBudget = 200,
+    this.minBid = 1,
+    this.nominationsPerManager = 3,
+    this.nominationTimerHours,
+    this.reserveBudgetPerSlot = false,
   });
 
   factory Draft.fromJson(Map<String, dynamic> json) {
@@ -65,6 +78,12 @@ class Draft {
       settings: json['settings'] as Map<String, dynamic>?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      // Auction-specific fields
+      startingBudget: json['starting_budget'] as int? ?? 200,
+      minBid: json['min_bid'] as int? ?? 1,
+      nominationsPerManager: json['nominations_per_manager'] as int? ?? 3,
+      nominationTimerHours: json['nomination_timer_hours'] as int?,
+      reserveBudgetPerSlot: json['reserve_budget_per_slot'] as bool? ?? false,
     );
   }
 
@@ -88,6 +107,12 @@ class Draft {
       'settings': settings,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      // Auction-specific fields
+      'starting_budget': startingBudget,
+      'min_bid': minBid,
+      'nominations_per_manager': nominationsPerManager,
+      'nomination_timer_hours': nominationTimerHours,
+      'reserve_budget_per_slot': reserveBudgetPerSlot,
     };
   }
 
@@ -97,6 +122,8 @@ class Draft {
   bool get isCompleted => status == 'completed';
   bool get isSnake => draftType == 'snake';
   bool get isLinear => draftType == 'linear';
+  bool get isAuction => draftType == 'auction';
+  bool get isSlowAuction => draftType == 'slow_auction';
   bool get isTraditionalTimer => timerMode == 'traditional';
   bool get isChessTimer => timerMode == 'chess';
 
@@ -133,6 +160,11 @@ class Draft {
     Map<String, dynamic>? settings,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? startingBudget,
+    int? minBid,
+    int? nominationsPerManager,
+    int? nominationTimerHours,
+    bool? reserveBudgetPerSlot,
   }) {
     return Draft(
       id: id ?? this.id,
@@ -153,6 +185,11 @@ class Draft {
       settings: settings ?? this.settings,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      startingBudget: startingBudget ?? this.startingBudget,
+      minBid: minBid ?? this.minBid,
+      nominationsPerManager: nominationsPerManager ?? this.nominationsPerManager,
+      nominationTimerHours: nominationTimerHours ?? this.nominationTimerHours,
+      reserveBudgetPerSlot: reserveBudgetPerSlot ?? this.reserveBudgetPerSlot,
     );
   }
 }

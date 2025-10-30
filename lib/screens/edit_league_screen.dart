@@ -43,6 +43,13 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   String _timerMode = 'traditional';
   int _teamTimeBudgetMinutes = 60;
 
+  // Auction-specific settings
+  int _startingBudget = 200;
+  int _minBid = 1;
+  int _nominationsPerManager = 3;
+  int _nominationTimerHours = 24;
+  bool _reserveBudgetPerSlot = false;
+
   // Overnight pause settings
   bool _autoPauseEnabled = false;
   TimeOfDay _autoPauseStartTime = const TimeOfDay(hour: 23, minute: 0);
@@ -151,6 +158,13 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         _teamTimeBudgetMinutes = draft.teamTimeBudgetSeconds != null
             ? (draft.teamTimeBudgetSeconds! / 60).round()
             : 60;
+
+        // Load auction-specific settings
+        _startingBudget = draft.startingBudget ?? 200;
+        _minBid = draft.minBid ?? 1;
+        _nominationsPerManager = draft.nominationsPerManager ?? 3;
+        _nominationTimerHours = draft.nominationTimerHours ?? 24;
+        _reserveBudgetPerSlot = draft.reserveBudgetPerSlot ?? false;
 
         // Load overnight pause settings (stored in UTC, convert to local)
         final settings = draft.settings;
@@ -343,6 +357,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       rounds: _draftRounds,
       timerMode: _timerMode,
       teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
+      startingBudget: _startingBudget,
+      minBid: _minBid,
+      nominationsPerManager: _nominationsPerManager,
+      nominationTimerHours: _nominationTimerHours,
+      reserveBudgetPerSlot: _reserveBudgetPerSlot,
     );
 
     if (draft != null && mounted) {
@@ -957,6 +976,14 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                   value: 'linear',
                                   child: Text('Linear Draft'),
                                 ),
+                                DropdownMenuItem(
+                                  value: 'auction',
+                                  child: Text('Auction Draft'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'slow_auction',
+                                  child: Text('Slow Auction Draft'),
+                                ),
                               ],
                               onChanged: (value) {
                                 setState(() => _draftType = value!);
@@ -1112,19 +1139,26 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                               const SizedBox(height: 12),
                             ],
 
-                            // Draft Rounds
+                            // Draft Rounds (for snake/linear) or Roster Slots (for auction)
                             DropdownButtonFormField<int>(
                               value: _draftRounds,
-                              decoration: const InputDecoration(
-                                labelText: 'Number of Rounds',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.format_list_numbered),
+                              decoration: InputDecoration(
+                                labelText: _draftType == 'auction' || _draftType == 'slow_auction'
+                                    ? 'Roster Slots'
+                                    : 'Number of Rounds',
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.format_list_numbered),
+                                helperText: _draftType == 'auction' || _draftType == 'slow_auction'
+                                    ? 'Total players each team will draft'
+                                    : null,
                               ),
                               items: List.generate(
                                 20,
                                 (index) => DropdownMenuItem(
                                   value: index + 1,
-                                  child: Text('${index + 1} rounds'),
+                                  child: Text(_draftType == 'auction' || _draftType == 'slow_auction'
+                                      ? '${index + 1} players'
+                                      : '${index + 1} rounds'),
                                 ),
                               ),
                               onChanged: (value) {
@@ -1132,6 +1166,123 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                               },
                             ),
                             const SizedBox(height: 24),
+
+                            // Auction-specific settings
+                            if (_draftType == 'auction' || _draftType == 'slow_auction') ...[
+                              Card(
+                                color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.3),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Auction Settings',
+                                        style: Theme.of(context).textTheme.titleLarge,
+                                      ),
+                                      const SizedBox(height: 16),
+
+                                      // Starting Budget
+                                      TextFormField(
+                                        initialValue: _startingBudget.toString(),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Starting Budget',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(Icons.attach_money),
+                                          helperText: 'Total budget for each team',
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _startingBudget = int.tryParse(value) ?? 200;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+
+                                      // Minimum Bid
+                                      TextFormField(
+                                        initialValue: _minBid.toString(),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Minimum Bid',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(Icons.money),
+                                          helperText: 'Minimum bid increment',
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _minBid = int.tryParse(value) ?? 1;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+
+                                      // Slow auction specific: Nominations per manager
+                                      if (_draftType == 'slow_auction') ...[
+                                        DropdownButtonFormField<int>(
+                                          value: _nominationsPerManager,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Nominations Per Manager',
+                                            border: OutlineInputBorder(),
+                                            prefixIcon: Icon(Icons.person),
+                                            helperText: 'How many nominations each manager can have active at once',
+                                          ),
+                                          items: List.generate(
+                                            10,
+                                            (index) => DropdownMenuItem(
+                                              value: index + 1,
+                                              child: Text('${index + 1} nomination${index > 0 ? 's' : ''}'),
+                                            ),
+                                          ),
+                                          onChanged: (value) {
+                                            setState(() => _nominationsPerManager = value!);
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+
+                                        // Nomination Timer (in hours for slow auction)
+                                        DropdownButtonFormField<int>(
+                                          value: _nominationTimerHours,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Nomination Timer',
+                                            border: OutlineInputBorder(),
+                                            prefixIcon: Icon(Icons.timer),
+                                            helperText: 'Time limit for each nomination',
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(value: 1, child: Text('1 hour')),
+                                            DropdownMenuItem(value: 2, child: Text('2 hours')),
+                                            DropdownMenuItem(value: 4, child: Text('4 hours')),
+                                            DropdownMenuItem(value: 6, child: Text('6 hours')),
+                                            DropdownMenuItem(value: 8, child: Text('8 hours')),
+                                            DropdownMenuItem(value: 12, child: Text('12 hours')),
+                                            DropdownMenuItem(value: 24, child: Text('24 hours')),
+                                            DropdownMenuItem(value: 48, child: Text('48 hours')),
+                                          ],
+                                          onChanged: (value) {
+                                            setState(() => _nominationTimerHours = value!);
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+
+                                      // Reserve Budget Per Slot
+                                      SwitchListTile(
+                                        title: const Text('Reserve Budget Per Slot'),
+                                        subtitle: const Text(
+                                            'Require teams to save \$1 per remaining roster slot'),
+                                        value: _reserveBudgetPerSlot,
+                                        onChanged: (value) {
+                                          setState(() => _reserveBudgetPerSlot = value);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
 
                             // Overnight Pause Settings
                             Card(
@@ -1891,6 +2042,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     debugPrint('[EditLeague] League settings updated');
 
     // Step 2: Update draft settings if draft exists
+    if (!mounted) return;
+
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     if (draftProvider.currentDraft != null) {
       // Convert local time to UTC before saving
@@ -1919,6 +2072,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         timerMode: _timerMode,
         teamTimeBudgetSeconds: _timerMode == 'chess' ? _teamTimeBudgetMinutes * 60 : null,
         settings: draftSettings,
+        startingBudget: _startingBudget,
+        minBid: _minBid,
+        nominationsPerManager: _nominationsPerManager,
+        nominationTimerHours: _nominationTimerHours,
+        reserveBudgetPerSlot: _reserveBudgetPerSlot,
       );
 
       if (draftSuccess == null) {
@@ -1947,6 +2105,10 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     int playoffWeekStart,
   ) async {
     debugPrint('[EditLeague] Auto-generating matchups for weeks $startWeek to ${playoffWeekStart - 1} in background...');
+
+    // Check if widget is still mounted before using context
+    if (!mounted) return;
+
     final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
     final totalWeeks = playoffWeekStart - startWeek;
 

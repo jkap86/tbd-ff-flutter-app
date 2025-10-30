@@ -8,6 +8,7 @@ import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
 import 'providers/invite_provider.dart';
 import 'providers/draft_provider.dart';
+import 'providers/auction_provider.dart';
 import 'providers/matchup_provider.dart';
 import 'providers/waiver_provider.dart';
 import 'providers/trade_provider.dart';
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LeagueProvider()),
         ChangeNotifierProvider(create: (_) => InviteProvider()),
         ChangeNotifierProvider(create: (_) => DraftProvider()),
+        ChangeNotifierProvider(create: (_) => AuctionProvider()),
         ChangeNotifierProvider(create: (_) => MatchupProvider()),
         ChangeNotifierProvider(create: (_) => WaiverProvider()),
         ChangeNotifierProvider(create: (_) => TradeProvider()),

@@ -39,6 +39,16 @@ class SocketService {
   Function(Map<String, dynamic>)? onTradeRejected;
   Function(Map<String, dynamic>)? onTradeCancelled;
 
+  // Auction event callbacks
+  Function(dynamic)? onActiveNominations;
+  Function(dynamic)? onPlayerNominated;
+  Function(dynamic)? onBidPlaced;
+  Function(Map<String, dynamic>)? onPlayerWon;
+  Function(Map<String, dynamic>)? onNominationExpired;
+  Function(Map<String, dynamic>)? onBudgetUpdated;
+  Function(Map<String, dynamic>)? onNominationDeadlineUpdated;
+  Function(Map<String, dynamic>)? onTurnChanged;
+
   bool get isConnected => _socket?.connected ?? false;
 
   // Connect to the WebSocket server
@@ -243,6 +253,47 @@ class SocketService {
     _socket!.on('trade_cancelled', (data) {
       debugPrint('Trade cancelled: $data');
       onTradeCancelled?.call(data);
+    });
+
+    // Auction events
+    _socket!.on('active_nominations', (data) {
+      debugPrint('Active nominations: $data');
+      onActiveNominations?.call(data);
+    });
+
+    _socket!.on('player_nominated', (data) {
+      debugPrint('Player nominated: $data');
+      onPlayerNominated?.call(data);
+    });
+
+    _socket!.on('bid_placed', (data) {
+      debugPrint('Bid placed: $data');
+      onBidPlaced?.call(data);
+    });
+
+    _socket!.on('player_won', (data) {
+      debugPrint('Player won: $data');
+      onPlayerWon?.call(data);
+    });
+
+    _socket!.on('nomination_expired', (data) {
+      debugPrint('Nomination expired: $data');
+      onNominationExpired?.call(data);
+    });
+
+    _socket!.on('budget_updated', (data) {
+      debugPrint('Budget updated: $data');
+      onBudgetUpdated?.call(data);
+    });
+
+    _socket!.on('nomination_deadline_updated', (data) {
+      debugPrint('Nomination deadline updated: $data');
+      onNominationDeadlineUpdated?.call(data);
+    });
+
+    _socket!.on('turn_changed', (data) {
+      debugPrint('Turn changed: $data');
+      onTurnChanged?.call(data);
     });
   }
 
@@ -464,6 +515,29 @@ class SocketService {
     debugPrint('Socket disconnected and disposed');
   }
 
+  // Join an auction room (slow auctions)
+  void joinAuction({required int draftId, int? rosterId}) {
+    if (_socket == null || !_socket!.connected) {
+      debugPrint('Socket not connected, connecting now...');
+      connect();
+
+      // Wait for connection before joining
+      _socket!.onConnect((_) {
+        _emitJoinAuction(draftId, rosterId: rosterId);
+      });
+    } else {
+      _emitJoinAuction(draftId, rosterId: rosterId);
+    }
+  }
+
+  void _emitJoinAuction(int draftId, {int? rosterId}) {
+    _socket!.emit('join_auction', {
+      'draftId': draftId,
+      if (rosterId != null) 'rosterId': rosterId,
+    });
+    debugPrint('Emitted join_auction for draft $draftId (roster: $rosterId)');
+  }
+
   // Clear all callbacks
   void clearCallbacks() {
     onPickMade = null;
@@ -486,5 +560,13 @@ class SocketService {
     onTradeProcessed = null;
     onTradeRejected = null;
     onTradeCancelled = null;
+    onActiveNominations = null;
+    onPlayerNominated = null;
+    onBidPlaced = null;
+    onPlayerWon = null;
+    onNominationExpired = null;
+    onBudgetUpdated = null;
+    onNominationDeadlineUpdated = null;
+    onTurnChanged = null;
   }
 }
