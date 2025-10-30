@@ -27,9 +27,11 @@ class DraftProvider with ChangeNotifier {
   List<DraftChatMessage> _chatMessages = [];
   String? _errorMessage;
 
-  // Timer for countdown
+  // Timer for countdown - now calculated from deadline
   Timer? _timer;
-  Duration? _timeRemaining;
+  DateTime? _currentPickDeadline;
+  DateTime? _serverTime;
+  DateTime? _lastSyncTime;
 
   // Chess timer state - tracks remaining time for each roster
   Map<int, int> _rosterTimeRemaining = {};
@@ -42,8 +44,17 @@ class DraftProvider with ChangeNotifier {
   List<Player> get availablePlayers => _availablePlayers;
   List<DraftChatMessage> get chatMessages => _chatMessages;
   String? get errorMessage => _errorMessage;
-  Duration? get timeRemaining => _timeRemaining;
   bool get isSocketConnected => _socketService.isConnected;
+
+  // Calculate time remaining based on deadline
+  Duration? get timeRemaining {
+    if (_currentPickDeadline == null) return null;
+
+    final now = _estimateServerTime();
+    final remaining = _currentPickDeadline!.difference(now);
+
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
 
   // Get remaining time for a specific roster (chess timer mode)
   int? getRosterTimeRemaining(int rosterId) => _rosterTimeRemaining[rosterId];
@@ -53,6 +64,33 @@ class DraftProvider with ChangeNotifier {
 
   DraftProvider() {
     _setupSocketListeners();
+  }
+
+  // Estimate current server time accounting for client clock drift
+  DateTime _estimateServerTime() {
+    if (_serverTime == null || _lastSyncTime == null) {
+      return DateTime.now();
+    }
+
+    // Calculate how much time has passed locally since last sync
+    final localElapsed = DateTime.now().difference(_lastSyncTime!);
+
+    // Add that to the last known server time
+    return _serverTime!.add(localElapsed);
+  }
+
+  // Handle timer update from server
+  void _handleTimerUpdate(Map<String, dynamic> data) {
+    try {
+      _currentPickDeadline = DateTime.parse(data['deadline']);
+      _serverTime = DateTime.parse(data['server_time']);
+      _lastSyncTime = DateTime.now();
+
+      debugPrint('[TimerSync] Updated deadline: $_currentPickDeadline, Server time: $_serverTime');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[TimerSync] Error parsing timer update: $e');
+    }
   }
 
   // Setup WebSocket event listeners
@@ -69,7 +107,14 @@ class DraftProvider with ChangeNotifier {
         _availablePlayers
             .removeWhere((player) => player.id == pick.playerId);
       }
-      _resetTimer();
+
+      // Update deadline if next_deadline is provided
+      if (data['next_deadline'] != null && data['server_time'] != null) {
+        _currentPickDeadline = DateTime.parse(data['next_deadline']);
+        _serverTime = DateTime.parse(data['server_time']);
+        _lastSyncTime = DateTime.now();
+      }
+
       notifyListeners();
     };
 
@@ -113,6 +158,47 @@ class DraftProvider with ChangeNotifier {
         return order;
       }).toList();
 
+      notifyListeners();
+    };
+
+    // Timer update event - server broadcasts deadline every 5 seconds
+    _socketService.onTimerUpdate = _handleTimerUpdate;
+
+    // Draft started event
+    _socketService.onDraftStarted = (data) {
+      if (data['draft'] != null) {
+        _currentDraft = Draft.fromJson(data['draft']);
+      }
+      if (data['deadline'] != null && data['server_time'] != null) {
+        _currentPickDeadline = DateTime.parse(data['deadline']);
+        _serverTime = DateTime.parse(data['server_time']);
+        _lastSyncTime = DateTime.now();
+      }
+      _startTimerUI();
+      notifyListeners();
+    };
+
+    // Draft paused event
+    _socketService.onDraftPaused = (data) {
+      if (data['draft'] != null) {
+        _currentDraft = Draft.fromJson(data['draft']);
+      }
+      _currentPickDeadline = null;
+      _stopTimer();
+      notifyListeners();
+    };
+
+    // Draft resumed event
+    _socketService.onDraftResumed = (data) {
+      if (data['draft'] != null) {
+        _currentDraft = Draft.fromJson(data['draft']);
+      }
+      if (data['deadline'] != null && data['server_time'] != null) {
+        _currentPickDeadline = DateTime.parse(data['deadline']);
+        _serverTime = DateTime.parse(data['server_time']);
+        _lastSyncTime = DateTime.now();
+      }
+      _startTimerUI();
       notifyListeners();
     };
 
@@ -238,7 +324,15 @@ class DraftProvider with ChangeNotifier {
           _loadChatMessages(draft.id),
         ]);
         _initializeChessTimerState();
-        _resetTimer();
+
+        // Initialize deadline from draft if in progress
+        if (draft.isInProgress && draft.pickDeadline != null) {
+          _currentPickDeadline = draft.pickDeadline;
+          _serverTime = DateTime.now(); // Initial estimate
+          _lastSyncTime = DateTime.now();
+          _startTimerUI();
+        }
+
         _status = DraftStatus.loaded;
       } else {
         // No draft exists for this league - clear the current draft
@@ -319,7 +413,7 @@ class DraftProvider with ChangeNotifier {
 
       if (draft != null) {
         _currentDraft = draft;
-        _resetTimer();
+        // Note: Deadline will be set via socket event (draft_started)
         notifyListeners();
         return true;
       }
@@ -344,6 +438,7 @@ class DraftProvider with ChangeNotifier {
 
       if (draft != null) {
         _currentDraft = draft;
+        _currentPickDeadline = null;
         _stopTimer();
         notifyListeners();
         return true;
@@ -369,7 +464,7 @@ class DraftProvider with ChangeNotifier {
 
       if (draft != null) {
         _currentDraft = draft;
-        _resetTimer();
+        // Note: Deadline will be set via socket event (draft_resumed)
         notifyListeners();
         return true;
       }
@@ -531,39 +626,27 @@ class DraftProvider with ChangeNotifier {
     );
   }
 
-  // Timer management
-  void _resetTimer() {
+  // Timer management - UI timer that updates every second
+  void _startTimerUI() {
     _stopTimer();
 
-    if (_currentDraft != null &&
-        _currentDraft!.isInProgress &&
-        _currentDraft!.pickDeadline != null) {
-      debugPrint('[Timer] Starting timer. Draft status: ${_currentDraft!.status}, Pick deadline: ${_currentDraft!.pickDeadline}');
-
-      // Set initial time remaining
-      _timeRemaining = _currentDraft!.timeRemaining ?? Duration.zero;
-
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        final remaining = _currentDraft!.timeRemaining;
-        if (remaining != null && remaining.inSeconds > 0) {
-          _timeRemaining = remaining;
-          notifyListeners();
-        } else {
-          _timeRemaining = Duration.zero;
-          _stopTimer();
-          notifyListeners();
-        }
-      });
-    } else {
-      debugPrint('[Timer] NOT starting timer. Draft: ${_currentDraft != null}, InProgress: ${_currentDraft?.isInProgress}, Deadline: ${_currentDraft?.pickDeadline}');
-      _timeRemaining = Duration.zero;
+    if (_currentPickDeadline == null) {
+      debugPrint('[Timer] No deadline set, not starting UI timer');
+      return;
     }
+
+    debugPrint('[Timer] Starting UI timer with deadline: $_currentPickDeadline');
+
+    // Update UI every second (calculation uses deadline)
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Recalculate time remaining on each tick
+      notifyListeners();
+    });
   }
 
   void _stopTimer() {
     _timer?.cancel();
     _timer = null;
-    _timeRemaining = null;
   }
 
   // Cleanup
@@ -594,7 +677,15 @@ class DraftProvider with ChangeNotifier {
         _loadAvailablePlayers(_currentDraft!.id),
       ]);
       _initializeChessTimerState();
-      _resetTimer();
+
+      // Initialize deadline from draft if in progress
+      if (draft.isInProgress && draft.pickDeadline != null) {
+        _currentPickDeadline = draft.pickDeadline;
+        _serverTime = DateTime.now(); // Initial estimate
+        _lastSyncTime = DateTime.now();
+        _startTimerUI();
+      }
+
       notifyListeners();
     }
   }
