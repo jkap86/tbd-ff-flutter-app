@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/roster_service.dart';
 import '../services/weekly_lineup_service.dart';
+import '../widgets/injury_badge_widget.dart';
+import '../models/player_model.dart';
 
 class RosterDetailsScreen extends StatefulWidget {
   final int rosterId;
@@ -780,6 +782,9 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final age = player['age'];
     final yearsExp = player['years_exp'];
 
+    // Create Player object to access injury badge
+    final playerObj = Player.fromJson(player);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -794,9 +799,17 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
             ),
           ),
         ),
-        title: Text(
-          fullName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                fullName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InjuryBadgeWidget(player: playerObj),
+          ],
         ),
         subtitle: Text(
           '$team${age != null ? ' • Age $age' : ''}${yearsExp != null ? ' • $yearsExp yr exp' : ''}',
@@ -863,6 +876,9 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
     final age = player['age'];
     final yearsExp = player['years_exp'];
 
+    // Create Player object to access injury badge
+    final playerObj = Player.fromJson(player);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
@@ -900,9 +916,17 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
             ),
           ],
         ),
-        title: Text(
-          fullName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                fullName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InjuryBadgeWidget(player: playerObj),
+          ],
         ),
         subtitle: Text(
           '$team${age != null ? ' • Age $age' : ''}${yearsExp != null ? ' • $yearsExp yr exp' : ''}',

@@ -8,6 +8,7 @@ import '../../models/player_model.dart';
 import '../../models/roster_model.dart';
 import '../../config/api_config.dart';
 import '../../widgets/waiver/submit_claim_dialog.dart';
+import '../../widgets/injury_badge_widget.dart';
 
 class AvailablePlayersScreen extends StatefulWidget {
   final int leagueId;
@@ -358,7 +359,13 @@ class _AvailablePlayersScreenState extends State<AvailablePlayersScreen> {
                                 ),
                               ),
                             ),
-                            title: Text(player.fullName),
+                            title: Row(
+                              children: [
+                                Expanded(child: Text(player.fullName)),
+                                const SizedBox(width: 8),
+                                InjuryBadgeWidget(player: player),
+                              ],
+                            ),
                             subtitle: Text(player.positionTeam),
                             trailing: Container(
                               padding: const EdgeInsets.symmetric(

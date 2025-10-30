@@ -18,6 +18,7 @@ import 'roster_details_screen.dart';
 import 'matchups_screen.dart';
 import 'waivers/waivers_hub_screen.dart';
 import 'trades_screen.dart';
+import 'injury_report_screen.dart';
 
 class LeagueDetailsScreen extends StatefulWidget {
   final int leagueId;
@@ -590,7 +591,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                           ),
                                         ),
                                       ),
-                                      // In-season buttons (Matchups, Trades, Waivers)
+                                      // In-season buttons (Matchups, Trades, Waivers, Injuries)
                                       if (showInSeasonButtons) ...[
                                         // Matchups button
                                         SizedBox(
@@ -657,6 +658,26 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                             },
                                             icon: const Icon(Icons.swap_horiz, size: 18),
                                             label: const Text('Waivers'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        // Injuries button
+                                        SizedBox(
+                                          width: 120,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => InjuryReportScreen(
+                                                    leagueId: league.id,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.medical_services, size: 18),
+                                            label: const Text('Injuries'),
                                             style: ElevatedButton.styleFrom(
                                               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
                                             ),
