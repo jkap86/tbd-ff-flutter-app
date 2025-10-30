@@ -38,7 +38,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   // Auction-specific fields
   int _startingBudget = 200;
   int _minBid = 1;
-  int _maxSimultaneousNominations = 1;
+  int _nominationsPerManager = 3;
   int _nominationTimerHours = 24;
   bool _reserveBudgetPerSlot = false;
 
@@ -89,7 +89,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       // Auction-specific params
       startingBudget: (_draftType == 'auction' || _draftType == 'slow_auction') ? _startingBudget : null,
       minBid: (_draftType == 'auction' || _draftType == 'slow_auction') ? _minBid : null,
-      maxSimultaneousNominations: _draftType == 'slow_auction' ? _maxSimultaneousNominations : null,
+      nominationsPerManager: _draftType == 'slow_auction' ? _nominationsPerManager : null,
       nominationTimerHours: _draftType == 'slow_auction' ? _nominationTimerHours : null,
       reserveBudgetPerSlot: (_draftType == 'auction' || _draftType == 'slow_auction') ? _reserveBudgetPerSlot : null,
     );
@@ -117,6 +117,7 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
               // For now, navigate to auction screen placeholder
               draftScreen = AuctionDraftScreen(
                 draftId: draftProvider.currentDraft!.id,
+                leagueId: widget.leagueId,
                 myRosterId: 0, // TODO: Get actual roster ID
                 draftName: widget.leagueName,
               );
@@ -813,19 +814,19 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
               ],
 
               if (_draftType == 'slow_auction') ...[
-                // Max Simultaneous Nominations
+                // Nominations Per Manager
                 TextField(
                   decoration: const InputDecoration(
-                    labelText: 'Max Simultaneous Nominations',
-                    helperText: 'How many players can be up for bid at once (20-30 recommended)',
+                    labelText: 'Nominations Per Manager',
+                    helperText: 'How many nominations each manager can have active at once (3-5 recommended)',
                   ),
                   keyboardType: TextInputType.number,
-                  controller: TextEditingController(text: _maxSimultaneousNominations.toString())
-                    ..selection = TextSelection.collapsed(offset: _maxSimultaneousNominations.toString().length),
+                  controller: TextEditingController(text: _nominationsPerManager.toString())
+                    ..selection = TextSelection.collapsed(offset: _nominationsPerManager.toString().length),
                   onChanged: (value) {
                     final parsed = int.tryParse(value);
                     if (parsed != null) {
-                      setState(() => _maxSimultaneousNominations = parsed);
+                      setState(() => _nominationsPerManager = parsed);
                     }
                   },
                 ),

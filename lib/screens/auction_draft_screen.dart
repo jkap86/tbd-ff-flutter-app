@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/auction_model.dart';
 import '../models/player_model.dart';
+import '../models/draft_model.dart';
 import '../providers/auction_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/league_chat_tab_widget.dart';
 
 class AuctionDraftScreen extends StatefulWidget {
   final int draftId;
+  final int leagueId;
   final int myRosterId;
   final String draftName;
 
   const AuctionDraftScreen({
     super.key,
     required this.draftId,
+    required this.leagueId,
     required this.myRosterId,
     required this.draftName,
   });
@@ -28,11 +32,18 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
   final TextEditingController _searchController = TextEditingController();
   String? _selectedPosition;
   Timer? _timer;
+  double _drawerHeight = 0.5; // Start at 50%
+  final GlobalKey _gridKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {}); // Rebuild to update preview section when tab changes
+      }
+    });
     _loadAuctionData();
     _setupTimer();
   }
@@ -43,13 +54,15 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
         Provider.of<AuctionProvider>(context, listen: false);
 
     // Setup socket listeners
-    auctionProvider.setupSlowAuctionListeners(widget.draftId, widget.myRosterId);
+    auctionProvider.setupSlowAuctionListeners(
+        widget.draftId, widget.myRosterId);
 
     // Load initial data
     auctionProvider.loadAuctionData(
       token: authProvider.token!,
       draftId: widget.draftId,
       myRosterId: widget.myRosterId,
+      leagueId: widget.leagueId,
     );
   }
 
@@ -75,18 +88,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.draftName),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: Consumer<AuctionProvider>(
-            builder: (context, auctionProvider, _) {
-              final budget = auctionProvider.myBudget;
-              if (budget == null) {
-                return const SizedBox(height: 80);
-              }
-              return BudgetDisplayWidget(budget: budget);
-            },
-          ),
-        ),
+        elevation: 0,
       ),
       body: Consumer<AuctionProvider>(
         builder: (context, auctionProvider, _) {
@@ -118,90 +120,527 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
           final activeNominations = auctionProvider.activeNominations;
           final currentNomination =
               activeNominations.isNotEmpty ? activeNominations.first : null;
+          final draft = auctionProvider.draft;
 
-          return Column(
-            children: [
-              // Current nomination area
-              if (currentNomination != null)
-                Expanded(
-                  flex: 3,
-                  child: CurrentNominationWidget(
-                    nomination: currentNomination,
-                    bidHistory: auctionProvider.getBidsForNomination(
-                      currentNomination.id,
-                    ),
-                    onPlaceBid: (maxBid) => _placeBid(maxBid, currentNomination.id),
-                    isMyBid: auctionProvider.isMyBid(currentNomination),
-                  ),
-                )
-              else
-                const Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.gavel, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text(
-                            'No active nominations',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey,
+          final screenHeight = MediaQuery.of(context).size.height;
+          final appBarHeight = AppBar().preferredSize.height +
+              MediaQuery.of(context).padding.top;
+          final availableHeight = screenHeight - appBarHeight;
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              // Drawer can expand up to 95% of available height (stops below grid header)
+              // Minimum height to show drag handle + nomination section + tabs
+              final minDrawerHeightPixels = currentNomination != null ? 200.0 : 100.0;
+              final minDrawerHeightPercent = minDrawerHeightPixels / availableHeight;
+              final drawerHeightPixels = (availableHeight * _drawerHeight)
+                  .clamp(minDrawerHeightPixels, availableHeight * 0.95);
+
+              return Column(
+                children: [
+                  // Grid header only - always visible
+                  _buildGridHeader(auctionProvider, draft),
+
+                  // Expandable area with grid body and drawer (on same level)
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        // Grid body - behind drawer
+                        _buildGridBody(auctionProvider, draft),
+
+                        // Manual draggable drawer - covers grid body
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: drawerHeightPixels,
+                          child: GestureDetector(
+                            onVerticalDragUpdate: (details) {
+                              setState(() {
+                                final screenHeight =
+                                    MediaQuery.of(context).size.height;
+                                _drawerHeight -=
+                                    details.delta.dy / screenHeight;
+                                _drawerHeight = _drawerHeight.clamp(minDrawerHeightPercent, 0.95);
+                              });
+                            },
+                            onVerticalDragEnd: (details) {
+                              // Snap to nearest position
+                              setState(() {
+                                final midPoint = (minDrawerHeightPercent + 0.95) / 2;
+                                if (_drawerHeight < midPoint) {
+                                  _drawerHeight = minDrawerHeightPercent;
+                                } else {
+                                  _drawerHeight = 0.95;
+                                }
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).scaffoldBackgroundColor,
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(20)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.3),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, -2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  // Drag handle
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    child: Center(
+                                      child: Container(
+                                        width: 50,
+                                        height: 5,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade400,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  // Current nomination section at top of drawer
+                                  if (currentNomination != null)
+                                    _buildNominationSection(auctionProvider, currentNomination, draft),
+                                  // Tabs - always visible
+                                  TabBar(
+                                    controller: _tabController,
+                                    tabs: const [
+                                      Tab(text: 'Available Players'),
+                                      Tab(text: 'Chat'),
+                                    ],
+                                    labelColor:
+                                        Theme.of(context).primaryColor,
+                                    unselectedLabelColor: Colors.grey,
+                                  ),
+                                  // Tab content - always show, will clip when collapsed
+                                  Expanded(
+                                    child: TabBarView(
+                                      controller: _tabController,
+                                      children: [
+                                        _buildAvailablePlayersTab(
+                                            auctionProvider),
+                                        _buildChatTab(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Waiting for a player to be nominated...',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-
-              // Bottom tabs
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Colors.grey.shade300),
-                  ),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  tabs: const [
-                    Tab(text: 'Available Players'),
-                    Tab(text: 'My Roster'),
-                    Tab(text: 'Bid History'),
-                    Tab(text: 'Activity'),
-                  ],
-                  labelColor: Theme.of(context).primaryColor,
-                  unselectedLabelColor: Colors.grey,
-                ),
-              ),
-
-              // Bottom drawer content
-              Expanded(
-                flex: 2,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildAvailablePlayersTab(auctionProvider),
-                    _buildMyRosterTab(),
-                    _buildBidHistoryTab(auctionProvider, currentNomination),
-                    _buildActivityTab(auctionProvider),
-                  ],
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           );
         },
       ),
     );
+  }
+
+  Widget _buildGridHeader(AuctionProvider auctionProvider, Draft? draft) {
+    final rosters = auctionProvider.auctionRosters;
+
+    if (rosters.isEmpty || draft == null) {
+      return const SizedBox.shrink();
+    }
+
+    final currentRosterId = draft.currentRosterId;
+
+    // Build just the header row of the DataTable
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade200,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: MediaQuery.of(context).size.width,
+          ),
+          child: DataTable(
+            headingRowHeight: 70,
+            columnSpacing: 12,
+            horizontalMargin: 8,
+            columns: [
+              const DataColumn(
+                label: Center(
+                  child: Text(
+                    'Slot',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              ...rosters.map((roster) {
+                final teamName =
+                    roster['team_name'] ?? 'Team ${roster['roster_id']}';
+                final isMyRoster = roster['id'] == widget.myRosterId;
+                final isNominating = roster['id'] == currentRosterId;
+                final budget = roster['budget'] as Map<String, dynamic>?;
+
+                return DataColumn(
+                  label: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isNominating
+                          ? Colors.green.shade100
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              teamName,
+                              style: TextStyle(
+                                fontWeight: isMyRoster
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isNominating
+                                    ? Colors.green.shade900
+                                    : (isMyRoster ? Colors.blue : Colors.black),
+                              ),
+                            ),
+                            if (isMyRoster) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'YOU',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            if (isNominating) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.gavel,
+                                  size: 16, color: Colors.green),
+                            ],
+                          ],
+                        ),
+                        if (budget != null)
+                          Text(
+                            '\$${budget['available']} left',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isNominating
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+            rows: const [], // No rows, header only
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridBody(AuctionProvider auctionProvider, Draft? draft) {
+    final rosters = auctionProvider.auctionRosters;
+
+    if (rosters.isEmpty || draft == null) {
+      return const SizedBox.shrink();
+    }
+
+    final rosterSlots = [
+      'QB',
+      'RB1',
+      'RB2',
+      'WR1',
+      'WR2',
+      'WR3',
+      'TE',
+      'FLEX',
+      'K',
+      'DEF',
+      'BN1',
+      'BN2',
+      'BN3',
+      'BN4',
+      'BN5'
+    ];
+    final currentRosterId = draft.currentRosterId;
+
+    return Container(
+      width: double.infinity,
+      color: Colors.grey[100],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.of(context).size.width,
+            ),
+            child: DataTable(
+              headingRowHeight: 0, // Hide header since it's shown separately
+              columnSpacing: 12,
+              horizontalMargin: 8,
+              columns: [
+                const DataColumn(label: SizedBox.shrink()),
+                ...rosters.map(
+                    (roster) => const DataColumn(label: SizedBox.shrink())),
+              ],
+              rows: List.generate(rosterSlots.length, (slotIndex) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        rosterSlots[slotIndex],
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    ...rosters.map((roster) {
+                      final players = roster['players'] as List<dynamic>? ?? [];
+                      final isNominating = roster['id'] == currentRosterId;
+
+                      if (slotIndex < players.length) {
+                        final player = players[slotIndex];
+                        final playerName = player['full_name'] ?? 'Unknown';
+                        final position = player['position'] ?? '';
+                        final winningBid = player['winning_bid'] ?? 0;
+
+                        return DataCell(
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isNominating
+                                  ? Colors.green.shade50
+                                  : Colors.transparent,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  playerName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  '$position - \$$winningBid',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      } else {
+                        return DataCell(
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isNominating
+                                  ? Colors.green.shade50
+                                  : Colors.transparent,
+                            ),
+                            child: Text(
+                              '-',
+                              style: TextStyle(color: Colors.grey.shade400),
+                            ),
+                          ),
+                        );
+                      }
+                    }),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNominationSection(
+      AuctionProvider auctionProvider, AuctionNomination nomination, Draft? draft) {
+    final minBid = draft?.minBid ?? 1;
+    final currentBid = nomination.winningBid ?? 0;
+    final nextMinBid = currentBid > 0 ? currentBid + 1 : minBid;
+    final myBudget = auctionProvider.myBudget;
+    final isMyNomination = nomination.nominatingRosterId == widget.myRosterId;
+    final isMyWinningBid = nomination.winningRosterId == widget.myRosterId;
+    final timeRemaining = nomination.timeRemaining;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Player info section
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  nomination.playerName ?? 'Unknown Player',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  nomination.playerPositionTeam,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Current bid section
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Bid',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                '\$${currentBid > 0 ? currentBid : minBid}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isMyWinningBid ? Colors.green : Colors.black,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 8),
+
+          // Timer section
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.timer, size: 16, color: Colors.orange.shade700),
+              Text(
+                _formatDuration(timeRemaining),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: timeRemaining.inHours < 1 ? Colors.red : Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(width: 12),
+
+          // Bidding section
+          if (myBudget != null && !isMyNomination)
+            ElevatedButton(
+              onPressed: myBudget.canAfford(nextMinBid)
+                  ? () => _placeBidOnNomination(nomination.id, nextMinBid)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isMyWinningBid ? Colors.orange : Colors.blue,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: const Size(0, 32),
+              ),
+              child: Text(
+                isMyWinningBid ? 'Raise \$${nextMinBid}' : 'Bid \$${nextMinBid}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            )
+          else if (isMyNomination)
+            Text(
+              'Your Nomination',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue.shade700,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    if (duration.inDays > 0) {
+      return '${duration.inDays}d ${duration.inHours.remainder(24)}h';
+    } else if (duration.inHours > 0) {
+      return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
+    } else if (duration.inMinutes > 0) {
+      return '${duration.inMinutes}m';
+    } else {
+      return '${duration.inSeconds}s';
+    }
+  }
+
+  void _placeBidOnNomination(int nominationId, int bidAmount) async {
+    try {
+      // TODO: Implement bidding via auction service
+      // await _auctionService.placeBid(nominationId, bidAmount);
+      debugPrint('Placing bid: \$${bidAmount} on nomination ${nominationId}');
+    } catch (e) {
+      debugPrint('Error placing bid: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to place bid: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildAvailablePlayersTab(AuctionProvider auctionProvider) {
@@ -221,7 +660,8 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
                     hintText: 'Search players...',
                     prefixIcon: Icon(Icons.search),
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -266,26 +706,6 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
         ),
       ],
     );
-  }
-
-  Widget _buildMyRosterTab() {
-    return const Center(
-      child: Text('My Roster - Coming Soon'),
-    );
-  }
-
-  Widget _buildBidHistoryTab(
-    AuctionProvider auctionProvider,
-    AuctionNomination? currentNomination,
-  ) {
-    if (currentNomination == null) {
-      return const Center(
-        child: Text('No active nomination to show bids for'),
-      );
-    }
-
-    final bids = auctionProvider.getBidsForNomination(currentNomination.id);
-    return BidHistoryWidget(bids: bids);
   }
 
   Widget _buildActivityTab(AuctionProvider auctionProvider) {
@@ -333,6 +753,10 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
     );
   }
 
+  Widget _buildChatTab() {
+    return LeagueChatTabWidget(leagueId: widget.leagueId);
+  }
+
   List<Player> _filterPlayers(List<Player> players) {
     var filtered = players;
 
@@ -361,7 +785,7 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
     final success = await auctionProvider.nominatePlayer(
       authProvider.token!,
       widget.draftId,
-      player.id,
+      player.playerId,
       widget.myRosterId,
     );
 
@@ -429,6 +853,159 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
       return '${diff.inDays}d ago';
     }
   }
+
+  Widget _buildDraftControls(Draft draft, AuctionProvider auctionProvider) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Draft status
+          Row(
+            children: [
+              Icon(
+                draft.status == 'in_progress'
+                    ? Icons.play_circle_filled
+                    : draft.status == 'paused'
+                        ? Icons.pause_circle_filled
+                        : Icons.circle,
+                color: draft.status == 'in_progress'
+                    ? Colors.green
+                    : draft.status == 'paused'
+                        ? Colors.orange
+                        : Colors.grey,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                draft.status == 'in_progress'
+                    ? 'In Progress'
+                    : draft.status == 'paused'
+                        ? 'Paused'
+                        : 'Not Started',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          // Control buttons
+          Row(
+            children: [
+              if (draft.status == 'not_started')
+                ElevatedButton.icon(
+                  onPressed: () => _startDraft(auctionProvider),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              if (draft.status == 'in_progress')
+                ElevatedButton.icon(
+                  onPressed: () => _pauseDraft(auctionProvider),
+                  icon: const Icon(Icons.pause),
+                  label: const Text('Pause'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              if (draft.status == 'paused')
+                ElevatedButton.icon(
+                  onPressed: () => _resumeDraft(auctionProvider),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Resume'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startDraft(AuctionProvider auctionProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await auctionProvider.startDraft(
+      authProvider.token!,
+      widget.draftId,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Draft started!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(auctionProvider.errorMessage ?? 'Failed to start draft'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _pauseDraft(AuctionProvider auctionProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await auctionProvider.pauseDraft(
+      authProvider.token!,
+      widget.draftId,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Draft paused!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(auctionProvider.errorMessage ?? 'Failed to pause draft'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _resumeDraft(AuctionProvider auctionProvider) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final success = await auctionProvider.resumeDraft(
+      authProvider.token!,
+      widget.draftId,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Draft resumed!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text(auctionProvider.errorMessage ?? 'Failed to resume draft'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 }
 
 // Budget Display Widget
@@ -443,10 +1020,22 @@ class BudgetDisplayWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showReserved = budget.reserved > 0;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surfaceContainerHighest
+            : theme.colorScheme.primaryContainer.withOpacity(0.3),
+        border: Border(
+          bottom: BorderSide(
+            color: theme.dividerColor.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -454,26 +1043,26 @@ class BudgetDisplayWidget extends StatelessWidget {
             context,
             'Budget',
             '\$${budget.startingBudget}',
-            Colors.grey,
+            theme.colorScheme.onSurfaceVariant,
           ),
           _buildBudgetItem(
             context,
             'Spent',
             '\$${budget.spent}',
-            Colors.red,
+            theme.colorScheme.error,
           ),
           if (showReserved)
             _buildBudgetItem(
               context,
               'Reserved',
               '\$${budget.reserved}',
-              Colors.orange,
+              theme.colorScheme.tertiary,
             ),
           _buildBudgetItem(
             context,
             'Available',
             '\$${budget.available}',
-            Colors.green,
+            isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
             isHighlight: true,
           ),
         ],
@@ -488,13 +1077,16 @@ class BudgetDisplayWidget extends StatelessWidget {
     Color color, {
     bool isHighlight = false,
   }) {
+    final theme = Theme.of(context);
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade700,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 11,
+            color: theme.colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -502,7 +1094,7 @@ class BudgetDisplayWidget extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: isHighlight ? 24 : 20,
+            fontSize: isHighlight ? 22 : 18,
             fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
             color: color,
           ),
@@ -534,7 +1126,7 @@ class CurrentNominationWidget extends StatefulWidget {
 
 class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
   final TextEditingController _bidController = TextEditingController();
-  int? _selectedQuickBid;
+  double _sliderValue = 0;
 
   @override
   void dispose() {
@@ -543,224 +1135,316 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
   }
 
   @override
+  void didUpdateWidget(CurrentNominationWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nomination.id != widget.nomination.id) {
+      // Reset slider when nomination changes
+      final currentBid = widget.nomination.winningBid ?? 0;
+      setState(() {
+        _sliderValue = (currentBid + 1).toDouble();
+        _bidController.text = (currentBid + 1).toString();
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentBid = widget.nomination.winningBid ?? 0;
-    final timeRemaining = widget.nomination.timeRemaining;
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Player card
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Text(
-                      widget.nomination.playerName ?? 'Unknown Player',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.nomination.playerPositionTeam,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+    // Initialize slider if not set or if it's below minimum
+    if (_sliderValue < (currentBid + 1)) {
+      _sliderValue = (currentBid + 1).toDouble();
+      if (_bidController.text.isEmpty) {
+        _bidController.text = (currentBid + 1).toString();
+      }
+    }
 
-            // Current bid info
-            Card(
-              color: widget.isMyBid ? Colors.green.shade50 : null,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Use StreamBuilder to update timer every second
+    return StreamBuilder(
+      stream: Stream.periodic(const Duration(seconds: 1)),
+      builder: (context, snapshot) {
+        final timeRemaining = widget.nomination.timeRemaining;
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Player card
+                Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Current Bid',
+                        Text(
+                          widget.nomination.playerName ?? 'Unknown Player',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.nomination.playerPositionTeam,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        if (widget.nomination.nominatingTeamName != null) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Text(
+                              'Nominated by ${widget.nomination.nominatingTeamName}',
                               style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 14,
+                                fontSize: 13,
+                                color: Colors.blue.shade900,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Current bid info
+                Card(
+                  color: widget.isMyBid ? Colors.green.shade50 : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Current Bid',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  '\$$currentBid',
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (widget.nomination.deadline != null)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Time Remaining',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDuration(timeRemaining),
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: timeRemaining.inSeconds < 30
+                                          ? Colors.red
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'No Time Limit',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 14,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        if (widget.nomination.winningTeamName != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Winning Team: ${widget.nomination.winningTeamName}',
+                            style: TextStyle(
+                              color: widget.isMyBid
+                                  ? Colors.green
+                                  : Colors.grey.shade700,
+                              fontWeight: widget.isMyBid
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Bidding controls
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Place Your Bid',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Bid amount display
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Your Bid:',
+                              style: TextStyle(fontSize: 16),
+                            ),
                             Text(
-                              '\$$currentBid',
+                              '\$${_sliderValue.round()}',
                               style: const TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.blue,
                               ),
                             ),
                           ],
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        const SizedBox(height: 8),
+                        // Slider
+                        Slider(
+                          value: _sliderValue,
+                          min: (currentBid + 1).toDouble(),
+                          max: (currentBid + 100).toDouble(),
+                          divisions: 99,
+                          label: '\$${_sliderValue.round()}',
+                          onChanged: (value) {
+                            setState(() {
+                              _sliderValue = value;
+                              _bidController.text = value.round().toString();
+                            });
+                          },
+                        ),
+                        // Min and max labels
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Time Remaining',
+                              '\$${currentBid + 1}',
                               style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 14,
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
                               ),
                             ),
                             Text(
-                              _formatDuration(timeRemaining),
+                              '\$${currentBid + 100}',
                               style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: timeRemaining.inSeconds < 30
-                                    ? Colors.red
-                                    : Colors.black,
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Or enter exact amount',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _bidController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            hintText: 'Enter bid amount',
+                            prefixText: '\$ ',
+                            border: const OutlineInputBorder(),
+                            helperText: 'Minimum: \$${currentBid + 1}',
+                          ),
+                          onChanged: (value) {
+                            final amount = int.tryParse(value);
+                            if (amount != null) {
+                              setState(() {
+                                _sliderValue = amount.toDouble().clamp(
+                                      (currentBid + 1).toDouble(),
+                                      (currentBid + 100).toDouble(),
+                                    );
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _placeBid,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Theme.of(context).primaryColor,
+                          ),
+                          child: const Text(
+                            'Place Bid',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    if (widget.nomination.winningTeamName != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Winning Team: ${widget.nomination.winningTeamName}',
-                        style: TextStyle(
-                          color: widget.isMyBid ? Colors.green : Colors.grey.shade700,
-                          fontWeight: widget.isMyBid ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-
-            // Bidding controls
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Quick Bids',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildQuickBidButton(currentBid + 1),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildQuickBidButton(currentBid + 5),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildQuickBidButton(currentBid + 10),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Or enter max bid (proxy bid)',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _bidController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter max bid',
-                        prefixText: '\$ ',
-                        border: OutlineInputBorder(),
-                        helperText: 'You\'ll pay the minimum needed to win',
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedQuickBid = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: _placeBid,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Theme.of(context).primaryColor,
-                      ),
-                      child: const Text(
-                        'Place Bid',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickBidButton(int amount) {
-    final isSelected = _selectedQuickBid == amount;
-    return OutlinedButton(
-      onPressed: () {
-        setState(() {
-          _selectedQuickBid = amount;
-          _bidController.clear();
-        });
+          ),
+        );
       },
-      style: OutlinedButton.styleFrom(
-        backgroundColor: isSelected ? Theme.of(context).primaryColor : null,
-        foregroundColor: isSelected ? Colors.white : null,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-      ),
-      child: Text(
-        '\$$amount',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
     );
   }
 
   void _placeBid() {
-    int? maxBid;
+    int? bidAmount;
 
-    if (_selectedQuickBid != null) {
-      maxBid = _selectedQuickBid;
-    } else if (_bidController.text.isNotEmpty) {
-      maxBid = int.tryParse(_bidController.text);
+    if (_bidController.text.isNotEmpty) {
+      bidAmount = int.tryParse(_bidController.text);
+    } else {
+      bidAmount = _sliderValue.round();
     }
 
-    if (maxBid == null || maxBid <= 0) {
+    if (bidAmount == null || bidAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a valid bid amount'),
@@ -771,7 +1455,7 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
     }
 
     final currentBid = widget.nomination.winningBid ?? 0;
-    if (maxBid <= currentBid) {
+    if (bidAmount <= currentBid) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Bid must be greater than current bid (\$$currentBid)'),
@@ -781,11 +1465,11 @@ class _CurrentNominationWidgetState extends State<CurrentNominationWidget> {
       return;
     }
 
-    widget.onPlaceBid(maxBid);
+    widget.onPlaceBid(bidAmount);
 
-    // Clear inputs
+    // Reset slider and clear input
     setState(() {
-      _selectedQuickBid = null;
+      _sliderValue = (currentBid + 1).toDouble();
       _bidController.clear();
     });
   }

@@ -12,7 +12,7 @@ class AuctionService {
     required int draftId,
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/auction/nominations');
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/nominations');
       final response = await http.get(
         url,
         headers: ApiConfig.getAuthHeaders(token),
@@ -34,10 +34,11 @@ class AuctionService {
   // Get bid history for a nomination
   Future<List<AuctionBid>> getBidHistory({
     required String token,
+    required int draftId,
     required int nominationId,
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auction/nominations/$nominationId/bids');
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/nominations/$nominationId/bids');
       final response = await http.get(
         url,
         headers: ApiConfig.getAuthHeaders(token),
@@ -60,11 +61,11 @@ class AuctionService {
   Future<Map<String, dynamic>?> nominatePlayer({
     required String token,
     required int draftId,
-    required int playerId,
+    required String playerId,
     required int rosterId,
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/auction/nominate');
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/nominate');
       final response = await http.post(
         url,
         headers: ApiConfig.getAuthHeaders(token),
@@ -96,14 +97,14 @@ class AuctionService {
     required int draftId,
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/auction/nominations/$nominationId/bid');
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/bid');
       final response = await http.post(
         url,
         headers: ApiConfig.getAuthHeaders(token),
         body: json.encode({
+          'nomination_id': nominationId,
           'roster_id': rosterId,
           'max_bid': maxBid,
-          'draft_id': draftId,
         }),
       );
 
@@ -162,7 +163,7 @@ class AuctionService {
     required int rosterId,
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/auction/rosters/$rosterId/budget');
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/rosters/$rosterId/budget?draft_id=$draftId');
       final response = await http.get(
         url,
         headers: ApiConfig.getAuthHeaders(token),
@@ -202,6 +203,31 @@ class AuctionService {
       }
     } catch (e) {
       debugPrint('Error getting activity feed: $e');
+      return [];
+    }
+  }
+
+  // Get all rosters with their players
+  Future<List<Map<String, dynamic>>> getAuctionRosters({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      final url = Uri.parse('${ApiConfig.effectiveBaseUrl}/api/drafts/$draftId/auction/rosters');
+      final response = await http.get(
+        url,
+        headers: ApiConfig.getAuthHeaders(token),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        debugPrint('Failed to get auction rosters: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Error getting auction rosters: $e');
       return [];
     }
   }

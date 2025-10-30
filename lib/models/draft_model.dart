@@ -21,7 +21,7 @@ class Draft {
   // Auction-specific fields
   final int startingBudget;
   final int minBid;
-  final int maxSimultaneousNominations;
+  final int nominationsPerManager;
   final int? nominationTimerHours;
   final bool reserveBudgetPerSlot;
 
@@ -47,7 +47,7 @@ class Draft {
     // Auction-specific params
     this.startingBudget = 200,
     this.minBid = 1,
-    this.maxSimultaneousNominations = 1,
+    this.nominationsPerManager = 3,
     this.nominationTimerHours,
     this.reserveBudgetPerSlot = false,
   });
@@ -81,7 +81,7 @@ class Draft {
       // Auction-specific fields
       startingBudget: json['starting_budget'] as int? ?? 200,
       minBid: json['min_bid'] as int? ?? 1,
-      maxSimultaneousNominations: json['max_simultaneous_nominations'] as int? ?? 1,
+      nominationsPerManager: json['nominations_per_manager'] as int? ?? 3,
       nominationTimerHours: json['nomination_timer_hours'] as int?,
       reserveBudgetPerSlot: json['reserve_budget_per_slot'] as bool? ?? false,
     );
@@ -110,7 +110,7 @@ class Draft {
       // Auction-specific fields
       'starting_budget': startingBudget,
       'min_bid': minBid,
-      'max_simultaneous_nominations': maxSimultaneousNominations,
+      'nominations_per_manager': nominationsPerManager,
       'nomination_timer_hours': nominationTimerHours,
       'reserve_budget_per_slot': reserveBudgetPerSlot,
     };
@@ -162,7 +162,7 @@ class Draft {
     DateTime? updatedAt,
     int? startingBudget,
     int? minBid,
-    int? maxSimultaneousNominations,
+    int? nominationsPerManager,
     int? nominationTimerHours,
     bool? reserveBudgetPerSlot,
   }) {
@@ -187,7 +187,7 @@ class Draft {
       updatedAt: updatedAt ?? this.updatedAt,
       startingBudget: startingBudget ?? this.startingBudget,
       minBid: minBid ?? this.minBid,
-      maxSimultaneousNominations: maxSimultaneousNominations ?? this.maxSimultaneousNominations,
+      nominationsPerManager: nominationsPerManager ?? this.nominationsPerManager,
       nominationTimerHours: nominationTimerHours ?? this.nominationTimerHours,
       reserveBudgetPerSlot: reserveBudgetPerSlot ?? this.reserveBudgetPerSlot,
     );

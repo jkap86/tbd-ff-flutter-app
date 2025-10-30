@@ -46,6 +46,8 @@ class SocketService {
   Function(Map<String, dynamic>)? onPlayerWon;
   Function(Map<String, dynamic>)? onNominationExpired;
   Function(Map<String, dynamic>)? onBudgetUpdated;
+  Function(Map<String, dynamic>)? onNominationDeadlineUpdated;
+  Function(Map<String, dynamic>)? onTurnChanged;
 
   bool get isConnected => _socket?.connected ?? false;
 
@@ -283,6 +285,16 @@ class SocketService {
       debugPrint('Budget updated: $data');
       onBudgetUpdated?.call(data);
     });
+
+    _socket!.on('nomination_deadline_updated', (data) {
+      debugPrint('Nomination deadline updated: $data');
+      onNominationDeadlineUpdated?.call(data);
+    });
+
+    _socket!.on('turn_changed', (data) {
+      debugPrint('Turn changed: $data');
+      onTurnChanged?.call(data);
+    });
   }
 
   // Join a draft room
@@ -504,25 +516,26 @@ class SocketService {
   }
 
   // Join an auction room (slow auctions)
-  void joinAuction({required int draftId}) {
+  void joinAuction({required int draftId, int? rosterId}) {
     if (_socket == null || !_socket!.connected) {
       debugPrint('Socket not connected, connecting now...');
       connect();
 
       // Wait for connection before joining
       _socket!.onConnect((_) {
-        _emitJoinAuction(draftId);
+        _emitJoinAuction(draftId, rosterId: rosterId);
       });
     } else {
-      _emitJoinAuction(draftId);
+      _emitJoinAuction(draftId, rosterId: rosterId);
     }
   }
 
-  void _emitJoinAuction(int draftId) {
+  void _emitJoinAuction(int draftId, {int? rosterId}) {
     _socket!.emit('join_auction', {
-      'draft_id': draftId,
+      'draftId': draftId,
+      if (rosterId != null) 'rosterId': rosterId,
     });
-    debugPrint('Emitted join_auction for draft $draftId');
+    debugPrint('Emitted join_auction for draft $draftId (roster: $rosterId)');
   }
 
   // Clear all callbacks
@@ -553,5 +566,7 @@ class SocketService {
     onPlayerWon = null;
     onNominationExpired = null;
     onBudgetUpdated = null;
+    onNominationDeadlineUpdated = null;
+    onTurnChanged = null;
   }
 }

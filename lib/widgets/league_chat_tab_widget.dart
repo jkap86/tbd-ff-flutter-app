@@ -80,11 +80,8 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        // Scroll to bottom to show most recent message
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
@@ -112,7 +109,7 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Messages
+        // Messages - always take available space, will clip when collapsed
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -125,62 +122,39 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final authProvider = context.read<AuthProvider>();
-                        final isMe = message.userId == authProvider.user?.id;
-
-                        return _buildMessageBubble(message, isMe);
+                  : NotificationListener<SizeChangedLayoutNotification>(
+                      onNotification: (notification) {
+                        // Scroll to show top of last message when size changes
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (_scrollController.hasClients) {
+                            final position = _scrollController.position;
+                            // Calculate position to show top of last message
+                            // Scroll to max minus viewport height to show top of bottom content
+                            final targetScroll = position.maxScrollExtent - position.viewportDimension + 24; // 24 for padding
+                            if (targetScroll > 0) {
+                              _scrollController.jumpTo(targetScroll);
+                            } else {
+                              _scrollController.jumpTo(0);
+                            }
+                          }
+                        });
+                        return true;
                       },
-                    ),
-        ),
+                      child: SizeChangedLayoutNotifier(
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _messages[index];
+                            final authProvider = context.read<AuthProvider>();
+                            final isMe = message.userId == authProvider.user?.id;
 
-        // Input
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).colorScheme.outline,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                            return _buildMessageBubble(message, isMe);
+                          },
+                        ),
+                      ),
                     ),
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                  ),
-                  onSubmitted: (_) => _sendMessage(),
-                  maxLines: null,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: _sendMessage,
-                icon: const Icon(Icons.send),
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );

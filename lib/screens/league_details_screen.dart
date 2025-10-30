@@ -12,6 +12,8 @@ import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
 import 'edit_league_screen.dart';
 import 'draft_room_screen.dart';
+import 'auction_draft_screen.dart';
+import 'slow_auction_draft_screen.dart';
 import 'roster_details_screen.dart';
 import 'matchups_screen.dart';
 import 'waivers/waivers_hub_screen.dart';
@@ -501,12 +503,49 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                         width: 120,
                                         child: ElevatedButton.icon(
                                           onPressed: hasDraft ? () async {
+                                            // Get draft to check type
+                                            final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+                                            final draft = draftProvider.currentDraft;
+
+                                            if (draft == null) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Draft not found')),
+                                              );
+                                              return;
+                                            }
+
+                                            // Get user's roster ID
+                                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                                            final userRoster = rosters.firstWhere(
+                                              (r) => r.userId == authProvider.user?.id,
+                                              orElse: () => rosters.first,
+                                            );
+
+                                            Widget draftScreen;
+                                            if (draft.draftType == 'auction') {
+                                              draftScreen = AuctionDraftScreen(
+                                                draftId: draft.id,
+                                                leagueId: league.id,
+                                                myRosterId: userRoster.id,
+                                                draftName: 'Auction Draft',
+                                              );
+                                            } else if (draft.draftType == 'slow_auction') {
+                                              draftScreen = SlowAuctionDraftScreen(
+                                                draftId: draft.id,
+                                                leagueId: league.id,
+                                                myRosterId: userRoster.id,
+                                              );
+                                            } else {
+                                              // Default to snake/linear draft screen
+                                              draftScreen = DraftRoomScreen(
+                                                leagueId: league.id,
+                                                leagueName: league.name,
+                                              );
+                                            }
+
                                             await Navigator.of(context).push(
                                               MaterialPageRoute(
-                                                builder: (context) => DraftRoomScreen(
-                                                  leagueId: league.id,
-                                                  leagueName: league.name,
-                                                ),
+                                                builder: (context) => draftScreen,
                                               ),
                                             );
                                             await _loadLeagueDetails();

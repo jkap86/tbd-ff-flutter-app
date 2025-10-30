@@ -57,6 +57,7 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
       token: authProvider.token!,
       draftId: widget.draftId,
       myRosterId: widget.myRosterId,
+      leagueId: widget.leagueId,
     );
 
     if (mounted) {
@@ -77,13 +78,15 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Slow Auction Draft'),
+        elevation: 0,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
+          preferredSize: const Size.fromHeight(90),
           child: Column(
             children: [
               _buildBudgetBar(),
               TabBar(
                 controller: _tabController,
+                indicatorColor: Theme.of(context).colorScheme.secondary,
                 tabs: const [
                   Tab(text: 'Active Bids'),
                   Tab(text: 'Available'),
@@ -113,29 +116,45 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
       builder: (context, auctionProvider, child) {
         final budget = auctionProvider.myBudget;
         final winningCount = auctionProvider.myWinningNominationsCount ?? 0;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
 
         return Container(
-          padding: const EdgeInsets.all(12),
-          color: Colors.blue.shade50,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark
+              ? theme.colorScheme.surfaceContainerHighest
+              : theme.colorScheme.primaryContainer.withOpacity(0.3),
+            border: Border(
+              bottom: BorderSide(
+                color: theme.dividerColor.withOpacity(0.1),
+                width: 1,
+              ),
+            ),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildBudgetStat(
+                context,
                 'Budget',
                 budget != null ? '\$${budget.available}' : '-',
                 Icons.account_balance_wallet,
               ),
               _buildBudgetStat(
+                context,
                 'Spent',
                 budget != null ? '\$${budget.spent}' : '-',
                 Icons.shopping_cart,
               ),
               _buildBudgetStat(
+                context,
                 'Active Bids',
                 budget != null ? '\$${budget.activeBids}' : '-',
                 Icons.gavel,
               ),
               _buildBudgetStat(
+                context,
                 'Winning',
                 '$winningCount',
                 Icons.emoji_events,
@@ -147,23 +166,31 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
     );
   }
 
-  Widget _buildBudgetStat(String label, String value, IconData icon) {
+  Widget _buildBudgetStat(BuildContext context, String label, String value, IconData icon) {
+    final theme = Theme.of(context);
+
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 20, color: Colors.blue),
+        Icon(
+          icon,
+          size: 22,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 16,
+          style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
           ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: Colors.grey,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 11,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
       ],
@@ -385,7 +412,7 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
     final success = await auctionProvider.nominatePlayer(
       authProvider.token!,
       widget.draftId,
-      player.id,
+      player.playerId,
       widget.myRosterId,
     );
 

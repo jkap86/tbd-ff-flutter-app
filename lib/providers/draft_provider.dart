@@ -171,7 +171,7 @@ class DraftProvider with ChangeNotifier {
     // Auction-specific
     int? startingBudget,
     int? minBid,
-    int? maxSimultaneousNominations,
+    int? nominationsPerManager,
     int? nominationTimerHours,
     bool? reserveBudgetPerSlot,
   }) async {
@@ -193,7 +193,7 @@ class DraftProvider with ChangeNotifier {
         // Auction-specific
         startingBudget: startingBudget,
         minBid: minBid,
-        maxSimultaneousNominations: maxSimultaneousNominations,
+        nominationsPerManager: nominationsPerManager,
         nominationTimerHours: nominationTimerHours,
         reserveBudgetPerSlot: reserveBudgetPerSlot,
       );

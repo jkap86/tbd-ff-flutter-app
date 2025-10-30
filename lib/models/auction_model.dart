@@ -1,15 +1,16 @@
 class AuctionNomination {
   final int id;
   final int draftId;
-  final int nominatedByRosterId;
-  final int playerId;
+  final int nominatingRosterId;
+  final String? nominatingTeamName;
+  final String playerId;
   final String? playerName;
   final String? playerPosition;
   final String? playerTeam;
   final int? winningBid;
   final int? winningRosterId;
   final String? winningTeamName;
-  final DateTime deadline;
+  final DateTime? deadline;
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -17,7 +18,8 @@ class AuctionNomination {
   AuctionNomination({
     required this.id,
     required this.draftId,
-    required this.nominatedByRosterId,
+    required this.nominatingRosterId,
+    this.nominatingTeamName,
     required this.playerId,
     this.playerName,
     this.playerPosition,
@@ -25,7 +27,7 @@ class AuctionNomination {
     this.winningBid,
     this.winningRosterId,
     this.winningTeamName,
-    required this.deadline,
+    this.deadline,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
@@ -35,15 +37,16 @@ class AuctionNomination {
     return AuctionNomination(
       id: json['id'] as int,
       draftId: json['draft_id'] as int,
-      nominatedByRosterId: json['nominated_by_roster_id'] as int,
-      playerId: json['player_id'] as int,
+      nominatingRosterId: json['nominating_roster_id'] as int,
+      nominatingTeamName: json['nominating_team_name'] as String?,
+      playerId: json['player_id'] as String,
       playerName: json['player_name'] as String?,
       playerPosition: json['player_position'] as String?,
       playerTeam: json['player_team'] as String?,
       winningBid: json['winning_bid'] as int?,
       winningRosterId: json['winning_roster_id'] as int?,
       winningTeamName: json['winning_team_name'] as String?,
-      deadline: DateTime.parse(json['deadline'] as String),
+      deadline: json['deadline'] != null ? DateTime.parse(json['deadline'] as String) : null,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -54,7 +57,8 @@ class AuctionNomination {
     return {
       'id': id,
       'draft_id': draftId,
-      'nominated_by_roster_id': nominatedByRosterId,
+      'nominating_roster_id': nominatingRosterId,
+      'nominating_team_name': nominatingTeamName,
       'player_id': playerId,
       'player_name': playerName,
       'player_position': playerPosition,
@@ -62,7 +66,7 @@ class AuctionNomination {
       'winning_bid': winningBid,
       'winning_roster_id': winningRosterId,
       'winning_team_name': winningTeamName,
-      'deadline': deadline.toIso8601String(),
+      'deadline': deadline?.toIso8601String(),
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -72,8 +76,9 @@ class AuctionNomination {
   AuctionNomination copyWith({
     int? id,
     int? draftId,
-    int? nominatedByRosterId,
-    int? playerId,
+    int? nominatingRosterId,
+    String? nominatingTeamName,
+    String? playerId,
     String? playerName,
     String? playerPosition,
     String? playerTeam,
@@ -88,7 +93,8 @@ class AuctionNomination {
     return AuctionNomination(
       id: id ?? this.id,
       draftId: draftId ?? this.draftId,
-      nominatedByRosterId: nominatedByRosterId ?? this.nominatedByRosterId,
+      nominatingRosterId: nominatingRosterId ?? this.nominatingRosterId,
+      nominatingTeamName: nominatingTeamName ?? this.nominatingTeamName,
       playerId: playerId ?? this.playerId,
       playerName: playerName ?? this.playerName,
       playerPosition: playerPosition ?? this.playerPosition,
@@ -116,11 +122,12 @@ class AuctionNomination {
   }
 
   Duration get timeRemaining {
+    if (deadline == null) return Duration.zero;
     final now = DateTime.now();
-    if (deadline.isBefore(now)) {
+    if (deadline!.isBefore(now)) {
       return Duration.zero;
     }
-    return deadline.difference(now);
+    return deadline!.difference(now);
   }
 }
 
@@ -218,7 +225,7 @@ class ActivityItem {
   final String type; // 'bid', 'nomination', 'won', 'expired'
   final String description;
   final DateTime timestamp;
-  final int? playerId;
+  final String? playerId;
   final String? playerName;
   final int? rosterId;
   final String? teamName;
@@ -240,7 +247,7 @@ class ActivityItem {
       type: json['type'] as String,
       description: json['description'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
-      playerId: json['player_id'] as int?,
+      playerId: json['player_id'] as String?,
       playerName: json['player_name'] as String?,
       rosterId: json['roster_id'] as int?,
       teamName: json['team_name'] as String?,
