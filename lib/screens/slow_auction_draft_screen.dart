@@ -50,7 +50,7 @@ class _SlowAuctionDraftScreenState extends State<SlowAuctionDraftScreen>
     }
 
     // Setup socket listeners
-    auctionProvider.setupSlowAuctionListeners(widget.draftId, widget.myRosterId);
+    await auctionProvider.setupSlowAuctionListeners(widget.draftId, widget.myRosterId);
 
     // Load initial data
     await auctionProvider.loadAuctionData(

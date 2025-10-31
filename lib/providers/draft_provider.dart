@@ -598,20 +598,20 @@ class DraftProvider with ChangeNotifier {
   }
 
   // Join draft room (WebSocket)
-  void joinDraftRoom({
+  Future<void> joinDraftRoom({
     required int draftId,
     required int userId,
     required String username,
-  }) {
+  }) async {
     // Initialize socket with stored auth token before connecting
     if (_authToken != null) {
-      _socketService.initializeWithToken(_authToken!);
+      await _socketService.initializeWithToken(_authToken!);
       debugPrint('[DraftProvider] Socket initialized with token for WebSocket connection');
     } else {
       debugPrint('[DraftProvider] WARNING: No auth token available for socket connection!');
     }
 
-    _socketService.connect();
+    await _socketService.connect();
     _socketService.joinDraft(
       draftId: draftId,
       userId: userId,

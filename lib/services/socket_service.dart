@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
 import '../models/draft_model.dart';
 import '../models/draft_order_model.dart';
@@ -10,7 +11,8 @@ class SocketService {
   IO.Socket? _socket;
   int? _currentDraftId;
   int? _currentLeagueId;
-  String? _authToken; // Store token for socket authentication
+  final _secureStorage = const FlutterSecureStorage();
+  static const String _tokenKey = 'auth_token';
 
   // Draft event callbacks
   Function(Map<String, dynamic>)? onPickMade;
@@ -57,20 +59,21 @@ class SocketService {
   bool get isConnected => _socket?.connected ?? false;
 
   // Initialize socket with authentication token
-  void initializeWithToken(String token) {
-    _authToken = token;
-    debugPrint('[SocketService] Initialized with token (length=${token.length})');
+  Future<void> initializeWithToken(String token) async {
+    await _secureStorage.write(key: _tokenKey, value: token);
+    debugPrint('[SocketService] Token securely stored (length=${token.length})');
   }
 
   // Connect to the WebSocket server
-  void connect() {
+  Future<void> connect() async {
     if (_socket?.connected == true) {
       debugPrint('Socket already connected');
       return;
     }
 
-    if (_authToken == null) {
-      debugPrint('[SocketService] ERROR: Cannot connect - no token set. Call initializeWithToken first!');
+    final token = await _secureStorage.read(key: _tokenKey);
+    if (token == null) {
+      debugPrint('[SocketService] ERROR: No token found in secure storage');
       onError?.call('No authentication token provided');
       return;
     }
@@ -82,7 +85,7 @@ class SocketService {
         IO.OptionBuilder()
             .setTransports(['websocket'])
             .disableAutoConnect()
-            .setAuth({'token': _authToken})
+            .setAuth({'token': token})
             .build(),
       );
 
@@ -104,8 +107,8 @@ class SocketService {
       // Listen for draft events
       _setupEventListeners();
     } catch (e) {
-      debugPrint('Socket connection error: $e');
-      onError?.call(e.toString());
+      debugPrint('[SocketService] Connection error: $e');
+      onError?.call('Socket connection failed');
     }
   }
 
@@ -579,6 +582,12 @@ class SocketService {
       if (rosterId != null) 'rosterId': rosterId,
     });
     debugPrint('Emitted join_auction for draft $draftId (roster: $rosterId)');
+  }
+
+  // Clear token from secure storage (on logout)
+  Future<void> clearToken() async {
+    await _secureStorage.delete(key: _tokenKey);
+    debugPrint('[SocketService] Token cleared from secure storage');
   }
 
   // Clear all callbacks
