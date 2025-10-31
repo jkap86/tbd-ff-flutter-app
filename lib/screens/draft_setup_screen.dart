@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../widgets/responsive_container.dart';
-import 'draft_room_screen.dart';
-import 'auction_draft_screen.dart';
 
 class DraftSetupScreen extends StatefulWidget {
   final int leagueId;
@@ -98,47 +96,17 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       setState(() => _isCreating = false);
 
       if (success) {
-        // Navigate to appropriate draft screen based on type
-        Widget draftScreen;
-        switch (_draftType) {
-          case 'snake':
-          case 'linear':
-            draftScreen = DraftRoomScreen(
-              leagueId: widget.leagueId,
-              leagueName: widget.leagueName,
-            );
-            break;
-          case 'auction':
-          case 'slow_auction':
-            // For auction drafts, we need draft ID and roster ID
-            // These will be available from draftProvider.currentDraft
-            if (draftProvider.currentDraft != null) {
-              // TODO: Get user's roster ID for this league
-              // For now, navigate to auction screen placeholder
-              draftScreen = AuctionDraftScreen(
-                draftId: draftProvider.currentDraft!.id,
-                leagueId: widget.leagueId,
-                myRosterId: 0, // TODO: Get actual roster ID
-                draftName: widget.leagueName,
-              );
-            } else {
-              // Fallback to draft room if draft not available
-              draftScreen = DraftRoomScreen(
-                leagueId: widget.leagueId,
-                leagueName: widget.leagueName,
-              );
-            }
-            break;
-          default:
-            draftScreen = DraftRoomScreen(
-              leagueId: widget.leagueId,
-              leagueName: widget.leagueName,
-            );
+        // Show success message and navigate back to League Details
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Draft created successfully! Randomize the draft order before starting.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          Navigator.of(context).pop(); // Go back to League Details
         }
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => draftScreen),
-        );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
