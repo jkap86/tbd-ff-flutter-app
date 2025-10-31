@@ -107,28 +107,28 @@ class DraftProvider with ChangeNotifier {
       if (data['pick'] != null) {
         final pick = DraftPick.fromJson(data['pick']);
         _draftPicks.add(pick);
-        debugPrint('[DraftProvider] Added pick: ${pick.playerName} (pick.playerId: ${pick.playerId}, type: ${pick.playerId.runtimeType})');
+        print('[DraftProvider] Added pick: ${pick.playerName} (pick.playerId: ${pick.playerId}, type: ${pick.playerId.runtimeType})');
 
         // Remove picked player from available players
         // pick.playerId should be the database player.id (integer from players table)
         final beforeCount = _availablePlayers.length;
 
         // Debug: log all available player IDs to see what we're matching against
-        debugPrint('[DraftProvider] Available player IDs: ${_availablePlayers.map((p) => 'id=${p.id} playerId=${p.playerId}').take(5).join(', ')}...');
+        print('[DraftProvider] Available player IDs: ${_availablePlayers.map((p) => 'id=${p.id} playerId=${p.playerId}').take(5).join(', ')}...');
 
         _availablePlayers.removeWhere((player) {
           final matches = player.id == pick.playerId;
           if (matches) {
-            debugPrint('[DraftProvider] MATCH FOUND: player.id=${player.id} == pick.playerId=${pick.playerId}');
+            print('[DraftProvider] MATCH FOUND: player.id=${player.id} == pick.playerId=${pick.playerId}');
           }
           return matches;
         });
 
         final afterCount = _availablePlayers.length;
-        debugPrint('[DraftProvider] Removed player from available list. Before: $beforeCount, After: $afterCount');
+        print('[DraftProvider] Removed player from available list. Before: $beforeCount, After: $afterCount');
 
         if (beforeCount == afterCount) {
-          debugPrint('[DraftProvider] WARNING: Player was NOT removed! pick.playerId=${pick.playerId} not found in available list');
+          print('[DraftProvider] WARNING: Player was NOT removed! pick.playerId=${pick.playerId} not found in available list');
         }
       }
 
