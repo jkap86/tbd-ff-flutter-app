@@ -213,7 +213,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     if (mounted && settings != null) {
       setState(() {
-        _waiverSettings = settings;
         _waiverType = settings.waiverType;
         _faabBudget = settings.faabBudget;
         _waiverPeriodDays = settings.waiverPeriodDays;
@@ -288,9 +287,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     if (mounted) {
       if (updatedSettings != null) {
-        setState(() {
-          _waiverSettings = updatedSettings;
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Waiver settings updated successfully!'),
