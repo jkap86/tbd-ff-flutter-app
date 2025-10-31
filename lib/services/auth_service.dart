@@ -76,7 +76,7 @@ class AuthService {
 
       if (kDebugMode) {
         debugPrint('[AuthService] Response status: ${response.statusCode}');
-        // Don't log response body or tokens
+        debugPrint('[AuthService] Response body: ${response.body}');
       }
 
       final responseData = jsonDecode(response.body);
@@ -87,6 +87,8 @@ class AuthService {
         // 2. Old format: { user: {...}, token: "..." }
         if (kDebugMode) {
           debugPrint('[AuthService] Creating AuthData from response');
+          debugPrint('[AuthService] Response has success field: ${responseData['success'] != null}');
+          debugPrint('[AuthService] Response has data field: ${responseData['data'] != null}');
         }
 
         try {
@@ -94,8 +96,13 @@ class AuthService {
           if (responseData['success'] != null && responseData['data'] != null) {
             if (kDebugMode) {
               debugPrint('[AuthService] Using new response format with data wrapper');
+              debugPrint('[AuthService] About to call AuthResponse.fromJson');
             }
-            return AuthResponse.fromJson(responseData);
+            final authResponse = AuthResponse.fromJson(responseData);
+            if (kDebugMode) {
+              debugPrint('[AuthService] AuthResponse created - success: ${authResponse.success}, hasData: ${authResponse.data != null}');
+            }
+            return authResponse;
           }
 
           // Old format: user and token at root level
