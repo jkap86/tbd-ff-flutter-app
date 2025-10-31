@@ -16,6 +16,7 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'config/api_config.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   // Print API configuration in debug mode
@@ -68,29 +69,9 @@ class MyAppContent extends StatelessWidget {
         return MaterialApp(
           title: 'HypeTrain',
           debugShowCheckedModeBanner: false,
-          themeMode: themeProvider.themeMode,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1E3A8A), // Dark blue
-              primary: const Color(0xFF1E3A8A), // Dark blue
-              secondary: const Color(0xFFFF6B35), // Bright orange
-              tertiary: const Color(0xFF00D9FF), // Bright teal
-              brightness: Brightness.light,
-            ),
-            useMaterial3: true,
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1E3A8A), // Dark blue
-              primary: const Color(0xFF2563EB), // Lighter blue for dark mode
-              secondary: const Color(0xFFFF6B35), // Bright orange
-              tertiary: const Color(0xFF00D9FF), // Bright teal
-              brightness: Brightness.dark,
-              surface: const Color(0xFF1F2937), // Dark gray
-            ),
-            scaffoldBackgroundColor: const Color(0xFF111827), // Dark gray/black
-            useMaterial3: true,
-          ),
+          themeMode: ThemeMode.dark, // Always use dark theme with custom colors
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
           home: const AuthWrapper(),
         );
       },
