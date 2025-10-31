@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/common/error_state_widget.dart';
 import '../widgets/common/empty_state_widget.dart';
@@ -149,85 +150,120 @@ class _LeaguesScreenState extends State<LeaguesScreen>
 
             return ResponsiveContainer(
               maxWidth: 800,
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Semantics(
-                  label: '${league.name}, ${_formatLeagueType(league.leagueType)}, ${_formatStatus(league.status)}, ${league.currentRosters ?? league.totalRosters} of ${league.totalRosters} teams${isCommissioner ? ', Commissioner' : ''}',
-                  button: true,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: Semantics(
-                      excludeSemantics: true,
-                      child: CircleAvatar(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.sports_football,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+              child: Semantics(
+                label: '${league.name}, ${_formatLeagueType(league.leagueType)}, ${_formatStatus(league.status)}, ${league.currentRosters ?? league.totalRosters} of ${league.totalRosters} teams${isCommissioner ? ', Commissioner' : ''}',
+                button: true,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            LeagueDetailsScreen(leagueId: league.id),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header with title and commissioner badge
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.sports_football,
+                                  color: AppColors.primary,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  league.name,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              if (isCommissioner)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warning.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: AppColors.warning,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Commissioner',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.warning,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          // League info
+                          Row(
+                            children: [
+                              Text(
+                                'Season: ${league.season}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Text(
+                                'Teams: ${league.currentRosters ?? league.totalRosters}/${league.totalRosters}',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          // Status badges
+                          Row(
+                            children: [
+                              _buildLeagueTypeChip(league.leagueType),
+                              const SizedBox(width: 8),
+                              _buildStatusChip(league.status),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          league.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      if (isCommissioner)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'C',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      Text('Season: ${league.season}'),
-                      Text(
-                        'Teams: ${league.currentRosters ?? league.totalRosters}/${league.totalRosters}',
-                      ),
-                      const SizedBox(height: 4),
-                      _buildLeagueTypeChip(league.leagueType),
-                      const SizedBox(height: 4),
-                      _buildStatusChip(league.status),
-                    ],
-                  ),
-                    trailing: Semantics(
-                      excludeSemantics: true,
-                      child: const Icon(Icons.arrow_forward_ios),
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              LeagueDetailsScreen(leagueId: league.id),
-                        ),
-                      );
-                    },
                   ),
                 ),
               ),
@@ -272,35 +308,40 @@ class _LeaguesScreenState extends State<LeaguesScreen>
 
     switch (status) {
       case 'pre_draft':
-        color = Colors.orange;
+        color = AppColors.warning;
         label = 'Pre-Draft';
         break;
       case 'drafting':
-        color = Colors.blue;
+        color = AppColors.primary;
         label = 'Drafting';
         break;
       case 'in_season':
-        color = Colors.green;
+        color = AppColors.secondary;
         label = 'In Season';
         break;
       case 'complete':
-        color = Colors.grey;
+        color = AppColors.textSecondary;
         label = 'Complete';
         break;
       default:
-        color = Colors.grey;
+        color = AppColors.textSecondary;
         label = status;
     }
 
-    return Chip(
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: 12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(6),
       ),
-      backgroundColor: color.withValues(alpha: 0.2),
-      side: BorderSide.none,
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -310,31 +351,36 @@ class _LeaguesScreenState extends State<LeaguesScreen>
 
     switch (type) {
       case 'redraft':
-        color = Colors.blue;
+        color = AppColors.primary;
         label = 'Redraft';
         break;
       case 'dynasty':
-        color = Colors.purple;
+        color = AppColors.accent;
         label = 'Dynasty';
         break;
       case 'keeper':
-        color = Colors.orange;
+        color = AppColors.warning;
         label = 'Keeper';
         break;
       default:
-        color = Colors.grey;
+        color = AppColors.textSecondary;
         label = type;
     }
 
-    return Chip(
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: 12),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(6),
       ),
-      backgroundColor: color.withValues(alpha: 0.2),
-      side: BorderSide.none,
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }
