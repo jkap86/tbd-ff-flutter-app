@@ -6,6 +6,7 @@ import '../models/draft_model.dart';
 import '../models/roster_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
+import '../services/draft_service.dart';
 import '../screens/draft_setup_screen.dart';
 import '../screens/draft_room_screen.dart';
 import '../screens/auction_draft_screen.dart';
@@ -188,6 +189,12 @@ class DraftManagementCard extends StatelessWidget {
               label: const Text('Enter Draft Room'),
               onPressed: () => _navigateToDraftRoom(context),
             ),
+            if (isCommissioner)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.shuffle),
+                label: const Text('Randomize Order'),
+                onPressed: () => _handleRandomizeDraftOrder(context),
+              ),
             if (isCommissioner)
               OutlinedButton.icon(
                 icon: const Icon(Icons.delete_outline),
@@ -432,5 +439,74 @@ class DraftManagementCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _handleRandomizeDraftOrder(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Randomize Draft Order?'),
+        content: const Text(
+          'This will randomly assign draft positions to all teams. '
+          'Are you sure you want to randomize the draft order?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Randomize'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    if (authProvider.token == null || draft == null) return;
+
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Randomizing draft order...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      await DraftService().setDraftOrder(
+        token: authProvider.token!,
+        draftId: draft!.id,
+        randomize: true,
+      );
+
+      if (context.mounted) {
+        // Reload draft to get new order
+        await draftProvider.loadDraftByLeague(authProvider.token!, league.id);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft order randomized successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to randomize draft order: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }
