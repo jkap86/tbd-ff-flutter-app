@@ -603,6 +603,14 @@ class DraftProvider with ChangeNotifier {
     required int userId,
     required String username,
   }) {
+    // Initialize socket with stored auth token before connecting
+    if (_authToken != null) {
+      _socketService.initializeWithToken(_authToken!);
+      debugPrint('[DraftProvider] Socket initialized with token for WebSocket connection');
+    } else {
+      debugPrint('[DraftProvider] WARNING: No auth token available for socket connection!');
+    }
+
     _socketService.connect();
     _socketService.joinDraft(
       draftId: draftId,
