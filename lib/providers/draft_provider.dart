@@ -107,19 +107,29 @@ class DraftProvider with ChangeNotifier {
       if (data['pick'] != null) {
         final pick = DraftPick.fromJson(data['pick']);
         _draftPicks.add(pick);
-        debugPrint('[DraftProvider] Added pick: ${pick.playerName} (ID: ${pick.playerId})');
+        debugPrint('[DraftProvider] Added pick: ${pick.playerName} (pick.playerId: ${pick.playerId}, type: ${pick.playerId.runtimeType})');
 
         // Remove picked player from available players
-        // Note: pick.playerId is the Sleeper player_id (e.g., '4829')
-        // player.playerId in availablePlayers is also the Sleeper ID
+        // pick.playerId should be the database player.id (integer from players table)
         final beforeCount = _availablePlayers.length;
-        final playerIdToRemove = pick.playerId?.toString() ?? '';
-        _availablePlayers.removeWhere((player) =>
-          player.playerId == playerIdToRemove ||
-          player.id.toString() == playerIdToRemove
-        );
+
+        // Debug: log all available player IDs to see what we're matching against
+        debugPrint('[DraftProvider] Available player IDs: ${_availablePlayers.map((p) => 'id=${p.id} playerId=${p.playerId}').take(5).join(', ')}...');
+
+        _availablePlayers.removeWhere((player) {
+          final matches = player.id == pick.playerId;
+          if (matches) {
+            debugPrint('[DraftProvider] MATCH FOUND: player.id=${player.id} == pick.playerId=${pick.playerId}');
+          }
+          return matches;
+        });
+
         final afterCount = _availablePlayers.length;
-        debugPrint('[DraftProvider] Removed player from available list. playerId: $playerIdToRemove, Before: $beforeCount, After: $afterCount');
+        debugPrint('[DraftProvider] Removed player from available list. Before: $beforeCount, After: $afterCount');
+
+        if (beforeCount == afterCount) {
+          debugPrint('[DraftProvider] WARNING: Player was NOT removed! pick.playerId=${pick.playerId} not found in available list');
+        }
       }
 
       // Update deadline if next_deadline is provided
