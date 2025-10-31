@@ -27,7 +27,13 @@ class AuthService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        return AuthResponse.fromJson(responseData);
+        // Backend returns { user: {...}, token: "..." } format
+        // Convert to expected AuthResponse format
+        return AuthResponse(
+          success: true,
+          message: 'Registration successful',
+          data: AuthData.fromJson(responseData),
+        );
       } else {
         // Return error response
         return AuthResponse(
@@ -61,7 +67,13 @@ class AuthService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return AuthResponse.fromJson(responseData);
+        // Backend returns { user: {...}, token: "..." } format
+        // Convert to expected AuthResponse format
+        return AuthResponse(
+          success: true,
+          message: 'Login successful',
+          data: AuthData.fromJson(responseData),
+        );
       } else {
         // Return error response
         return AuthResponse(
