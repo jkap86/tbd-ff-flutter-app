@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
@@ -348,17 +349,56 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+    final draft = draftProvider.currentDraft;
 
-    if (authProvider.token == null || draftProvider.currentDraft == null) return;
+    if (authProvider.token == null || draft == null) return;
+
+    // Check if draft has started
+    if (draft.status != 'in_progress') {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Draft has not started yet'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if currentRosterId is set
+    if (draft.currentRosterId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No current pick roster found'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     // Get current roster making the pick
-    final currentRoster = draftProvider.draftOrder.firstWhere(
-      (order) => order.rosterId == draftProvider.currentDraft!.currentRosterId,
+    final currentRoster = draftProvider.draftOrder.firstWhereOrNull(
+      (order) => order.rosterId == draft.currentRosterId,
     );
+
+    if (currentRoster == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Current roster not found in draft order'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     final success = await draftProvider.makePick(
       token: authProvider.token!,
-      draftId: draftProvider.currentDraft!.id,
+      draftId: draft.id,
       playerId: _selectedPlayer!.id,
       rosterId: currentRoster.rosterId,
     );
