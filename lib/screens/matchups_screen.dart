@@ -6,6 +6,7 @@ import '../providers/league_provider.dart';
 import '../models/matchup_model.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/league_chat_tab_widget.dart';
+import '../widgets/common/empty_state_widget.dart';
 import '../services/socket_service.dart';
 import '../services/nfl_service.dart';
 import 'matchup_detail_screen.dart';
@@ -214,28 +215,10 @@ class _MatchupsScreenState extends State<MatchupsScreen> {
               }
 
               if (matchupProvider.matchups.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.sports_football,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No matchups for Week ${_selectedWeek!}',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Matchups are auto-generated when league settings are updated',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                return EmptyStateWidget(
+                  icon: Icons.sports_football,
+                  title: 'No matchups for Week ${_selectedWeek!}',
+                  subtitle: 'Matchups are auto-generated when league settings are updated',
                 );
               }
 

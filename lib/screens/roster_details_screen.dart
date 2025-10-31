@@ -4,6 +4,8 @@ import '../providers/auth_provider.dart';
 import '../services/roster_service.dart';
 import '../services/weekly_lineup_service.dart';
 import '../widgets/injury_badge_widget.dart';
+import '../widgets/common/empty_state_widget.dart';
+import '../widgets/common/loading_skeletons.dart';
 import '../models/player_model.dart';
 
 class RosterDetailsScreen extends StatefulWidget {
@@ -337,7 +339,7 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const RosterSectionSkeleton(itemCount: 10)
           : _errorMessage != null
               ? Center(
                   child: Column(
@@ -666,33 +668,10 @@ class _RosterDetailsScreenState extends State<RosterDetailsScreen> {
 
             // Empty roster message
             if (totalPlayers == 0) ...[
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(Icons.group_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No players on roster',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Players will be added after the draft',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              const EmptyStateWidget(
+                icon: Icons.group_off,
+                title: 'No players on roster',
+                subtitle: 'Players will be added after the draft',
               ),
             ],
           ],

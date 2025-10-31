@@ -13,32 +13,43 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Home'),
         actions: [
           // Theme toggle button
           Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
-              return IconButton(
-                icon: Icon(
-                  themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                ),
-                onPressed: () {
-                  themeProvider.toggleTheme();
-                },
-                tooltip: themeProvider.isDarkMode
+              return Semantics(
+                label: themeProvider.isDarkMode
                     ? 'Switch to Light Mode'
                     : 'Switch to Dark Mode',
+                button: true,
+                child: IconButton(
+                  icon: Icon(
+                    themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                  ),
+                  onPressed: () {
+                    themeProvider.toggleTheme();
+                  },
+                  tooltip: themeProvider.isDarkMode
+                      ? 'Switch to Light Mode'
+                      : 'Switch to Dark Mode',
+                ),
               );
             },
           ),
           // Profile button
-          IconButton(
-            icon: const Icon(Icons.person),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            },
-            tooltip: 'Profile',
+          Semantics(
+            label: 'Open Profile',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              },
+              tooltip: 'Profile',
+            ),
           ),
         ],
       ),
@@ -55,14 +66,19 @@ class HomeScreen extends StatelessWidget {
           return Column(
             children: [
               // Logo banner - full width at top (outside ResponsiveContainer)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                child: Image.asset(
-                  'assets/icon/app_icon.png',
-                  height: 240,
-                  width: 540,
-                  fit: BoxFit.contain,
+              Semantics(
+                label: 'Application logo',
+                image: true,
+                excludeSemantics: true,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                  child: Image.asset(
+                    'assets/icon/app_icon.png',
+                    height: 240,
+                    width: 540,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               // Scrollable content with ResponsiveContainer
@@ -77,7 +93,10 @@ class HomeScreen extends StatelessWidget {
                         // Leagues Card - Main feature
                         Card(
                           elevation: 4,
-                          child: InkWell(
+                          child: Semantics(
+                            label: 'My Leagues. View and manage your leagues',
+                            button: true,
+                            child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -90,20 +109,23 @@ class HomeScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(24.0),
                         child: Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .primaryContainer,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.sports_football,
-                                size: 40,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
+                            Semantics(
+                              excludeSemantics: true,
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.sports_football,
+                                  size: 40,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 20),
@@ -131,16 +153,20 @@ class HomeScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                            Semantics(
+                              excludeSemantics: true,
+                              child: Icon(
+                                Icons.arrow_forward_ios,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                          ),
                   ),
                         const SizedBox(height: 16),
                         // My Players Card - Coming Soon

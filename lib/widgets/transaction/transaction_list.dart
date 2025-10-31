@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../models/transaction.dart';
 import '../../models/player_model.dart';
+import '../common/empty_state_widget.dart';
 import '../../config/api_config.dart';
 
 class TransactionList extends StatefulWidget {
@@ -69,27 +70,11 @@ class _TransactionListState extends State<TransactionList> {
   @override
   Widget build(BuildContext context) {
     if (widget.transactions.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.receipt_long,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No transactions yet',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.outline,
-                    ),
-              ),
-            ],
-          ),
-        ),
+      return const EmptyStateWidget(
+        icon: Icons.receipt_long,
+        iconSize: 48,
+        title: 'No transactions yet',
+        subtitle: 'Recent waiver and free agent transactions will appear here',
       );
     }
 

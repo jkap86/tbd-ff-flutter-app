@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../models/trade_model.dart';
 import '../widgets/league_chat_tab_widget.dart';
+import '../widgets/common/empty_state_widget.dart';
 import '../services/socket_service.dart';
 import 'propose_trade_screen.dart';
 
@@ -120,8 +121,22 @@ class _TradesScreenState extends State<TradesScreen> {
                             children: [
                               // Pending trades
                               pendingTrades.isEmpty
-                                  ? const Center(
-                                      child: Text('No pending trades'),
+                                  ? EmptyStateWidget(
+                                      icon: Icons.swap_horiz,
+                                      title: 'No pending trades',
+                                      subtitle: 'Propose a trade to get started',
+                                      actionLabel: 'Propose Trade',
+                                      onAction: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ProposeTradeScreen(
+                                              leagueId: widget.leagueId,
+                                              myRosterId: myRosterId,
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     )
                                   : ListView.builder(
                                       itemCount: pendingTrades.length,
@@ -135,8 +150,10 @@ class _TradesScreenState extends State<TradesScreen> {
                                     ),
                               // Completed trades
                               completedTrades.isEmpty
-                                  ? const Center(
-                                      child: Text('No trade history'),
+                                  ? const EmptyStateWidget(
+                                      icon: Icons.history,
+                                      title: 'No trade history',
+                                      subtitle: 'Completed trades will appear here',
                                     )
                                   : ListView.builder(
                                       itemCount: completedTrades.length,

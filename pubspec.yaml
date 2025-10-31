@@ -22,6 +22,9 @@ dependencies:
 
   # Deep linking
   app_links: ^3.5.1
+
+  # Loading animations
+  shimmer: ^3.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

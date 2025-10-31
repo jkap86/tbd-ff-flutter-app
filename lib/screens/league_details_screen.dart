@@ -7,6 +7,7 @@ import '../models/roster_model.dart';
 import '../models/league_model.dart';
 import '../models/league_chat_message_model.dart';
 import '../widgets/responsive_container.dart';
+import '../widgets/common/error_state_widget.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
@@ -174,7 +175,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   // Helper method to calculate actual chat drawer height with minimum clamp
   double _getActualChatDrawerHeight(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final calculatedHeight = screenHeight * _chatDrawerHeight;
 
     // Only apply minimum in landscape where screen height is limited
@@ -198,22 +200,26 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
           Consumer2<LeagueProvider, AuthProvider>(
             builder: (context, leagueProvider, authProvider, child) {
               if (leagueProvider.isCommissioner) {
-                return IconButton(
-                  icon: const Icon(Icons.person_add),
-                  onPressed: () {
-                    final league = leagueProvider.selectedLeague;
-                    if (league != null) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => InviteMembersScreen(
-                            leagueId: league.id,
-                            leagueName: league.name,
+                return Semantics(
+                  label: 'Invite Members',
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(Icons.person_add),
+                    onPressed: () {
+                      final league = leagueProvider.selectedLeague;
+                      if (league != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => InviteMembersScreen(
+                              leagueId: league.id,
+                              leagueName: league.name,
+                            ),
                           ),
-                        ),
-                      );
-                    }
-                  },
-                  tooltip: 'Invite Members',
+                        );
+                      }
+                    },
+                    tooltip: 'Invite Members',
+                  ),
                 );
               }
               return const SizedBox.shrink();
@@ -228,24 +234,9 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
           }
 
           if (leagueProvider.status == LeagueStatus.error) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text(
-                    leagueProvider.errorMessage ?? 'Error loading league',
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadLeagueDetails,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            return ErrorStateWidget(
+              message: leagueProvider.errorMessage ?? 'Error loading league',
+              onRetry: _loadLeagueDetails,
             );
           }
 
@@ -273,435 +264,629 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                         padding: EdgeInsets.zero,
                         physics: const AlwaysScrollableScrollPhysics(),
                         children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Card(
-                            margin: EdgeInsets.zero,
-                            clipBehavior: Clip.antiAlias,
-                            child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Header (always visible)
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _isLeagueInfoExpanded = !_isLeagueInfoExpanded;
-                                });
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                child: Row(
-                              children: [
-                                Icon(
-                                  Icons.sports_football,
-                                  size: 32,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        league.name,
-                                        style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      if (isCommissioner)
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 4),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Card(
+                              margin: EdgeInsets.zero,
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Header (always visible)
+                                  InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _isLeagueInfoExpanded =
+                                            !_isLeagueInfoExpanded;
+                                      });
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.sports_football,
+                                            size: 32,
                                             color: Theme.of(context)
                                                 .colorScheme
-                                                .primaryContainer,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                                .primary,
                                           ),
-                                          child: Text(
-                                            'Commissioner',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimaryContainer,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                                // Expand/collapse icon
-                                Icon(
-                                  _isLeagueInfoExpanded
-                                    ? Icons.keyboard_arrow_up
-                                    : Icons.keyboard_arrow_down,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                if (isCommissioner)
-                                  PopupMenuButton(
-                                    itemBuilder: (context) => [
-                                      PopupMenuItem(
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.edit, size: 20),
-                                            SizedBox(width: 8),
-                                            Text('Edit League'),
-                                          ],
-                                        ),
-                                        onTap: () {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  EditLeagueScreen(
-                                                league: league,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      PopupMenuItem(
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.delete_forever, size: 20, color: Colors.red),
-                                            SizedBox(width: 8),
-                                            Text('Delete League', style: TextStyle(color: Colors.red)),
-                                          ],
-                                        ),
-                                        onTap: () async {
-                                          // Show confirmation dialog
-                                          final confirmed = await showDialog<bool>(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text('Delete League?'),
-                                              content: const Text(
-                                                'This will permanently delete the league and all related data including draft, matchups, and chat messages. This action cannot be undone.',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(context).pop(false),
-                                                  child: const Text('Cancel'),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () => Navigator.of(context).pop(true),
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: Colors.red,
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  league.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 24,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
-                                                  child: const Text('Delete'),
+                                                ),
+                                                if (isCommissioner)
+                                                  Container(
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                            top: 4),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .primaryContainer,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
+                                                    ),
+                                                    child: Text(
+                                                      'Commissioner',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onPrimaryContainer,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          // Expand/collapse icon
+                                          Icon(
+                                            _isLeagueInfoExpanded
+                                                ? Icons.keyboard_arrow_up
+                                                : Icons.keyboard_arrow_down,
+                                            size: 24,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          if (isCommissioner)
+                                            PopupMenuButton(
+                                              itemBuilder: (context) => [
+                                                PopupMenuItem(
+                                                  child: const Row(
+                                                    children: [
+                                                      Icon(Icons.edit,
+                                                          size: 20),
+                                                      SizedBox(width: 8),
+                                                      Text('Edit League'),
+                                                    ],
+                                                  ),
+                                                  onTap: () {
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            EditLeagueScreen(
+                                                          league: league,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                PopupMenuItem(
+                                                  child: const Row(
+                                                    children: [
+                                                      Icon(Icons.delete_forever,
+                                                          size: 20,
+                                                          color: Colors.red),
+                                                      SizedBox(width: 8),
+                                                      Text('Delete League',
+                                                          style: TextStyle(
+                                                              color:
+                                                                  Colors.red)),
+                                                    ],
+                                                  ),
+                                                  onTap: () async {
+                                                    // Show confirmation dialog
+                                                    final confirmed =
+                                                        await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (context) =>
+                                                          AlertDialog(
+                                                        title: const Text(
+                                                            'Delete League?'),
+                                                        content: const Text(
+                                                          'This will permanently delete the league and all related data including draft, matchups, and chat messages. This action cannot be undone.',
+                                                        ),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                        context)
+                                                                    .pop(false),
+                                                            child: const Text(
+                                                                'Cancel'),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                        context)
+                                                                    .pop(true),
+                                                            style: TextButton
+                                                                .styleFrom(
+                                                              foregroundColor:
+                                                                  Colors.red,
+                                                            ),
+                                                            child: const Text(
+                                                                'Delete'),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+
+                                                    if (confirmed == true) {
+                                                      final success =
+                                                          await leagueProvider
+                                                              .deleteLeague(
+                                                        token:
+                                                            authProvider.token!,
+                                                        leagueId: league.id,
+                                                      );
+
+                                                      if (success &&
+                                                          context.mounted) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                                'League deleted successfully'),
+                                                            backgroundColor:
+                                                                Colors.green,
+                                                          ),
+                                                        );
+                                                        // Navigate back to leagues list
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      } else if (context
+                                                          .mounted) {
+                                                        ScaffoldMessenger.of(
+                                                                context)
+                                                            .showSnackBar(
+                                                          SnackBar(
+                                                            content: Text(leagueProvider
+                                                                    .errorMessage ??
+                                                                'Failed to delete league'),
+                                                            backgroundColor:
+                                                                Colors.red,
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
                                                 ),
                                               ],
                                             ),
-                                          );
-
-                                          if (confirmed == true) {
-                                            final success = await leagueProvider.deleteLeague(
-                                              token: authProvider.token!,
-                                              leagueId: league.id,
-                                            );
-
-                                            if (success && context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text('League deleted successfully'),
-                                                  backgroundColor: Colors.green,
-                                                ),
-                                              );
-                                              // Navigate back to leagues list
-                                              Navigator.of(context).pop();
-                                            } else if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(leagueProvider.errorMessage ?? 'Failed to delete league'),
-                                                  backgroundColor: Colors.red,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
+                                        ],
                                       ),
-                                    ],
+                                    ),
+                                  ),
+                                  // Expandable content with animation
+                                  AnimatedSize(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                    alignment: Alignment.topCenter,
+                                    child: _isLeagueInfoExpanded
+                                        ? Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                                16, 0, 16, 16),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Divider(height: 24),
+                                                _buildInfoRow(
+                                                    Icons.calendar_today,
+                                                    'Season',
+                                                    '${league.season} (Weeks ${league.startWeek}-${league.endWeek})'),
+                                                const SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.sports,
+                                                  'Season Type',
+                                                  _formatSeasonType(
+                                                      league.seasonType),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.category,
+                                                  'League Type',
+                                                  _formatLeagueType(
+                                                      league.leagueType),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.emoji_events,
+                                                  'Playoff Start',
+                                                  'Week ${league.playoffWeekStart}',
+                                                ),
+                                                const SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.people,
+                                                  'Teams',
+                                                  '${rosters.length}/${league.totalRosters}',
+                                                ),
+                                                const SizedBox(height: 8),
+                                                _buildInfoRow(
+                                                  Icons.circle,
+                                                  'Status',
+                                                  _formatStatus(league.status),
+                                                ),
+                                                const SizedBox(height: 16),
+                                                // Collapsible Scoring Settings
+                                                _buildScoringSettingsSection(
+                                                    league),
+                                                const SizedBox(height: 16),
+                                                const Divider(height: 1),
+                                              ],
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
+                                  // Footer with action buttons - Always visible
+                                  Consumer<DraftProvider>(
+                                    builder: (context, draftProvider, child) {
+                                      final isDrafting =
+                                          league.status == 'drafting';
+                                      final hasDraft =
+                                          draftProvider.currentDraft != null &&
+                                              draftProvider
+                                                      .currentDraft!.leagueId ==
+                                                  league.id;
+                                      final showInSeasonButtons =
+                                          league.status == 'in_season' ||
+                                              league.status == 'post_draft';
+
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                          border: Border(
+                                            top: BorderSide(
+                                              color: Theme.of(context)
+                                                  .dividerColor,
+                                              width: 1,
+                                            ),
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.all(12),
+                                        width: double.infinity,
+                                        child: Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            // Draft button (always shown)
+                                            SizedBox(
+                                              width: 120,
+                                              child: Semantics(
+                                                label: hasDraft
+                                                    ? 'View Draft'
+                                                    : 'No Draft available',
+                                                button: true,
+                                                enabled: hasDraft,
+                                                child: ElevatedButton.icon(
+                                                  onPressed: hasDraft
+                                                      ? () async {
+                                                          // Get draft to check type
+                                                          final draftProvider =
+                                                              Provider.of<
+                                                                      DraftProvider>(
+                                                                  context,
+                                                                  listen:
+                                                                      false);
+                                                          final draft =
+                                                              draftProvider
+                                                                  .currentDraft;
+
+                                                          if (draft == null) {
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              const SnackBar(
+                                                                  content: Text(
+                                                                      'Draft not found')),
+                                                            );
+                                                            return;
+                                                          }
+
+                                                          // Get user's roster ID
+                                                          final authProvider =
+                                                              Provider.of<
+                                                                      AuthProvider>(
+                                                                  context,
+                                                                  listen:
+                                                                      false);
+                                                          final userRoster =
+                                                              rosters
+                                                                  .firstWhere(
+                                                            (r) =>
+                                                                r.userId ==
+                                                                authProvider
+                                                                    .user?.id,
+                                                            orElse: () =>
+                                                                rosters.first,
+                                                          );
+
+                                                          Widget draftScreen;
+                                                          if (draft.draftType ==
+                                                              'auction') {
+                                                            draftScreen =
+                                                                AuctionDraftScreen(
+                                                              draftId: draft.id,
+                                                              leagueId:
+                                                                  league.id,
+                                                              myRosterId:
+                                                                  userRoster.id,
+                                                              draftName:
+                                                                  'Auction Draft',
+                                                            );
+                                                          } else if (draft
+                                                                  .draftType ==
+                                                              'slow_auction') {
+                                                            draftScreen =
+                                                                SlowAuctionDraftScreen(
+                                                              draftId: draft.id,
+                                                              leagueId:
+                                                                  league.id,
+                                                              myRosterId:
+                                                                  userRoster.id,
+                                                            );
+                                                          } else {
+                                                            // Default to snake/linear draft screen
+                                                            draftScreen =
+                                                                DraftRoomScreen(
+                                                              leagueId:
+                                                                  league.id,
+                                                              leagueName:
+                                                                  league.name,
+                                                            );
+                                                          }
+
+                                                          await Navigator.of(
+                                                                  context)
+                                                              .push(
+                                                            MaterialPageRoute(
+                                                              builder:
+                                                                  (context) =>
+                                                                      draftScreen,
+                                                            ),
+                                                          );
+                                                          await _loadLeagueDetails();
+                                                        }
+                                                      : null,
+                                                  icon: Icon(
+                                                    Icons.list_alt,
+                                                    size: 18,
+                                                    color: hasDraft
+                                                        ? (isDrafting
+                                                            ? Colors.white
+                                                            : null)
+                                                        : Colors.grey,
+                                                  ),
+                                                  label: Text(
+                                                    hasDraft
+                                                        ? 'Draft'
+                                                        : 'No Draft',
+                                                    style: TextStyle(
+                                                      color: hasDraft
+                                                          ? (isDrafting
+                                                              ? Colors.white
+                                                              : null)
+                                                          : Colors.grey,
+                                                      fontWeight: isDrafting
+                                                          ? FontWeight.bold
+                                                          : null,
+                                                    ),
+                                                  ),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor: hasDraft
+                                                        ? (isDrafting
+                                                            ? Colors.orange
+                                                            : Theme.of(context)
+                                                                .colorScheme
+                                                                .primaryContainer)
+                                                        : Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            // In-season buttons (Matchups, Trades, Waivers, Injuries)
+                                            if (showInSeasonButtons) ...[
+                                              // Matchups button
+                                              SizedBox(
+                                                width: 130,
+                                                child: Semantics(
+                                                  label: 'View Matchups',
+                                                  button: true,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              MatchupsScreen(
+                                                            leagueId: league.id,
+                                                            leagueName:
+                                                                league.name,
+                                                            season:
+                                                                league.season,
+                                                            startWeek: league
+                                                                .startWeek,
+                                                            playoffWeekStart: league
+                                                                .playoffWeekStart,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.scoreboard,
+                                                        size: 18),
+                                                    label:
+                                                        const Text('Matchups'),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              // Trades button
+                                              SizedBox(
+                                                width: 110,
+                                                child: Semantics(
+                                                  label: 'View Trades',
+                                                  button: true,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              TradesScreen(
+                                                            leagueId: league.id,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.swap_calls,
+                                                        size: 18),
+                                                    label: const Text('Trades'),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              // Waivers button
+                                              SizedBox(
+                                                width: 120,
+                                                child: Semantics(
+                                                  label: 'View Waivers',
+                                                  button: true,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () {
+                                                      final userRoster =
+                                                          rosters.firstWhere(
+                                                        (r) =>
+                                                            r.userId ==
+                                                            currentUserId,
+                                                        orElse: () =>
+                                                            rosters.first,
+                                                      );
+
+                                                      Navigator.of(context)
+                                                          .push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              WaiversHubScreen(
+                                                            leagueId: league.id,
+                                                            userRoster:
+                                                                userRoster,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.swap_horiz,
+                                                        size: 18),
+                                                    label:
+                                                        const Text('Waivers'),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              // Injuries button
+                                              SizedBox(
+                                                width: 120,
+                                                child: Semantics(
+                                                  label: 'View Injuries',
+                                                  button: true,
+                                                  child: ElevatedButton.icon(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) =>
+                                                              InjuryReportScreen(
+                                                            leagueId: league.id,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                    icon: const Icon(
+                                                        Icons.medical_services,
+                                                        size: 18),
+                                                    label:
+                                                        const Text('Injuries'),
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 12,
+                                                          horizontal: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                            // Expandable content with animation
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              alignment: Alignment.topCenter,
-                              child: _isLeagueInfoExpanded
-                                ? Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                            const Divider(height: 24),
-                            _buildInfoRow(
-                                Icons.calendar_today, 'Season', '${league.season} (Weeks ${league.startWeek}-${league.endWeek})'),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              Icons.sports,
-                              'Season Type',
-                              _formatSeasonType(league.seasonType),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              Icons.category,
-                              'League Type',
-                              _formatLeagueType(league.leagueType),
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              Icons.emoji_events,
-                              'Playoff Start',
-                              'Week ${league.playoffWeekStart}',
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              Icons.people,
-                              'Teams',
-                              '${rosters.length}/${league.totalRosters}',
-                            ),
-                            const SizedBox(height: 8),
-                            _buildInfoRow(
-                              Icons.circle,
-                              'Status',
-                              _formatStatus(league.status),
-                            ),
-                            const SizedBox(height: 16),
-                            // Collapsible Scoring Settings
-                            _buildScoringSettingsSection(league),
-                            const SizedBox(height: 16),
-                            const Divider(height: 1),
-                                      ],
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                            ),
-                            // Footer with action buttons - Always visible
-                            Consumer<DraftProvider>(
-                              builder: (context, draftProvider, child) {
-                                final isDrafting = league.status == 'drafting';
-                                final hasDraft = draftProvider.currentDraft != null &&
-                                    draftProvider.currentDraft!.leagueId == league.id;
-                                final showInSeasonButtons = league.status == 'in_season' || league.status == 'post_draft';
-
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    border: Border(
-                                      top: BorderSide(
-                                        color: Theme.of(context).dividerColor,
-                                        width: 1,
-                                      ),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.all(12),
-                                  width: double.infinity,
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    alignment: WrapAlignment.center,
-                                    children: [
-                                      // Draft button (always shown)
-                                      SizedBox(
-                                        width: 120,
-                                        child: ElevatedButton.icon(
-                                          onPressed: hasDraft ? () async {
-                                            // Get draft to check type
-                                            final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-                                            final draft = draftProvider.currentDraft;
-
-                                            if (draft == null) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Draft not found')),
-                                              );
-                                              return;
-                                            }
-
-                                            // Get user's roster ID
-                                            final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                                            final userRoster = rosters.firstWhere(
-                                              (r) => r.userId == authProvider.user?.id,
-                                              orElse: () => rosters.first,
-                                            );
-
-                                            Widget draftScreen;
-                                            if (draft.draftType == 'auction') {
-                                              draftScreen = AuctionDraftScreen(
-                                                draftId: draft.id,
-                                                leagueId: league.id,
-                                                myRosterId: userRoster.id,
-                                                draftName: 'Auction Draft',
-                                              );
-                                            } else if (draft.draftType == 'slow_auction') {
-                                              draftScreen = SlowAuctionDraftScreen(
-                                                draftId: draft.id,
-                                                leagueId: league.id,
-                                                myRosterId: userRoster.id,
-                                              );
-                                            } else {
-                                              // Default to snake/linear draft screen
-                                              draftScreen = DraftRoomScreen(
-                                                leagueId: league.id,
-                                                leagueName: league.name,
-                                              );
-                                            }
-
-                                            await Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) => draftScreen,
-                                              ),
-                                            );
-                                            await _loadLeagueDetails();
-                                          } : null,
-                                          icon: Icon(
-                                            Icons.list_alt,
-                                            size: 18,
-                                            color: hasDraft
-                                                ? (isDrafting ? Colors.white : null)
-                                                : Colors.grey,
-                                          ),
-                                          label: Text(
-                                            hasDraft ? 'Draft' : 'No Draft',
-                                            style: TextStyle(
-                                              color: hasDraft
-                                                  ? (isDrafting ? Colors.white : null)
-                                                  : Colors.grey,
-                                              fontWeight: isDrafting ? FontWeight.bold : null,
-                                            ),
-                                          ),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: hasDraft
-                                                ? (isDrafting
-                                                    ? Colors.orange
-                                                    : Theme.of(context).colorScheme.primaryContainer)
-                                                : Theme.of(context).colorScheme.surfaceContainerHighest,
-                                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                          ),
-                                        ),
-                                      ),
-                                      // In-season buttons (Matchups, Trades, Waivers, Injuries)
-                                      if (showInSeasonButtons) ...[
-                                        // Matchups button
-                                        SizedBox(
-                                          width: 130,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => MatchupsScreen(
-                                                    leagueId: league.id,
-                                                    leagueName: league.name,
-                                                    season: league.season,
-                                                    startWeek: league.startWeek,
-                                                    playoffWeekStart: league.playoffWeekStart,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            icon: const Icon(Icons.scoreboard, size: 18),
-                                            label: const Text('Matchups'),
-                                            style: ElevatedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                            ),
-                                          ),
-                                        ),
-                                        // Trades button
-                                        SizedBox(
-                                          width: 110,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => TradesScreen(
-                                                    leagueId: league.id,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            icon: const Icon(Icons.swap_calls, size: 18),
-                                            label: const Text('Trades'),
-                                            style: ElevatedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                            ),
-                                          ),
-                                        ),
-                                        // Waivers button
-                                        SizedBox(
-                                          width: 120,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              final userRoster = rosters.firstWhere(
-                                                (r) => r.userId == currentUserId,
-                                                orElse: () => rosters.first,
-                                              );
-
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => WaiversHubScreen(
-                                                    leagueId: league.id,
-                                                    userRoster: userRoster,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            icon: const Icon(Icons.swap_horiz, size: 18),
-                                            label: const Text('Waivers'),
-                                            style: ElevatedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                            ),
-                                          ),
-                                        ),
-                                        // Injuries button
-                                        SizedBox(
-                                          width: 120,
-                                          child: ElevatedButton.icon(
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => InjuryReportScreen(
-                                                    leagueId: league.id,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            icon: const Icon(Icons.medical_services, size: 18),
-                                            label: const Text('Injuries'),
-                                            style: ElevatedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: league.status == 'in_season'
-                          ? _buildStandingsSection(rosters, currentUserId, league.commissionerId ?? 0)
-                          : _buildTeamsSection(rosters, currentUserId, league.commissionerId ?? 0, isCommissioner, leagueProvider, authProvider),
-                      ),
-                      // Add bottom padding to prevent content from going under chat drawer
-                      SizedBox(height: MediaQuery.of(context).orientation == Orientation.landscape ? 8.0 : 16.0),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: league.status == 'in_season'
+                                ? _buildStandingsSection(rosters, currentUserId,
+                                    league.commissionerId ?? 0)
+                                : _buildTeamsSection(
+                                    rosters,
+                                    currentUserId,
+                                    league.commissionerId ?? 0,
+                                    isCommissioner,
+                                    leagueProvider,
+                                    authProvider),
+                          ),
+                          // Add bottom padding to prevent content from going under chat drawer
+                          SizedBox(
+                              height: MediaQuery.of(context).orientation ==
+                                      Orientation.landscape
+                                  ? 8.0
+                                  : 16.0),
                         ],
                       ),
                     ),
@@ -724,14 +909,16 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   },
                   onVerticalDragEnd: (details) {
                     setState(() {
-                      final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+                      final isLandscape = MediaQuery.of(context).orientation ==
+                          Orientation.landscape;
 
                       if (isLandscape) {
                         // In landscape, use higher percentages since screen is shorter
                         if (_chatDrawerHeight < 0.35) {
                           _chatDrawerHeight = 0.1;
                         } else if (_chatDrawerHeight < 0.75) {
-                          _chatDrawerHeight = 0.6; // Higher middle point for landscape
+                          _chatDrawerHeight =
+                              0.6; // Higher middle point for landscape
                         } else {
                           _chatDrawerHeight = 0.9;
                         }
@@ -750,7 +937,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.2),
@@ -760,140 +948,183 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(16)),
                       child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Drag handle
-                        Container(
-                          margin: const EdgeInsets.symmetric(vertical: 8),
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(2),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Drag handle
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8),
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
-                        ),
-                        // Title and Preview
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.chat,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'League Chat',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    // Show last message preview when collapsed
-                                    if (_messages.isNotEmpty) () {
-                                      final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-                                      final threshold = isLandscape ? 0.35 : 0.2;
-                                      return _chatDrawerHeight <= threshold;
-                                    }()
-                                      ? Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            '${_messages.last.displayUsername}: ${_messages.last.message}',
-                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                              color: Colors.grey.shade600,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        )
-                                      : const SizedBox.shrink(),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        // Chat content - Always use Expanded to prevent overflow
-                        Expanded(
-                          child: () {
-                            final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-                            // In landscape, need more height before showing full chat interface
-                            final threshold = isLandscape ? 0.35 : 0.2;
-                            return _chatDrawerHeight > threshold;
-                          }()
-                            ? Column(
-                              mainAxisSize: MainAxisSize.min,
+                          // Title and Preview
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: Row(
                               children: [
-                                // Messages
-                                Expanded(
-                                  child: _isChatLoading
-                                      ? const Center(child: CircularProgressIndicator())
-                                      : ListView.builder(
-                                          controller: _scrollController,
-                                          padding: const EdgeInsets.all(12),
-                                          itemCount: _messages.length,
-                                          itemBuilder: (context, index) {
-                                            final message = _messages[index];
-                                            final authProvider = context.read<AuthProvider>();
-                                            final isMe = message.userId == authProvider.user?.id;
-
-                                            return _buildMessageBubble(context, message, isMe);
-                                          },
-                                        ),
+                                Icon(
+                                  Icons.chat,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
-                                // Input - Use SafeArea to ensure it doesn't get cut off
-                                SafeArea(
-                                  top: false,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _messageController,
-                                            maxLines: null,
-                                            minLines: 1,
-                                            keyboardType: TextInputType.multiline,
-                                            textInputAction: TextInputAction.newline,
-                                            decoration: const InputDecoration(
-                                              hintText: 'Type a message...',
-                                              border: OutlineInputBorder(),
-                                              contentPadding: EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                                vertical: 8,
-                                              ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'League Chat',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            onSubmitted: (_) => _sendMessage(),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          onPressed: _sendMessage,
-                                          icon: const Icon(Icons.send),
-                                          style: IconButton.styleFrom(
-                                            backgroundColor: Theme.of(context).colorScheme.primary,
-                                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                      // Show last message preview when collapsed
+                                      if (_messages.isNotEmpty)
+                                        () {
+                                          final isLandscape =
+                                              MediaQuery.of(context)
+                                                      .orientation ==
+                                                  Orientation.landscape;
+                                          final threshold =
+                                              isLandscape ? 0.35 : 0.2;
+                                          return _chatDrawerHeight <= threshold;
+                                        }()
+                                            ? Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 4),
+                                                child: Text(
+                                                  '${_messages.last.displayUsername}: ${_messages.last.message}',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: Colors
+                                                            .grey.shade600,
+                                                      ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              )
+                                            : const SizedBox.shrink(),
+                                    ],
                                   ),
                                 ),
                               ],
-                            )
-                            : const SizedBox.shrink(), // Empty when collapsed
-                        ),
-                      ],
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          // Chat content - Always use Expanded to prevent overflow
+                          Expanded(
+                            child: () {
+                              final isLandscape =
+                                  MediaQuery.of(context).orientation ==
+                                      Orientation.landscape;
+                              // In landscape, need more height before showing full chat interface
+                              final threshold = isLandscape ? 0.35 : 0.2;
+                              return _chatDrawerHeight > threshold;
+                            }()
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Messages
+                                      Expanded(
+                                        child: _isChatLoading
+                                            ? const Center(
+                                                child:
+                                                    CircularProgressIndicator())
+                                            : ListView.builder(
+                                                controller: _scrollController,
+                                                padding:
+                                                    const EdgeInsets.all(12),
+                                                itemCount: _messages.length,
+                                                itemBuilder: (context, index) {
+                                                  final message =
+                                                      _messages[index];
+                                                  final authProvider = context
+                                                      .read<AuthProvider>();
+                                                  final isMe = message.userId ==
+                                                      authProvider.user?.id;
+
+                                                  return _buildMessageBubble(
+                                                      context, message, isMe);
+                                                },
+                                              ),
+                                      ),
+                                      // Input - Use SafeArea to ensure it doesn't get cut off
+                                      SafeArea(
+                                        top: false,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surfaceContainerHighest,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: TextField(
+                                                  controller:
+                                                      _messageController,
+                                                  maxLines: null,
+                                                  minLines: 1,
+                                                  keyboardType:
+                                                      TextInputType.multiline,
+                                                  textInputAction:
+                                                      TextInputAction.newline,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                    hintText:
+                                                        'Type a message...',
+                                                    border:
+                                                        OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
+                                                  ),
+                                                  onSubmitted: (_) =>
+                                                      _sendMessage(),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                onPressed: _sendMessage,
+                                                icon: const Icon(Icons.send),
+                                                style: IconButton.styleFrom(
+                                                  backgroundColor:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .primary,
+                                                  foregroundColor:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .onPrimary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const SizedBox
+                                    .shrink(), // Empty when collapsed
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -937,7 +1168,7 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
         starterCount++;
       }
     }
-      return starterCount + roster.bench.length;
+    return starterCount + roster.bench.length;
   }
 
   Widget _buildRosterCard(
@@ -949,115 +1180,126 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          child: Text(
-            'R${roster.rosterId}',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
+      child: Semantics(
+        label:
+            '${roster.username ?? 'Unknown User'}${isCurrentUser ? ', Your team' : ''}${isRosterCommissioner ? ', Commissioner' : ''}, ${_countPlayers(roster)} players',
+        button: true,
+        child: ListTile(
+          leading: Semantics(
+            excludeSemantics: true,
+            child: CircleAvatar(
               child: Text(
-                roster.username ?? 'Unknown User',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                'R${roster.rosterId}',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
-            if (isRosterCommissioner)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Text(
-                  'C',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
-                  ),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  roster.username ?? 'Unknown User',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-            if (isCurrentUser)
-              Container(
-                margin: const EdgeInsets.only(left: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: const Text(
-                  'You',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
+              if (isRosterCommissioner)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text(
+                    'C',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
                   ),
                 ),
-              ),
-          ],
-        ),
-        subtitle: Text(roster.email ?? ''),
-        trailing: canRemove
-            ? IconButton(
-                icon:
-                    const Icon(Icons.remove_circle_outline, color: Colors.red),
-                onPressed: onRemove,
-                tooltip: 'Remove Member',
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Roster ${roster.rosterId}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+              if (isCurrentUser)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text(
+                    'You',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Text(roster.email ?? ''),
+          trailing: canRemove
+              ? IconButton(
+                  icon: const Icon(Icons.remove_circle_outline,
+                      color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: 'Remove Member',
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Roster ${roster.rosterId}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${_countPlayers(roster)} players',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 16,
-                    color: Colors.grey.shade400,
-                  ),
-                ],
-              ),
-        onTap: () {
-          final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
-          final league = leagueProvider.selectedLeague;
+                        Text(
+                          '${_countPlayers(roster)} players',
+                          style:
+                              const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey.shade400,
+                    ),
+                  ],
+                ),
+          onTap: () {
+            final leagueProvider =
+                Provider.of<LeagueProvider>(context, listen: false);
+            final league = leagueProvider.selectedLeague;
 
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RosterDetailsScreen(
-                rosterId: roster.id,
-                rosterName: roster.username ?? 'Roster ${roster.rosterId}',
-                season: league?.season,
-                currentWeek: league?.startWeek ?? 1,
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RosterDetailsScreen(
+                  rosterId: roster.id,
+                  rosterName: roster.username ?? 'Roster ${roster.rosterId}',
+                  season: league?.season,
+                  currentWeek: league?.startWeek ?? 1,
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1216,7 +1458,8 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     // Convert snake_case to Title Case
     return key
         .split('_')
-        .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
+        .map((word) =>
+            word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1))
         .join(' ');
   }
 
@@ -1342,102 +1585,109 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 color: isCurrentUser
-                    ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+                    ? Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.3)
                     : null,
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: rank <= 3
-                        ? (rank == 1
-                            ? Colors.amber
-                            : rank == 2
-                                ? Colors.grey.shade400
-                                : Colors.brown.shade300)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: Text(
-                      '$rank',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: rank <= 3 ? Colors.white : null,
+                child: Semantics(
+                  label:
+                      'Rank $rank, ${roster.username ?? 'Unknown User'}${isCurrentUser ? ', Your team' : ''}${isRosterCommissioner ? ', Commissioner' : ''}, ${roster.wins ?? 0} wins, ${roster.losses ?? 0} losses, ${(roster.pointsFor ?? 0).toStringAsFixed(2)} points',
+                  button: true,
+                  child: ListTile(
+                    leading: Semantics(
+                      excludeSemantics: true,
+                      child: CircleAvatar(
+                        backgroundColor: rank <= 3
+                            ? (rank == 1
+                                ? Colors.amber
+                                : rank == 2
+                                    ? Colors.grey.shade400
+                                    : Colors.brown.shade300)
+                            : Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                        child: Text(
+                          '$rank',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: rank <= 3 ? Colors.white : null,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          roster.username ?? 'Unknown User',
-                          style: TextStyle(
-                            fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (isRosterCommissioner)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: const Text(
-                            'C',
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            roster.username ?? 'Unknown User',
                             style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
+                              fontWeight: isCurrentUser
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),
-                      if (isCurrentUser)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: const Text(
-                            'You',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
+                        if (isRosterCommissioner)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              'C',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue),
                             ),
                           ),
+                        if (isCurrentUser)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text(
+                              'You',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green),
+                            ),
+                          ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      '${roster.wins ?? 0}-${roster.losses ?? 0}'
+                      '${(roster.ties != null && roster.ties! > 0) ? '-${roster.ties}' : ''}'
+                      ' • ${(roster.pointsFor ?? 0).toStringAsFixed(2)} PF',
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      final leagueProvider =
+                          Provider.of<LeagueProvider>(context, listen: false);
+                      final league = leagueProvider.selectedLeague;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => RosterDetailsScreen(
+                            rosterId: roster.id,
+                            rosterName:
+                                roster.username ?? 'Roster ${roster.rosterId}',
+                            season: league?.season,
+                            currentWeek: league?.startWeek ?? 1,
+                          ),
                         ),
-                    ],
+                      );
+                    },
                   ),
-                  subtitle: Text(
-                    '${roster.wins ?? 0}-${roster.losses ?? 0}${roster.ties != null && roster.ties! > 0 ? '-${roster.ties}' : ''} • ${(roster.pointsFor ?? 0).toStringAsFixed(2)} PF',
-                  ),
-                  trailing: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.arrow_forward_ios, size: 16),
-                    ],
-                  ),
-                  onTap: () {
-                    final leagueProvider = Provider.of<LeagueProvider>(context, listen: false);
-                    final league = leagueProvider.selectedLeague;
-
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => RosterDetailsScreen(
-                          rosterId: roster.id,
-                          rosterName: roster.username ?? 'Roster ${roster.rosterId}',
-                          season: league?.season,
-                          currentWeek: league?.startWeek ?? 1,
-                        ),
-                      ),
-                    );
-                  },
                 ),
               );
             },
@@ -1446,10 +1696,11 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
     );
   }
 
-  Widget _buildMessageBubble(BuildContext context, LeagueChatMessage message, bool isMe) {
+  Widget _buildMessageBubble(
+      BuildContext context, LeagueChatMessage message, bool isMe) {
     final hasTradeDetails = message.metadata != null &&
-                            message.metadata!['show_details'] == true &&
-                            message.metadata!['trade_details'] != null;
+        message.metadata!['show_details'] == true &&
+        message.metadata!['trade_details'] != null;
 
     return _TradeNotificationBubble(
       message: message,
@@ -1471,7 +1722,8 @@ class _TradeNotificationBubble extends StatefulWidget {
   });
 
   @override
-  State<_TradeNotificationBubble> createState() => _TradeNotificationBubbleState();
+  State<_TradeNotificationBubble> createState() =>
+      _TradeNotificationBubbleState();
 }
 
 class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
@@ -1496,14 +1748,17 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             InkWell(
-              onTap: widget.hasTradeDetails ? () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                });
-              } : null,
+              onTap: widget.hasTradeDetails
+                  ? () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    }
+                  : null,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -1516,7 +1771,9 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSecondaryContainer,
                               ),
                             ),
                           if (!widget.isMe) const SizedBox(height: 4),
@@ -1524,8 +1781,12 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
                             widget.message.message,
                             style: TextStyle(
                               color: widget.isMe
-                                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                                  : Theme.of(context).colorScheme.onSecondaryContainer,
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
                             ),
                           ),
                         ],
@@ -1538,7 +1799,9 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
                         size: 20,
                         color: widget.isMe
                             ? Theme.of(context).colorScheme.onPrimaryContainer
-                            : Theme.of(context).colorScheme.onSecondaryContainer,
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
                       ),
                     ],
                   ],
@@ -1554,22 +1817,26 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
   }
 
   Widget _buildTradeDetails(BuildContext context) {
-    final tradeDetails = widget.message.metadata!['trade_details'] as Map<String, dynamic>;
+    final tradeDetails =
+        widget.message.metadata!['trade_details'] as Map<String, dynamic>;
     final items = (tradeDetails['items'] as List<dynamic>?) ?? [];
 
     // Handle both int and String types for roster IDs
     final proposerRosterId = tradeDetails['proposer_roster_id'] is int
         ? tradeDetails['proposer_roster_id'] as int
-        : int.tryParse(tradeDetails['proposer_roster_id']?.toString() ?? '0') ?? 0;
+        : int.tryParse(tradeDetails['proposer_roster_id']?.toString() ?? '0') ??
+            0;
 
     final receiverRosterId = tradeDetails['receiver_roster_id'] is int
         ? tradeDetails['receiver_roster_id'] as int
-        : int.tryParse(tradeDetails['receiver_roster_id']?.toString() ?? '0') ?? 0;
+        : int.tryParse(tradeDetails['receiver_roster_id']?.toString() ?? '0') ??
+            0;
 
     if (proposerRosterId == 0 || receiverRosterId == 0) {
       return const Padding(
         padding: EdgeInsets.all(12),
-        child: Text('Unable to load trade details', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+        child: Text('Unable to load trade details',
+            style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
       );
     }
 
@@ -1591,7 +1858,10 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withOpacity(0.5),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
@@ -1619,15 +1889,17 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
                     ),
                     const SizedBox(height: 4),
                     if (proposerGivingItems.isEmpty)
-                      const Text('Nothing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic))
+                      const Text('Nothing',
+                          style: TextStyle(
+                              fontSize: 11, fontStyle: FontStyle.italic))
                     else
                       ...proposerGivingItems.map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      )),
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          )),
                   ],
                 ),
               ),
@@ -1645,15 +1917,17 @@ class _TradeNotificationBubbleState extends State<_TradeNotificationBubble> {
                     ),
                     const SizedBox(height: 4),
                     if (receiverGivingItems.isEmpty)
-                      const Text('Nothing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic))
+                      const Text('Nothing',
+                          style: TextStyle(
+                              fontSize: 11, fontStyle: FontStyle.italic))
                     else
                       ...receiverGivingItems.map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      )),
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              '• ${item['player_name'] ?? 'Player ${item['player_id']}'}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          )),
                   ],
                 ),
               ),

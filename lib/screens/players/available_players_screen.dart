@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/waiver_provider.dart';
 import '../../models/player_model.dart';
 import '../../models/roster_model.dart';
+import '../../widgets/common/empty_state_widget.dart';
 import '../../config/api_config.dart';
 import '../../widgets/waiver/submit_claim_dialog.dart';
 import '../../widgets/injury_badge_widget.dart';
@@ -333,8 +334,10 @@ class _AvailablePlayersScreenState extends State<AvailablePlayersScreen> {
                   ),
                 )
               : _filteredPlayers.isEmpty
-                  ? const Center(
-                      child: Text('No available players found'),
+                  ? const EmptyStateWidget(
+                      icon: Icons.search_off,
+                      title: 'No players found',
+                      subtitle: 'Try adjusting your search or filters',
                     )
                   : ListView.builder(
                       itemCount: _filteredPlayers.length,

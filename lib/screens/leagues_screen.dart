@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
 import '../widgets/responsive_container.dart';
+import '../widgets/common/error_state_widget.dart';
+import '../widgets/common/empty_state_widget.dart';
+import '../widgets/common/loading_skeletons.dart';
 import 'create_league_screen.dart';
 import 'league_details_screen.dart';
 import 'join_league_screen.dart';
@@ -54,20 +57,24 @@ class _LeaguesScreenState extends State<LeaguesScreen>
       appBar: AppBar(
         title: const Text('My Leagues'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.group_add),
-            onPressed: () async {
-              final result = await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const JoinLeagueScreen(),
-                ),
-              );
+          Semantics(
+            label: 'Join League',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.group_add),
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const JoinLeagueScreen(),
+                  ),
+                );
 
-              if (result == true) {
-                _loadLeagues();
-              }
-            },
-            tooltip: 'Join League',
+                if (result == true) {
+                  _loadLeagues();
+                }
+              },
+              tooltip: 'Join League',
+            ),
           ),
         ],
       ),
@@ -75,76 +82,57 @@ class _LeaguesScreenState extends State<LeaguesScreen>
         onRefresh: _loadLeagues,
         child: _buildBody(leagueProvider),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const CreateLeagueScreen(),
-            ),
-          );
+      floatingActionButton: Semantics(
+        label: 'Create League',
+        button: true,
+        child: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const CreateLeagueScreen(),
+              ),
+            );
 
-          if (result == true) {
-            _loadLeagues();
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Create League'),
+            if (result == true) {
+              _loadLeagues();
+            }
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Create League'),
+        ),
       ),
     );
   }
 
   Widget _buildBody(LeagueProvider leagueProvider) {
     if (leagueProvider.status == LeagueStatus.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const ListSkeleton(itemCount: 4);
     }
 
     if (leagueProvider.status == LeagueStatus.error) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              leagueProvider.errorMessage ?? 'Error loading leagues',
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadLeagues,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
+      return ErrorStateWidget(
+        message: leagueProvider.errorMessage ?? 'Error loading leagues',
+        onRetry: _loadLeagues,
       );
     }
 
     if (leagueProvider.userLeagues.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.sports_football,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+      return EmptyStateWidget(
+        icon: Icons.sports_football,
+        iconSize: 80,
+        title: 'No leagues yet',
+        subtitle: 'Create your first league or join an existing one to get started!',
+        actionLabel: 'Create League',
+        onAction: () async {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const CreateLeagueScreen(),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'No leagues yet',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create your first league to get started!',
-              style: TextStyle(
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          );
+          if (result == true) {
+            _loadLeagues();
+          }
+        },
       );
     }
 
@@ -163,16 +151,22 @@ class _LeaguesScreenState extends State<LeaguesScreen>
               maxWidth: 800,
               child: Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(
-                      Icons.sports_football,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                child: Semantics(
+                  label: '${league.name}, ${_formatLeagueType(league.leagueType)}, ${_formatStatus(league.status)}, ${league.currentRosters ?? league.totalRosters} of ${league.totalRosters} teams${isCommissioner ? ', Commissioner' : ''}',
+                  button: true,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Semantics(
+                      excludeSemantics: true,
+                      child: CircleAvatar(
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        child: Icon(
+                          Icons.sports_football,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                     ),
-                  ),
                   title: Row(
                     children: [
                       Expanded(
@@ -222,15 +216,19 @@ class _LeaguesScreenState extends State<LeaguesScreen>
                       _buildStatusChip(league.status),
                     ],
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            LeagueDetailsScreen(leagueId: league.id),
-                      ),
-                    );
-                  },
+                    trailing: Semantics(
+                      excludeSemantics: true,
+                      child: const Icon(Icons.arrow_forward_ios),
+                    ),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              LeagueDetailsScreen(leagueId: league.id),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             );
@@ -238,6 +236,34 @@ class _LeaguesScreenState extends State<LeaguesScreen>
         );
       },
     );
+  }
+
+  String _formatStatus(String status) {
+    switch (status) {
+      case 'pre_draft':
+        return 'Pre-Draft';
+      case 'drafting':
+        return 'Drafting';
+      case 'in_season':
+        return 'In Season';
+      case 'complete':
+        return 'Complete';
+      default:
+        return status;
+    }
+  }
+
+  String _formatLeagueType(String type) {
+    switch (type) {
+      case 'redraft':
+        return 'Redraft';
+      case 'dynasty':
+        return 'Dynasty';
+      case 'keeper':
+        return 'Keeper';
+      default:
+        return type;
+    }
   }
 
   Widget _buildStatusChip(String status) {

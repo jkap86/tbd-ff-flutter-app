@@ -7,6 +7,7 @@ import '../../providers/waiver_provider.dart';
 import '../../models/waiver_claim.dart';
 import '../../models/player_model.dart';
 import '../../models/roster_model.dart';
+import '../../widgets/common/empty_state_widget.dart';
 import '../../config/api_config.dart';
 
 class MyClaimsScreen extends StatefulWidget {
@@ -162,31 +163,10 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
           final claims = waiverProvider.myClaims;
 
           if (claims.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No pending claims',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Your waiver claims will appear here',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                  ),
-                ],
-              ),
+            return const EmptyStateWidget(
+              icon: Icons.inbox_outlined,
+              title: 'No waiver claims',
+              subtitle: 'Your waiver claims will appear here once you submit them',
             );
           }
 

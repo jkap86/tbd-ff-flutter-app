@@ -659,7 +659,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                   onRetry: _loadDraftAndJoinRoom,
                 )
               : draft == null
-                  ? const ListSkeleton(itemCount: 8)
+                  ? const Center(child: CircularProgressIndicator())
                   : Stack(
                       children: [
                         // Main draft board
