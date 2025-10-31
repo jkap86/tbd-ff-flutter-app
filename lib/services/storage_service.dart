@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class StorageService {
   static const String _tokenKey = 'auth_token';
@@ -8,14 +9,28 @@ class StorageService {
 
   final _secureStorage = const FlutterSecureStorage();
 
-  // Save token to secure storage
+  // Save token to secure storage (or SharedPreferences on web/Windows)
   Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    try {
+      await _secureStorage.write(key: _tokenKey, value: token);
+    } catch (e) {
+      // Fallback to SharedPreferences if secure storage isn't available (web/Windows)
+      print('[StorageService] Secure storage unavailable, using SharedPreferences: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, token);
+    }
   }
 
-  // Get token from secure storage
+  // Get token from secure storage (or SharedPreferences on web/Windows)
   Future<String?> getToken() async {
-    return await _secureStorage.read(key: _tokenKey);
+    try {
+      return await _secureStorage.read(key: _tokenKey);
+    } catch (e) {
+      // Fallback to SharedPreferences if secure storage isn't available
+      print('[StorageService] Secure storage unavailable, using SharedPreferences: $e');
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_tokenKey);
+    }
   }
 
   // Save user info to local storage
@@ -48,7 +63,14 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userIdKey);
     await prefs.remove(_usernameKey);
+    await prefs.remove(_tokenKey); // Also clear from SharedPreferences
+
     // Clear token from secure storage
-    await _secureStorage.delete(key: _tokenKey);
+    try {
+      await _secureStorage.delete(key: _tokenKey);
+    } catch (e) {
+      // Ignore errors if secure storage isn't available
+      print('[StorageService] Could not clear secure storage: $e');
+    }
   }
 }
