@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' as math;
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
@@ -1271,9 +1270,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     final cacheKey = '${player.playerId}_$_statsMode';
     final stats = _playerStats[cacheKey];
 
-    // Use universal stat columns for all players (not position-specific)
-    final allStats = _getUniversalStatColumns();
-
     // Get or create scroll controller for this player
     final scrollKey = player.playerId;
     if (!_statsScrollControllers.containsKey(scrollKey)) {
@@ -1300,27 +1296,60 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       }
     });
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      controller: controller,
-      child: Row(
-        children: [
-          // FPTS - always first, fixed width
-          SizedBox(
-            width: 65,
-            child: _buildStatColumn('FPTS', _getFantasyPoints(stats), sortable: true),
-          ),
-          _buildStatDivider(),
-          // Universal stats (same for all players) with fixed widths
-          ...allStats.expand((stat) => [
-            _buildStatDivider(),
-            SizedBox(
-              width: 70,
-              child: _buildStatColumn(stat, _getStatValue(stats, stat, player.position), sortable: true),
-            ),
-          ]),
-        ],
-      ),
+    return DraftStatsRow(
+      playerId: player.playerId,
+      stats: stats,
+      statsMode: _statsMode,
+      scrollController: controller,
+      sortBy: _sortBy,
+      sortAscending: _sortAscending,
+      onStatTap: (String columnLabel) {
+        // Prevent multiple simultaneous sort operations
+        if (_isSorting) return;
+
+        setState(() {
+          _isSorting = true;
+        });
+
+        // Allow UI to update with sorting indicator
+        Future.delayed(const Duration(milliseconds: 10)).then((_) {
+          if (mounted) {
+            String? columnToScrollTo;
+
+            setState(() {
+              if (_sortBy == columnLabel) {
+                // Toggle sort direction or clear sort
+                if (!_sortAscending) {
+                  // Was descending, now clear sort
+                  _sortBy = null;
+                  _sortAscending = false;
+                  columnToScrollTo = null; // Don't scroll when clearing
+                } else {
+                  // Was ascending, now descending
+                  _sortAscending = false;
+                  columnToScrollTo = columnLabel;
+                }
+              } else {
+                // New sort column, start with descending
+                _sortBy = columnLabel;
+                _sortAscending = false;
+                columnToScrollTo = columnLabel;
+              }
+              _isSorting = false;
+            });
+
+            // Wait for UI to update, then scroll
+            if (columnToScrollTo != null) {
+              // Wait for the next frame to ensure all widgets are built
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _scrollToColumn(columnToScrollTo!);
+                }
+              });
+            }
+          }
+        });
+      },
     );
   }
 
@@ -1392,109 +1421,6 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     }
   }
 
-  Widget _buildStatDivider() {
-    return Container(
-      width: 1,
-      height: 30,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: Colors.grey.shade400,
-    );
-  }
-
-  String _getFantasyPoints(Map<String, dynamic>? data) {
-    if (data == null) return '--';
-
-    // The actual stats are nested inside 'stats' property
-    final stats = data['stats'] as Map<String, dynamic>?;
-    if (stats == null) return '--';
-
-    // Try different possible keys for fantasy points
-    final pts = stats['fantasy_points'] ??
-                stats['pts_ppr'] ??
-                stats['pts_half_ppr'] ??
-                stats['pts_std'] ??
-                stats['fpts'] ??
-                stats['fantasy_points_ppr'];
-    if (pts == null) return '--';
-
-    if (pts is num) {
-      return pts.toStringAsFixed(1);
-    }
-    return pts.toString();
-  }
-
-
-  String _getStatValue(Map<String, dynamic>? data, String statKey, String position) {
-    if (data == null) {
-      return '--';
-    }
-
-    // The actual stats are nested inside 'stats' property
-    final stats = data['stats'] as Map<String, dynamic>?;
-    if (stats == null) {
-      return '--';
-    }
-
-    // Map display keys to possible API keys (Sleeper uses 'yd' not 'yds')
-    final statMappings = {
-      // Passing
-      'PASS_YDS': ['pass_yd', 'pass_yds', 'passing_yds'],
-      'PASS_TD': ['pass_td', 'passing_td'],
-      'INT': ['pass_int', 'int', 'def_int'],
-      'PASS_ATT': ['pass_att', 'passing_att'],
-      'PASS_CMP': ['pass_cmp', 'passing_cmp'],
-
-      // Rushing
-      'RUSH_YDS': ['rush_yd', 'rush_yds', 'rushing_yds'],
-      'RUSH_TD': ['rush_td', 'rushing_td'],
-      'RUSH_ATT': ['rush_att', 'rushing_att'],
-
-      // Receiving
-      'REC': ['rec', 'receptions'],
-      'REC_YDS': ['rec_yd', 'rec_yds', 'receiving_yds'],
-      'REC_TD': ['rec_td', 'receiving_td'],
-      'TGTS': ['rec_tgt', 'targets'],
-
-      // Kicking
-      'FG': ['fgm', 'fg_made'],
-      'FGA': ['fga', 'fg_att'],
-      'XP': ['xpm', 'xp_made'],
-
-      // Defense/ST
-      'SACK': ['sack', 'sacks'],
-      'FR': ['fum_rec', 'fumbles_rec'],
-      'FF': ['fum_forced', 'fumbles_forced'],
-      'TD': ['def_td', 'td', 'pass_td', 'rush_td', 'rec_td'],
-      'PA': ['pts_allow', 'points_allowed'],
-
-      // IDP
-      'TKLS': ['tackle_total', 'tkl', 'tackles'],
-      'TFL': ['tackle_for_loss', 'tfl'],
-      'QB_HIT': ['qb_hit', 'qb_hits'],
-
-      // General
-      'YDS': ['pass_yd', 'rush_yd', 'rec_yd', 'yards', 'yds'],
-      'PTS': ['pts', 'points'],
-    };
-
-    final possibleKeys = statMappings[statKey] ?? [statKey.toLowerCase()];
-
-    for (final key in possibleKeys) {
-      if (stats[key] != null) {
-        final value = stats[key];
-        if (value is num) {
-          // Show integers for counts, 1 decimal for yards/points
-          if (statKey.contains('YDS') || statKey == 'FPTS') {
-            return value.toStringAsFixed(1);
-          }
-          return value.toInt().toString();
-        }
-        return value.toString();
-      }
-    }
-
-    return '--';
-  }
 
   Future<void> _loadAllPlayerStats() async {
     if (_isLoadingStats) return;
@@ -1651,287 +1577,31 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     );
   }
 
-  Widget _buildStatColumn(String label, String value, {bool sortable = false}) {
-    final isCurrentSort = _sortBy == label;
-
-    Widget column = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: isCurrentSort ? Theme.of(context).colorScheme.primary : Colors.grey.shade700,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (sortable && isCurrentSort) ...[
-              const SizedBox(width: 2),
-              Icon(
-                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                size: 10,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isCurrentSort ? Theme.of(context).colorScheme.primary : null,
-          ),
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-
-    if (sortable) {
-      return InkWell(
-        onTap: () async {
-          // Prevent multiple simultaneous sort operations
-          if (_isSorting) return;
-
-          setState(() {
-            _isSorting = true;
-          });
-
-          // Allow UI to update with sorting indicator
-          await Future.delayed(const Duration(milliseconds: 10));
-
-          if (mounted) {
-            String? columnToScrollTo;
-
-            setState(() {
-              if (_sortBy == label) {
-                // Toggle sort direction or clear sort
-                if (!_sortAscending) {
-                  // Was descending, now clear sort
-                  _sortBy = null;
-                  _sortAscending = false;
-                  columnToScrollTo = null; // Don't scroll when clearing
-                } else {
-                  // Was ascending, now descending
-                  _sortAscending = false;
-                  columnToScrollTo = label;
-                }
-              } else {
-                // New sort column, start with descending
-                _sortBy = label;
-                _sortAscending = false;
-                columnToScrollTo = label;
-              }
-              _isSorting = false;
-            });
-
-            // Wait for UI to update, then scroll
-            if (columnToScrollTo != null) {
-              // Wait for the next frame to ensure all widgets are built
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _scrollToColumn(columnToScrollTo!);
-                }
-              });
-            }
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: column,
-        ),
-      );
-    }
-
-    return column;
-  }
-
-
   Widget _buildQueueTab(DraftProvider draftProvider, AuthProvider authProvider) {
-    if (_draftQueue.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.playlist_add,
-                size: 64,
-                color: Colors.grey.shade400,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your Queue is Empty',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Add players from the Available Players tab',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade500,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        // Queue header with clear button
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, size: 20, color: Colors.grey.shade600),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Players will be drafted in order when autodraft is on',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ),
-              if (_draftQueue.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _draftQueue.clear();
-                    });
-                  },
-                  icon: const Icon(Icons.clear_all, size: 18),
-                  label: const Text('Clear All'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        // Queue list
-        Expanded(
-          child: ReorderableListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _draftQueue.length,
-            onReorder: (oldIndex, newIndex) {
-              setState(() {
-                if (newIndex > oldIndex) {
-                  newIndex -= 1;
-                }
-                final player = _draftQueue.removeAt(oldIndex);
-                _draftQueue.insert(newIndex, player);
-              });
-            },
-            itemBuilder: (context, index) {
-              final player = _draftQueue[index];
-              return Card(
-                key: ValueKey(player.id),
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Queue position number
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Position avatar
-                      CircleAvatar(
-                        backgroundColor: _getPositionColor(player.position),
-                        radius: 18,
-                        child: Text(
-                          player.position,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  title: Text(
-                    player.fullName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    '${player.team} - ${player.position}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Drag handle
-                      Semantics(
-                        label: 'Reorder',
-                        child: Icon(Icons.drag_handle, color: Colors.grey.shade400),
-                      ),
-                      const SizedBox(width: 8),
-                      // Remove button
-                      Semantics(
-                        label: 'Remove ${player.fullName} from Queue',
-                        button: true,
-                        child: IconButton(
-                          icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                          padding: const EdgeInsets.all(12),
-                          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                          onPressed: () {
-                            setState(() {
-                              _draftQueue.removeAt(index);
-                            });
-                          },
-                          tooltip: 'Remove from Queue',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        // Bottom pick button for queue
-        _buildBottomPickButton(draftProvider, authProvider),
-      ],
+    return DraftQueueTab(
+      draftQueue: _draftQueue,
+      draftProvider: draftProvider,
+      authProvider: authProvider,
+      onClearQueue: () {
+        setState(() {
+          _draftQueue.clear();
+        });
+      },
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          if (newIndex > oldIndex) {
+            newIndex -= 1;
+          }
+          final player = _draftQueue.removeAt(oldIndex);
+          _draftQueue.insert(newIndex, player);
+        });
+      },
+      onRemoveFromQueue: (index) {
+        setState(() {
+          _draftQueue.removeAt(index);
+        });
+      },
+      bottomPickButton: _buildBottomPickButton(draftProvider, authProvider),
     );
   }
 
@@ -2186,356 +1856,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   }
 
   Widget _buildStickyStatusBar(DraftProvider draftProvider, AuthProvider authProvider) {
-    final draft = draftProvider.currentDraft!;
-
-    // Check if chess timer mode
-    if (draftProvider.isChessTimerMode) {
-      return _buildChessTimerStatusBar(draftProvider, authProvider);
-    }
-
-    final timeRemaining = draftProvider.timeRemaining ?? Duration.zero;
-
-    DraftOrder? currentRoster;
-    try {
-      currentRoster = draftProvider.draftOrder.firstWhere(
-        (order) => order.rosterId == draft.currentRosterId,
-      );
-    } catch (e) {
-      currentRoster = null;
-    }
-
-    final isUsersTurn = authProvider.user != null &&
-        currentRoster != null &&
-        currentRoster.userId == authProvider.user!.id;
-
-    final progress = timeRemaining.inSeconds / draft.pickTimeSeconds;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isUsersTurn
-              ? [Colors.green.shade700, Colors.green.shade900]
-              : [
-                  Theme.of(context).colorScheme.primaryContainer,
-                  Theme.of(context).colorScheme.primary,
-                ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          if (isUsersTurn)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.amber.withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _timerAnimationController,
-                    builder: (context, child) => Transform.scale(
-                      scale: 1.0 + (math.sin(_timerAnimationController.value * 2 * math.pi) * 0.1),
-                      child: const Icon(Icons.alarm, color: Colors.black, size: 24),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "YOU'RE ON THE CLOCK!",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Round ${draft.currentRound} • Pick ${draft.currentPick}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isUsersTurn ? Colors.white : null,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          currentRoster?.displayName ?? 'Unknown',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isUsersTurn ? Colors.white70 : null,
-                          ),
-                        ),
-                        if (currentRoster?.isAutodrafting == true) ...[
-                          const SizedBox(width: 8),
-                          Tooltip(
-                            message: 'Autodraft enabled',
-                            child: Icon(
-                              Icons.auto_mode,
-                              color: isUsersTurn ? Colors.white70 : Colors.green,
-                              size: 16,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                children: [
-                  Text(
-                    '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: timeRemaining.inSeconds < 10
-                          ? Colors.red
-                          : (isUsersTurn ? Colors.white : null),
-                    ),
-                  ),
-                  Text(
-                    'Time Remaining',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isUsersTurn ? Colors.white70 : null,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.white30,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                timeRemaining.inSeconds < 10 ? Colors.red : Colors.amber,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return DraftStatusBar(
+      draftProvider: draftProvider,
+      authProvider: authProvider,
+      timerAnimationController: _timerAnimationController,
     );
-  }
-
-  Widget _buildChessTimerStatusBar(DraftProvider draftProvider, AuthProvider authProvider) {
-    final draft = draftProvider.currentDraft!;
-
-    DraftOrder? currentRoster;
-    try {
-      currentRoster = draftProvider.draftOrder.firstWhere(
-        (order) => order.rosterId == draft.currentRosterId,
-      );
-    } catch (e) {
-      currentRoster = null;
-    }
-
-    final isUsersTurn = authProvider.user != null &&
-        currentRoster != null &&
-        currentRoster.userId == authProvider.user!.id;
-
-    final timeRemaining = currentRoster != null
-        ? draftProvider.getRosterTimeRemaining(currentRoster.rosterId)
-        : null;
-
-    final isLow = timeRemaining != null && timeRemaining < 300; // < 5 minutes
-    final isCritical = timeRemaining != null && timeRemaining < 60; // < 1 minute
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isUsersTurn
-              ? [Colors.green.shade700, Colors.green.shade900]
-              : isCritical
-                  ? [Colors.red.shade700, Colors.red.shade900]
-                  : isLow
-                      ? [Colors.orange.shade700, Colors.orange.shade900]
-                      : [
-                          Theme.of(context).colorScheme.primaryContainer,
-                          Theme.of(context).colorScheme.primary,
-                        ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          if (isUsersTurn)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.amber,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.amber.withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _timerAnimationController,
-                    builder: (context, child) => Transform.scale(
-                      scale: 1.0 + (math.sin(_timerAnimationController.value * 2 * math.pi) * 0.1),
-                      child: const Icon(Icons.alarm, color: Colors.black, size: 24),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    "YOU'RE ON THE CLOCK!",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Round ${draft.currentRound} • Pick ${draft.currentPick}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isUsersTurn ? Colors.white : Colors.white,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          currentRoster?.displayName ?? 'Unknown',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isUsersTurn ? Colors.white70 : Colors.white70,
-                          ),
-                        ),
-                        if (currentRoster?.isAutodrafting == true) ...[
-                          const SizedBox(width: 8),
-                          Tooltip(
-                            message: 'Autodraft enabled',
-                            child: Icon(
-                              Icons.auto_mode,
-                              color: isUsersTurn ? Colors.white70 : Colors.white70,
-                              size: 16,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.hourglass_bottom,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatChessTime(timeRemaining ?? 0),
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (isCritical)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'TIME CRITICAL!',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      'Time Remaining',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isUsersTurn ? Colors.white70 : Colors.white70,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatChessTime(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final secs = seconds % 60;
-
-    if (hours > 0) {
-      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    } else {
-      return '$minutes:${secs.toString().padLeft(2, '0')}';
-    }
   }
 
   Widget _buildBottomPickButton(DraftProvider draftProvider, AuthProvider authProvider) {
@@ -2705,5 +2030,17 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         ],
       ),
     );
+  }
+
+  String _formatChessTime(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    } else {
+      return '$minutes:${secs.toString().padLeft(2, '0')}';
+    }
   }
 }
