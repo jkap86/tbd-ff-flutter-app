@@ -5,6 +5,7 @@ import '../providers/theme_provider.dart';
 import '../widgets/responsive_container.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/themed_components.dart';
+import '../widgets/chatbot/chatbot_widget.dart';
 import 'profile_screen.dart';
 import 'leagues_screen.dart';
 
@@ -55,86 +56,97 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
-          final user = authProvider.user;
+      body: Stack(
+        children: [
+          // Main content
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, child) {
+              final user = authProvider.user;
 
-          if (user == null) {
-            return const Center(
-              child: Text('No user data available'),
-            );
-          }
+              if (user == null) {
+                return const Center(
+                  child: Text('No user data available'),
+                );
+              }
 
-          return Column(
-            children: [
-              // Logo banner - full width at top
-              Semantics(
-                label: 'Application logo',
-                image: true,
-                excludeSemantics: true,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-                  child: Image.asset(
-                    'assets/icon/app_icon.png',
-                    height: 240,
-                    width: 540,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              // Scrollable content with ResponsiveContainer
-              Expanded(
-                child: ResponsiveContainer(
-                  maxWidth: 800,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // My Leagues - Main feature
-                        _buildHomeCard(
-                          title: 'My Leagues',
-                          subtitle: 'View and manage your leagues',
-                          icon: Icons.sports_football,
-                          accentColor: AppColors.primary,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const LeaguesScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        // My Players - Coming Soon
-                        _buildComingSoonCard(
-                          title: 'My Players',
-                          icon: Icons.group,
-                          accentColor: AppColors.secondary,
-                        ),
-                        const SizedBox(height: 16),
-                        // My Leaguemates - Coming Soon
-                        _buildComingSoonCard(
-                          title: 'My Leaguemates',
-                          icon: Icons.people,
-                          accentColor: AppColors.warning,
-                        ),
-                        const SizedBox(height: 16),
-                        // Trades - Coming Soon
-                        _buildComingSoonCard(
-                          title: 'Trades',
-                          icon: Icons.swap_horiz,
-                          accentColor: AppColors.accent,
-                        ),
-                      ],
+              return Column(
+                children: [
+                  // Logo banner - full width at top
+                  Semantics(
+                    label: 'Application logo',
+                    image: true,
+                    excludeSemantics: true,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        height: 240,
+                        width: 540,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
+                  // Scrollable content with ResponsiveContainer
+                  Expanded(
+                    child: ResponsiveContainer(
+                      maxWidth: 800,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // My Leagues - Main feature
+                            _buildHomeCard(
+                              title: 'My Leagues',
+                              subtitle: 'View and manage your leagues',
+                              icon: Icons.sports_football,
+                              accentColor: AppColors.primary,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => const LeaguesScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // My Players - Coming Soon
+                            _buildComingSoonCard(
+                              title: 'My Players',
+                              icon: Icons.group,
+                              accentColor: AppColors.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            // My Leaguemates - Coming Soon
+                            _buildComingSoonCard(
+                              title: 'My Leaguemates',
+                              icon: Icons.people,
+                              accentColor: AppColors.warning,
+                            ),
+                            const SizedBox(height: 16),
+                            // Trades - Coming Soon
+                            _buildComingSoonCard(
+                              title: 'Trades',
+                              icon: Icons.swap_horiz,
+                              accentColor: AppColors.accent,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          // Chatbot overlay in bottom-right corner
+          const Positioned(
+            right: 16,
+            bottom: 16,
+            child: ChatbotWidget(),
+          ),
+        ],
       ),
     );
   }

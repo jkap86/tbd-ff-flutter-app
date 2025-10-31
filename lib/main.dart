@@ -12,6 +12,9 @@ import 'providers/auction_provider.dart';
 import 'providers/matchup_provider.dart';
 import 'providers/waiver_provider.dart';
 import 'providers/trade_provider.dart';
+import 'providers/chatbot_provider.dart';
+import 'services/chatbot_service.dart';
+import 'data/chatbot_knowledge.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/reset_password_screen.dart';
@@ -41,6 +44,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MatchupProvider()),
         ChangeNotifierProvider(create: (_) => WaiverProvider()),
         ChangeNotifierProvider(create: (_) => TradeProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ChatbotProvider(
+            ChatbotService(chatbotKnowledge),
+          ),
+        ),
       ],
       child: const MyAppContent(),
     );
