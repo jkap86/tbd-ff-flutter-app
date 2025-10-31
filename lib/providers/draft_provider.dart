@@ -135,6 +135,7 @@ class DraftProvider with ChangeNotifier {
     };
 
     _socketService.onOrderUpdated = (orders) {
+      debugPrint('[DraftProvider] onOrderUpdated received ${orders.length} rosters');
       _draftOrder = orders;
       notifyListeners();
     };
@@ -397,6 +398,8 @@ class DraftProvider with ChangeNotifier {
     List<Map<String, int>>? order,
   }) async {
     try {
+      debugPrint('[DraftProvider] setDraftOrder called: randomize=$randomize, draftId=$draftId');
+
       final newOrder = await _draftService.setDraftOrder(
         token: token,
         draftId: draftId,
@@ -406,12 +409,15 @@ class DraftProvider with ChangeNotifier {
 
       if (newOrder.isNotEmpty) {
         _draftOrder = newOrder;
+        debugPrint('[DraftProvider] Draft order updated with ${newOrder.length} rosters');
         notifyListeners();
         return true;
       }
+      debugPrint('[DraftProvider] setDraftOrder returned empty order');
       return false;
     } catch (e) {
       _errorMessage = 'Error setting draft order: ${e.toString()}';
+      debugPrint('[DraftProvider] setDraftOrder error: $e');
       notifyListeners();
       return false;
     }
