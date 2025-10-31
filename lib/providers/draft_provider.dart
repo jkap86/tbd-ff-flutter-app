@@ -26,6 +26,7 @@ class DraftProvider with ChangeNotifier {
   List<Player> _availablePlayers = [];
   List<DraftChatMessage> _chatMessages = [];
   String? _errorMessage;
+  String? _authToken; // Store auth token for authenticated API calls
 
   // Timer for countdown - now calculated from deadline
   Timer? _timer;
@@ -307,6 +308,7 @@ class DraftProvider with ChangeNotifier {
   Future<void> loadDraftByLeague(String token, int leagueId) async {
     _status = DraftStatus.loading;
     _errorMessage = null;
+    _authToken = token; // Store token for use in other methods
     notifyListeners();
 
     try {
@@ -492,7 +494,9 @@ class DraftProvider with ChangeNotifier {
         _draftPicks.clear();
         _stopTimer();
         // Reload available players since all players are now available again
-        await _loadAvailablePlayers(draftId);
+        if (_authToken != null) {
+          await _loadAvailablePlayers(_authToken!, draftId);
+        }
         notifyListeners();
         return true;
       }
@@ -545,6 +549,7 @@ class DraftProvider with ChangeNotifier {
 
   // Filter available players
   Future<void> filterPlayers({
+    required String token,
     String? position,
     String? team,
     String? search,
@@ -552,7 +557,8 @@ class DraftProvider with ChangeNotifier {
     if (_currentDraft == null) return;
 
     _availablePlayers = await _draftService.getAvailablePlayers(
-      _currentDraft!.id,
+      token: token,
+      draftId: _currentDraft!.id,
       position: position,
       team: team,
       search: search,
@@ -666,15 +672,15 @@ class DraftProvider with ChangeNotifier {
 
   // Refresh draft state
   Future<void> refreshDraft() async {
-    if (_currentDraft == null) return;
+    if (_currentDraft == null || _authToken == null) return;
 
-    final draft = await _draftService.getDraft(_currentDraft!.id);
+    final draft = await _draftService.getDraft(token: _authToken!, draftId: _currentDraft!.id);
     if (draft != null) {
       _currentDraft = draft;
       await Future.wait([
-        _loadDraftOrder(_currentDraft!.id),
-        _loadDraftPicks(_currentDraft!.id),
-        _loadAvailablePlayers(_currentDraft!.id),
+        _loadDraftOrder(_authToken!, _currentDraft!.id),
+        _loadDraftPicks(_authToken!, _currentDraft!.id),
+        _loadAvailablePlayers(_authToken!, _currentDraft!.id),
       ]);
       _initializeChessTimerState();
 

@@ -422,7 +422,7 @@ class AuctionProvider with ChangeNotifier {
   // Load draft and rosters
   Future<void> loadDraftAndRosters(String token, int draftId, int leagueId) async {
     try {
-      final draftResult = await _draftService.getDraft(draftId);
+      final draftResult = await _draftService.getDraft(token: token, draftId: draftId);
       if (draftResult != null) {
         _draft = draftResult;
       }
