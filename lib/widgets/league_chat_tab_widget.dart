@@ -94,25 +94,6 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
     });
   }
 
-  void _sendMessage() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (_messageController.text.trim().isEmpty || authProvider.user == null) {
-      return;
-    }
-
-    final message = _messageController.text.trim();
-    _messageController.clear();
-
-    // Send via socket for real-time
-    // The WebSocket will broadcast to all users including sender
-    _socketService.sendLeagueChatMessage(
-      leagueId: widget.leagueId,
-      userId: authProvider.user!.id,
-      username: authProvider.user!.username,
-      message: message,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
