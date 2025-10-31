@@ -57,7 +57,6 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   TimeOfDay _autoPauseEndTime = const TimeOfDay(hour: 8, minute: 0);
 
   // Waiver settings
-  WaiverSettings? _waiverSettings;
   String _waiverType = 'faab';
   int _faabBudget = 100;
   int _waiverPeriodDays = 2;
@@ -174,11 +173,11 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
             : 60;
 
         // Load auction-specific settings
-        _startingBudget = draft.startingBudget ?? 200;
-        _minBid = draft.minBid ?? 1;
-        _nominationsPerManager = draft.nominationsPerManager ?? 3;
+        _startingBudget = draft.startingBudget;
+        _minBid = draft.minBid;
+        _nominationsPerManager = draft.nominationsPerManager;
         _nominationTimerHours = draft.nominationTimerHours ?? 24;
-        _reserveBudgetPerSlot = draft.reserveBudgetPerSlot ?? false;
+        _reserveBudgetPerSlot = draft.reserveBudgetPerSlot;
 
         // Load overnight pause settings (stored in UTC, convert to local)
         final settings = draft.settings;

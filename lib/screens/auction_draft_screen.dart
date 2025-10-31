@@ -34,7 +34,6 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
   String? _selectedPosition;
   Timer? _timer;
   double _drawerHeight = 0.5; // Start at 50%
-  final GlobalKey _gridKey = GlobalKey();
 
   @override
   void initState() {
