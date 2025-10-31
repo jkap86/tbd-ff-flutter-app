@@ -551,19 +551,14 @@ class DraftProvider with ChangeNotifier {
 
         // Don't add the pick here - let the WebSocket handle it
         // The WebSocket pick will have all the extended fields (player_name, etc.)
-        // _draftPicks.add(result['pick']);
+        // Also don't remove the player here - WebSocket will handle it
+        // This prevents double-removal and ensures UI updates happen in sync
 
         // Update draft state
         _currentDraft = result['draft'];
 
-        // Remove player from available list
-        final beforeCount = _availablePlayers.length;
-        _availablePlayers.removeWhere((player) => player.id == playerId);
-        final afterCount = _availablePlayers.length;
-        debugPrint('[DraftProvider] makePick removed player. Before: $beforeCount, After: $afterCount');
-
         // Note: WebSocket will trigger notifyListeners() when pick_made event arrives
-        // But we call it here too to update UI immediately with draft state
+        // with the full pick data and will remove the player from available list
         notifyListeners();
         return true;
       }
