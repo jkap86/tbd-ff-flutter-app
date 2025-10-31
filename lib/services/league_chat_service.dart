@@ -13,7 +13,7 @@ class LeagueChatService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/chat?limit=$limit'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/chat?limit=$limit'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -40,7 +40,7 @@ class LeagueChatService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/chat'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/chat'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'user_id': userId,
