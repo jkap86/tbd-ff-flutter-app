@@ -10,6 +10,7 @@ class SocketService {
   IO.Socket? _socket;
   int? _currentDraftId;
   int? _currentLeagueId;
+  String? _authToken; // Store token for socket authentication
 
   // Draft event callbacks
   Function(Map<String, dynamic>)? onPickMade;
@@ -55,6 +56,12 @@ class SocketService {
 
   bool get isConnected => _socket?.connected ?? false;
 
+  // Initialize socket with authentication token
+  void initializeWithToken(String token) {
+    _authToken = token;
+    debugPrint('[SocketService] Initialized with token (length=${token.length})');
+  }
+
   // Connect to the WebSocket server
   void connect() {
     if (_socket?.connected == true) {
@@ -62,12 +69,20 @@ class SocketService {
       return;
     }
 
+    if (_authToken == null) {
+      debugPrint('[SocketService] ERROR: Cannot connect - no token set. Call initializeWithToken first!');
+      onError?.call('No authentication token provided');
+      return;
+    }
+
     try {
+      debugPrint('[SocketService] Connecting with token...');
       _socket = IO.io(
         ApiConfig.baseUrl,
         IO.OptionBuilder()
             .setTransports(['websocket'])
             .disableAutoConnect()
+            .setAuth({'token': _authToken})
             .build(),
       );
 

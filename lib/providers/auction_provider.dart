@@ -33,6 +33,7 @@ class AuctionProvider with ChangeNotifier {
   List<Roster> _rosters = [];
   List<Map<String, dynamic>> _auctionRosters = []; // Rosters with players and budgets
   String? _errorMessage;
+  String? _authToken; // Store auth token for socket connection
 
   // Getters
   AuctionStatus get status => _status;
@@ -68,6 +69,14 @@ class AuctionProvider with ChangeNotifier {
   // Setup socket listeners for slow auction
   void setupSlowAuctionListeners(int draftId, int myRosterId) {
     _myRosterId = myRosterId;
+
+    // Initialize socket with auth token before connecting
+    if (_authToken != null) {
+      _socketService.initializeWithToken(_authToken!);
+      debugPrint('[AuctionProvider] Socket initialized with token for WebSocket connection');
+    } else {
+      debugPrint('[AuctionProvider] WARNING: No auth token available for socket connection!');
+    }
 
     // Join the auction room
     _socketService.joinAuction(draftId: draftId, rosterId: myRosterId);
@@ -262,6 +271,7 @@ class AuctionProvider with ChangeNotifier {
     _status = AuctionStatus.loading;
     _errorMessage = null;
     _myRosterId = myRosterId;
+    _authToken = token; // Store token for socket authentication
     notifyListeners();
 
     try {
