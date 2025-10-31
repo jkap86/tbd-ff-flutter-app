@@ -140,7 +140,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (uri.path.contains('reset-password')) {
       final token = uri.queryParameters['token'];
       if (token != null && token.isNotEmpty) {
-        debugPrint('✅ Password reset token found: $token');
+        if (kDebugMode) {
+          debugPrint('✅ Password reset token found (length: ${token.length})');
+        }
         // Navigate to reset password screen
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -148,7 +150,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
           ),
         );
       } else {
-        debugPrint('❌ No token found in reset password link');
+        if (kDebugMode) {
+          debugPrint('❌ No token found in reset password link');
+        }
       }
     }
   }

@@ -1,45 +1,47 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class StorageService {
+  static final StorageService _instance = StorageService._internal();
+  factory StorageService() => _instance;
+  StorageService._internal();
+
+  final _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
+
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
   static const String _usernameKey = 'username';
 
-  // Check if we should use secure storage (not on Windows or Web)
-  bool get _useSecureStorage => !kIsWeb && !Platform.isWindows;
-
-  // Save token to SharedPreferences (secure storage not supported on Windows)
   Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
-    print('[StorageService] Token saved to SharedPreferences');
+    await _secureStorage.write(key: _tokenKey, value: token);
   }
 
-  // Get token from SharedPreferences
   Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return await _secureStorage.read(key: _tokenKey);
   }
 
-  // Save user info to local storage
+  Future<void> deleteToken() async {
+    await _secureStorage.delete(key: _tokenKey);
+  }
+
+  // Save user info to secure storage
   Future<void> saveUserInfo(int userId, String username) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_userIdKey, userId);
-    await prefs.setString(_usernameKey, username);
+    await _secureStorage.write(key: _userIdKey, value: userId.toString());
+    await _secureStorage.write(key: _usernameKey, value: username);
   }
 
-  // Get user ID from local storage
+  // Get user ID from secure storage
   Future<int?> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_userIdKey);
+    final userIdStr = await _secureStorage.read(key: _userIdKey);
+    return userIdStr != null ? int.tryParse(userIdStr) : null;
   }
 
-  // Get username from local storage
+  // Get username from secure storage
   Future<String?> getUsername() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_usernameKey);
+    return await _secureStorage.read(key: _usernameKey);
   }
 
   // Check if user is logged in (has token)
@@ -48,12 +50,7 @@ class StorageService {
     return token != null && token.isNotEmpty;
   }
 
-  // Clear all stored data (logout)
   Future<void> clearAll() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_usernameKey);
-    await prefs.remove(_tokenKey);
-    print('[StorageService] All data cleared from SharedPreferences');
+    await _secureStorage.deleteAll();
   }
 }
