@@ -309,6 +309,8 @@ class DraftProvider with ChangeNotifier {
     _status = DraftStatus.loading;
     _errorMessage = null;
     _authToken = token; // Store token for use in other methods
+
+    debugPrint('[DraftProvider] loadDraftByLeague started for leagueId=$leagueId, tokenLength=${token.length}');
     notifyListeners();
 
     try {
@@ -316,6 +318,8 @@ class DraftProvider with ChangeNotifier {
         token: token,
         leagueId: leagueId,
       );
+      debugPrint('[DraftProvider] getDraftByLeague response: draft=${draft != null ? draft.id : "null"}');
+
       if (draft != null) {
         _currentDraft = draft;
         // Load related data with token for authentication
@@ -336,6 +340,7 @@ class DraftProvider with ChangeNotifier {
         }
 
         _status = DraftStatus.loaded;
+        debugPrint('[DraftProvider] Draft loaded successfully: id=${draft.id}, status=${draft.status}');
       } else {
         // No draft exists for this league - clear the current draft
         _currentDraft = null;
@@ -345,11 +350,13 @@ class DraftProvider with ChangeNotifier {
         _chatMessages = [];
         _rosterTimeRemaining = {};
         _status = DraftStatus.loaded;
+        debugPrint('[DraftProvider] No draft found for league=$leagueId');
       }
       notifyListeners();
     } catch (e) {
       _errorMessage = 'Error loading draft: ${e.toString()}';
       _status = DraftStatus.error;
+      debugPrint('[DraftProvider] ERROR loading draft: $e');
       notifyListeners();
     }
   }
