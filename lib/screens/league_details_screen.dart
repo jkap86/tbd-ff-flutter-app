@@ -8,6 +8,7 @@ import '../models/league_model.dart';
 import '../models/league_chat_message_model.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/common/error_state_widget.dart';
+import '../widgets/draft_management_card.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
@@ -871,6 +872,17 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                             ),
                           ),
                           const SizedBox(height: 16),
+                          // Draft Management Card
+                          Consumer<DraftProvider>(
+                            builder: (context, draftProvider, child) {
+                              return DraftManagementCard(
+                                league: league,
+                                draft: draftProvider.currentDraft,
+                                rosters: rosters,
+                                onDraftDeleted: _loadLeagueDetails,
+                              );
+                            },
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: league.status == 'in_season'
