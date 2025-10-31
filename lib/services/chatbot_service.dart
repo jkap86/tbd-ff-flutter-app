@@ -213,6 +213,12 @@ class ChatbotService {
     final questionTokens = _tokenize(question.question);
     final keywordTokens = question.keywords.map((k) => k.toLowerCase()).toList();
 
+    if (kDebugMode) {
+      debugPrint('[ChatbotService] Scoring against: "${question.question}"');
+      debugPrint('[ChatbotService] User tokens: $userTokens');
+      debugPrint('[ChatbotService] Keywords: $keywordTokens');
+    }
+
     // Score 1: Exact question match (very high weight)
     if (_exactMatch(userTokens, questionTokens)) {
       score += 1.0;
@@ -246,6 +252,10 @@ class ChatbotService {
     // Normalize score to 0-1 range
     // Maximum possible score is approximately: 1.0 + 0.9 + 0.6 + 0.4 + 0.2 + 0.15 = 3.25
     final normalizedScore = (score / 3.25).clamp(0.0, 1.0);
+
+    if (kDebugMode) {
+      debugPrint('[ChatbotService] Score: ${normalizedScore.toStringAsFixed(3)} (raw: ${score.toStringAsFixed(3)})');
+    }
 
     return normalizedScore;
   }
