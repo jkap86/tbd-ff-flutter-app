@@ -10,7 +10,6 @@ import '../services/draft_service.dart';
 import '../services/league_service.dart';
 import '../services/league_median_service.dart';
 import '../widgets/responsive_container.dart';
-import '../models/waiver_settings_model.dart';
 
 class EditLeagueScreen extends StatefulWidget {
   final League league;
