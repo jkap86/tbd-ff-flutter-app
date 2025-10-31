@@ -110,11 +110,16 @@ class DraftProvider with ChangeNotifier {
         debugPrint('[DraftProvider] Added pick: ${pick.playerName} (ID: ${pick.playerId})');
 
         // Remove picked player from available players
+        // Note: pick.playerId is the Sleeper player_id (e.g., '4829')
+        // player.playerId in availablePlayers is also the Sleeper ID
         final beforeCount = _availablePlayers.length;
-        _availablePlayers
-            .removeWhere((player) => player.id == pick.playerId);
+        final playerIdToRemove = pick.playerId?.toString() ?? '';
+        _availablePlayers.removeWhere((player) =>
+          player.playerId == playerIdToRemove ||
+          player.id.toString() == playerIdToRemove
+        );
         final afterCount = _availablePlayers.length;
-        debugPrint('[DraftProvider] Removed player from available list. Before: $beforeCount, After: $afterCount');
+        debugPrint('[DraftProvider] Removed player from available list. playerId: $playerIdToRemove, Before: $beforeCount, After: $afterCount');
       }
 
       // Update deadline if next_deadline is provided
