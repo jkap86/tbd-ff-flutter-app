@@ -12,7 +12,7 @@ class NflService {
     try {
       final response = await http.get(
         Uri.parse(
-          '${ApiConfig.baseUrl}/api/nfl/current-week?season=$season&season_type=$seasonType',
+          '${ApiConfig.baseUrl}/api/v1/nfl/current-week?season=$season&season_type=$seasonType',
         ),
         headers: ApiConfig.headers,
       );

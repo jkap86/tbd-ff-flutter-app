@@ -291,15 +291,42 @@ class _DraftChatWidgetState extends State<DraftChatWidget> {
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate = DateTime(time.year, time.month, time.day);
 
+    // Less than 1 minute
     if (diff.inMinutes < 1) {
       return 'Just now';
-    } else if (diff.inHours < 1) {
+    }
+    // Less than 1 hour
+    else if (diff.inHours < 1) {
       return '${diff.inMinutes}m ago';
-    } else if (diff.inDays < 1) {
-      return '${diff.inHours}h ago';
-    } else {
-      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    }
+    // Today but more than 1 hour
+    else if (messageDate == today) {
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Yesterday
+    else if (diff.inDays == 1) {
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return 'Yesterday $hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Within last week
+    else if (diff.inDays < 7) {
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final weekday = weekdays[time.weekday - 1];
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return '$weekday $hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Older
+    else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final month = months[time.month - 1];
+      return '$month ${time.day}';
     }
   }
 }

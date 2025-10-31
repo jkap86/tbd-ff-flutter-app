@@ -233,44 +233,153 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   }
 
   Widget _buildMessageBubble(LeagueChatMessage message, bool isMe) {
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isMe
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.7,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isMe)
-              Text(
-                message.displayUsername,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              child: Text(
+                message.displayUsername[0].toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
-            if (!isMe) const SizedBox(height: 4),
-            Text(
-              message.message,
-              style: TextStyle(
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
                 color: isMe
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Theme.of(context).colorScheme.onSecondaryContainer,
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(18).copyWith(
+                  bottomLeft: isMe ? null : const Radius.circular(4),
+                  bottomRight: isMe ? const Radius.circular(4) : null,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isMe)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        message.displayUsername,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+                    ),
+                  Text(
+                    message.message,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: isMe
+                          ? Theme.of(context).colorScheme.onPrimaryContainer
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 10,
+                        color: isMe
+                            ? Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.6)
+                            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatTime(message.createdAt),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontSize: 11,
+                              color: isMe
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7)
+                                  : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isMe) ...[
+            const SizedBox(width: 8),
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              child: Text(
+                message.displayUsername[0].toUpperCase(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    final today = DateTime(now.year, now.month, now.day);
+    final messageDate = DateTime(time.year, time.month, time.day);
+
+    // Less than 1 minute
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    }
+    // Less than 1 hour
+    else if (diff.inHours < 1) {
+      return '${diff.inMinutes}m ago';
+    }
+    // Today but more than 1 hour
+    else if (messageDate == today) {
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Yesterday
+    else if (diff.inDays == 1) {
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return 'Yesterday $hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Within last week
+    else if (diff.inDays < 7) {
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final weekday = weekdays[time.weekday - 1];
+      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final period = time.hour >= 12 ? 'PM' : 'AM';
+      return '$weekday $hour:${time.minute.toString().padLeft(2, '0')} $period';
+    }
+    // Older
+    else {
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final month = months[time.month - 1];
+      return '$month ${time.day}';
+    }
   }
 }
