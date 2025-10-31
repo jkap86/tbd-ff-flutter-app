@@ -121,7 +121,7 @@ class ChatbotService {
   };
 
   // Threshold for considering a match as "good enough"
-  static const double _minConfidenceThreshold = 0.3;
+  static const double _minConfidenceThreshold = 0.15;
 
   // Number of alternative matches to include in response
   static const int _maxAlternatives = 3;
