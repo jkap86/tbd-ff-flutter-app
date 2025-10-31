@@ -1,36 +1,26 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 class StorageService {
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
   static const String _usernameKey = 'username';
 
-  final _secureStorage = const FlutterSecureStorage();
+  // Check if we should use secure storage (not on Windows or Web)
+  bool get _useSecureStorage => !kIsWeb && !Platform.isWindows;
 
-  // Save token to secure storage (or SharedPreferences on web/Windows)
+  // Save token to SharedPreferences (secure storage not supported on Windows)
   Future<void> saveToken(String token) async {
-    try {
-      await _secureStorage.write(key: _tokenKey, value: token);
-    } catch (e) {
-      // Fallback to SharedPreferences if secure storage isn't available (web/Windows)
-      print('[StorageService] Secure storage unavailable, using SharedPreferences: $e');
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_tokenKey, token);
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token);
+    print('[StorageService] Token saved to SharedPreferences');
   }
 
-  // Get token from secure storage (or SharedPreferences on web/Windows)
+  // Get token from SharedPreferences
   Future<String?> getToken() async {
-    try {
-      return await _secureStorage.read(key: _tokenKey);
-    } catch (e) {
-      // Fallback to SharedPreferences if secure storage isn't available
-      print('[StorageService] Secure storage unavailable, using SharedPreferences: $e');
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getString(_tokenKey);
-    }
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
   }
 
   // Save user info to local storage
@@ -63,14 +53,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userIdKey);
     await prefs.remove(_usernameKey);
-    await prefs.remove(_tokenKey); // Also clear from SharedPreferences
-
-    // Clear token from secure storage
-    try {
-      await _secureStorage.delete(key: _tokenKey);
-    } catch (e) {
-      // Ignore errors if secure storage isn't available
-      print('[StorageService] Could not clear secure storage: $e');
-    }
+    await prefs.remove(_tokenKey);
+    print('[StorageService] All data cleared from SharedPreferences');
   }
 }

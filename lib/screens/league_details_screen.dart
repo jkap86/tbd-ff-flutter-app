@@ -51,9 +51,12 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadLeagueDetails();
-    _loadMessages();
-    _setupSocket();
+    // Defer all initialization to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLeagueDetails();
+      _loadMessages();
+      _setupSocket();
+    });
   }
 
   @override

@@ -24,7 +24,10 @@ class _LeaguesScreenState extends State<LeaguesScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadLeagues();
+    // Load leagues after the first frame to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLeagues();
+    });
   }
 
   @override
