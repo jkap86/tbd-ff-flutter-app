@@ -13,7 +13,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-stats/$season/$week?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-stats/$season/$week?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -37,7 +37,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-stats/$season/$week/$playerId?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-stats/$season/$week/$playerId?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -60,7 +60,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-projections/$season/$week?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-projections/$season/$week?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -84,7 +84,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-projections/$season/$week/$playerId?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-projections/$season/$week/$playerId?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -107,7 +107,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-stats/$season/$playerId?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-stats/$season/$playerId?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -130,7 +130,7 @@ class PlayerStatsService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/player-projections/$season/$playerId?season_type=$seasonType'),
+            '${ApiConfig.baseUrl}/api/v1/player-projections/$season/$playerId?season_type=$seasonType'),
       );
 
       if (response.statusCode == 200) {
@@ -154,7 +154,7 @@ class PlayerStatsService {
       if (playerIds.isEmpty) return {};
 
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/player-stats/bulk/$season'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/player-stats/bulk/$season'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'player_ids': playerIds,
@@ -188,7 +188,7 @@ class PlayerStatsService {
       if (playerIds.isEmpty) return {};
 
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/player-projections/bulk/$season'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/player-projections/bulk/$season'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'player_ids': playerIds,
@@ -224,7 +224,7 @@ class PlayerStatsService {
       if (playerIds.isEmpty) return {};
 
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/player-projections/bulk/$season/weeks'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/player-projections/bulk/$season/weeks'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'player_ids': playerIds,
