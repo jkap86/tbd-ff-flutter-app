@@ -49,17 +49,17 @@ class _AuctionDraftScreenState extends State<AuctionDraftScreen>
     _setupTimer();
   }
 
-  void _loadAuctionData() {
+  Future<void> _loadAuctionData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final auctionProvider =
         Provider.of<AuctionProvider>(context, listen: false);
 
     // Setup socket listeners
-    auctionProvider.setupSlowAuctionListeners(
+    await auctionProvider.setupSlowAuctionListeners(
         widget.draftId, widget.myRosterId);
 
     // Load initial data
-    auctionProvider.loadAuctionData(
+    await auctionProvider.loadAuctionData(
       token: authProvider.token!,
       draftId: widget.draftId,
       myRosterId: widget.myRosterId,

@@ -1,20 +1,21 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class StorageService {
   static const String _tokenKey = 'auth_token';
   static const String _userIdKey = 'user_id';
   static const String _usernameKey = 'username';
 
-  // Save token to local storage
+  final _secureStorage = const FlutterSecureStorage();
+
+  // Save token to secure storage
   Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await _secureStorage.write(key: _tokenKey, value: token);
   }
 
-  // Get token from local storage
+  // Get token from secure storage
   Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return await _secureStorage.read(key: _tokenKey);
   }
 
   // Save user info to local storage
@@ -45,8 +46,9 @@ class StorageService {
   // Clear all stored data (logout)
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_usernameKey);
+    // Clear token from secure storage
+    await _secureStorage.delete(key: _tokenKey);
   }
 }

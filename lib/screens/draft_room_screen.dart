@@ -334,7 +334,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     await draftProvider.loadDraftByLeague(authProvider.token!, widget.leagueId);
 
     if (mounted && draftProvider.currentDraft != null && authProvider.user != null) {
-      draftProvider.joinDraftRoom(
+      await draftProvider.joinDraftRoom(
         draftId: draftProvider.currentDraft!.id,
         userId: authProvider.user!.id,
         username: authProvider.user!.username,

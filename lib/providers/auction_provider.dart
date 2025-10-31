@@ -67,18 +67,19 @@ class AuctionProvider with ChangeNotifier {
   }
 
   // Setup socket listeners for slow auction
-  void setupSlowAuctionListeners(int draftId, int myRosterId) {
+  Future<void> setupSlowAuctionListeners(int draftId, int myRosterId) async {
     _myRosterId = myRosterId;
 
     // Initialize socket with auth token before connecting
     if (_authToken != null) {
-      _socketService.initializeWithToken(_authToken!);
+      await _socketService.initializeWithToken(_authToken!);
       debugPrint('[AuctionProvider] Socket initialized with token for WebSocket connection');
     } else {
       debugPrint('[AuctionProvider] WARNING: No auth token available for socket connection!');
     }
 
     // Join the auction room
+    await _socketService.connect();
     _socketService.joinAuction(draftId: draftId, rosterId: myRosterId);
 
     _socketService.onActiveNominations = (data) {
