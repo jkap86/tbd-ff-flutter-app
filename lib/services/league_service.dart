@@ -35,7 +35,7 @@ class LeagueService {
       }
 
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/create'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/create'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode(body),
       );
@@ -56,7 +56,7 @@ class LeagueService {
     try {
       debugPrint('[LeagueService] Fetching leagues for user $userId');
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/user/$userId'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/user/$userId'),
         headers: ApiConfig.headers,
       );
 
@@ -86,7 +86,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -117,7 +117,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/join'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/join'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'team_name': teamName,
@@ -161,7 +161,7 @@ class LeagueService {
       if (tradeDetailsSetting != null) body['trade_details_setting'] = tradeDetailsSetting;
 
       final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode(body),
       );
@@ -184,7 +184,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/is-commissioner'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/is-commissioner'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -208,7 +208,7 @@ class LeagueService {
     try {
       final response = await http.post(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/leagues/$leagueId/transfer-commissioner'),
+            '${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/transfer-commissioner'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'newCommissionerId': newCommissionerId,
@@ -234,7 +234,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/remove-member'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/remove-member'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'userIdToRemove': userIdToRemove,
@@ -255,7 +255,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/stats'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/stats'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -278,7 +278,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/reset'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/reset'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -300,7 +300,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.delete(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -321,7 +321,7 @@ class LeagueService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/waivers/settings'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/waivers/settings'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -356,7 +356,7 @@ class LeagueService {
       if (processTime != null) body['process_time'] = processTime;
 
       final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/waivers/settings'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/waivers/settings'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode(body),
       );
