@@ -1,18 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
 import '../models/draft_model.dart';
 import '../models/draft_order_model.dart';
 import '../models/draft_chat_message_model.dart';
 import '../models/league_chat_message_model.dart';
+import 'storage_service.dart';
 
 class SocketService {
   IO.Socket? _socket;
   int? _currentDraftId;
   int? _currentLeagueId;
-  final _secureStorage = const FlutterSecureStorage();
-  static const String _tokenKey = 'auth_token';
+  final _storageService = StorageService();
 
   // Draft event callbacks
   Function(Map<String, dynamic>)? onPickMade;
@@ -60,7 +59,7 @@ class SocketService {
 
   // Initialize socket with authentication token
   Future<void> initializeWithToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    await _storageService.saveToken(token);
     debugPrint('[SocketService] Token securely stored (length=${token.length})');
   }
 
@@ -71,9 +70,9 @@ class SocketService {
       return;
     }
 
-    final token = await _secureStorage.read(key: _tokenKey);
+    final token = await _storageService.getToken();
     if (token == null) {
-      debugPrint('[SocketService] ERROR: No token found in secure storage');
+      debugPrint('[SocketService] ERROR: No token found in storage');
       onError?.call('No authentication token provided');
       return;
     }
@@ -584,10 +583,10 @@ class SocketService {
     debugPrint('Emitted join_auction for draft $draftId (roster: $rosterId)');
   }
 
-  // Clear token from secure storage (on logout)
+  // Clear token from storage (on logout)
   Future<void> clearToken() async {
-    await _secureStorage.delete(key: _tokenKey);
-    debugPrint('[SocketService] Token cleared from secure storage');
+    await _storageService.clearAll();
+    debugPrint('[SocketService] Token cleared from storage');
   }
 
   // Clear all callbacks
