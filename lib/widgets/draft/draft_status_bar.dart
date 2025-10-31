@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import '../../models/draft_model.dart';
 import '../../models/draft_order_model.dart';
 import '../../providers/draft_provider.dart';
 import '../../providers/auth_provider.dart';

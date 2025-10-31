@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../providers/auth_provider.dart';
-import '../../providers/waiver_provider.dart';
 import '../../models/player_model.dart';
 import '../../models/roster_model.dart';
 import '../../widgets/common/empty_state_widget.dart';

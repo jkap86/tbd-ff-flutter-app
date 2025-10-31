@@ -6,7 +6,6 @@ import '../providers/draft_provider.dart';
 import '../models/roster_model.dart';
 import '../models/league_model.dart';
 import '../models/league_chat_message_model.dart';
-import '../theme/app_theme.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/common/error_state_widget.dart';
 import '../services/socket_service.dart';
