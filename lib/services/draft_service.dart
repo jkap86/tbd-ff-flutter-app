@@ -108,14 +108,25 @@ class DraftService {
     required int leagueId,
   }) async {
     try {
+      final url = '${ApiConfig.baseUrl}/api/leagues/$leagueId/draft';
+      final headers = ApiConfig.getAuthHeaders(token);
+
+      debugPrint('[DraftService] getDraftByLeague: url=$url');
+      debugPrint('[DraftService] getDraftByLeague: headers=${headers.keys.toList()}');
+      debugPrint('[DraftService] getDraftByLeague: hasAuthHeader=${headers.containsKey("Authorization")}');
+
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/leagues/$leagueId/draft'),
-        headers: ApiConfig.getAuthHeaders(token),
+        Uri.parse(url),
+        headers: headers,
       );
+
+      debugPrint('[DraftService] getDraftByLeague response: statusCode=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return Draft.fromJson(data['data']);
+      } else {
+        debugPrint('[DraftService] getDraftByLeague error response: ${response.body}');
       }
       return null;
     } catch (e) {
