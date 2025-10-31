@@ -572,6 +572,9 @@ class DraftProvider with ChangeNotifier {
         // Update draft state
         _currentDraft = result['draft'];
 
+        // Clear any previous error messages
+        _errorMessage = null;
+
         // Note: WebSocket will trigger notifyListeners() when pick_made event arrives
         // with the full pick data and will remove the player from available list
         notifyListeners();

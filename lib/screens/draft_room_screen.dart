@@ -405,6 +405,14 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
     if (mounted) {
       if (success) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Drafted ${_selectedPlayer!.fullName}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
         setState(() {
           _selectedPlayer = null;
         });
