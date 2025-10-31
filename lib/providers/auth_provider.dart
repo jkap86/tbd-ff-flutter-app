@@ -112,34 +112,47 @@ class AuthProvider with ChangeNotifier {
     required String username,
     required String password,
   }) async {
+    print('[AuthProvider] Login started for $username');
     _status = AuthStatus.loading;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      print('[AuthProvider] Calling AuthService.login()...');
       final response = await _authService.login(
         username: username,
         password: password,
       );
 
+      print('[AuthProvider] Response received - success: ${response.success}, hasData: ${response.data != null}');
+
       if (response.success && response.data != null) {
         _user = response.data!.user;
         _token = response.data!.token;
 
+        print('[AuthProvider] User: ${_user!.username}, Token length: ${_token!.length}');
+
         // Save to local storage
+        print('[AuthProvider] Saving token to secure storage...');
         await _storageService.saveToken(_token!);
+        print('[AuthProvider] Saving user info...');
         await _storageService.saveUserInfo(_user!.id, _user!.username);
+        print('[AuthProvider] Storage complete');
 
         _status = AuthStatus.authenticated;
         notifyListeners();
+        print('[AuthProvider] Login successful, returning true');
         return true;
       } else {
+        print('[AuthProvider] Login failed: ${response.message}');
         _errorMessage = response.message;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return false;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[AuthProvider] Login exception: $e');
+      print('[AuthProvider] Stack trace: $stackTrace');
       _errorMessage = 'Login failed: ${e.toString()}';
       _status = AuthStatus.unauthenticated;
       notifyListeners();

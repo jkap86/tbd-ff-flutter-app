@@ -55,6 +55,9 @@ class AuthService {
     required String password,
   }) async {
     try {
+      print('[AuthService] Login attempt for username: $username');
+      print('[AuthService] API URL: ${ApiConfig.login}');
+
       final response = await http.post(
         Uri.parse(ApiConfig.login),
         headers: ApiConfig.headers,
@@ -64,24 +67,35 @@ class AuthService {
         }),
       );
 
+      print('[AuthService] Response status code: ${response.statusCode}');
+      print('[AuthService] Response body: ${response.body}');
+
       final responseData = jsonDecode(response.body);
+      print('[AuthService] Parsed response data: $responseData');
 
       if (response.statusCode == 200) {
         // Backend returns { user: {...}, token: "..." } format
         // Convert to expected AuthResponse format
+        print('[AuthService] Creating AuthData from response...');
+        final authData = AuthData.fromJson(responseData);
+        print('[AuthService] AuthData created successfully');
+
         return AuthResponse(
           success: true,
           message: 'Login successful',
-          data: AuthData.fromJson(responseData),
+          data: authData,
         );
       } else {
         // Return error response
+        print('[AuthService] Login failed with status ${response.statusCode}');
         return AuthResponse(
           success: false,
           message: responseData['message'] ?? 'Login failed',
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[AuthService] Login error: $e');
+      print('[AuthService] Stack trace: $stackTrace');
       return AuthResponse(
         success: false,
         message: 'Network error: ${e.toString()}',
