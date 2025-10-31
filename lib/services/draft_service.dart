@@ -67,7 +67,7 @@ class DraftService {
       }
 
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/create'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/create'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode(body),
       );
@@ -87,7 +87,7 @@ class DraftService {
   Future<Draft?> getDraft({required String token, required int draftId}) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -108,7 +108,7 @@ class DraftService {
     required int leagueId,
   }) async {
     try {
-      final url = '${ApiConfig.baseUrl}/api/leagues/$leagueId/draft';
+      final url = '${ApiConfig.baseUrl}/api/v1/leagues/$leagueId/draft';
       final headers = ApiConfig.getAuthHeaders(token);
 
       debugPrint('[DraftService] getDraftByLeague: url=$url');
@@ -144,7 +144,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/order'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/order'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'randomize': randomize,
@@ -168,7 +168,7 @@ class DraftService {
   Future<List<DraftOrder>> getDraftOrder({required String token, required int draftId}) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/order'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/order'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -191,7 +191,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/start'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/start'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -213,7 +213,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/pause'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/pause'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -235,7 +235,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/resume'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/resume'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -257,7 +257,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/reset'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/reset'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -292,7 +292,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/settings'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/settings'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           if (draftType != null) 'draft_type': draftType,
@@ -331,7 +331,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/pick'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/pick'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'roster_id': rosterId,
@@ -361,7 +361,7 @@ class DraftService {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiConfig.baseUrl}/api/drafts/$draftId/picks?withDetails=$withDetails'),
+            '${ApiConfig.baseUrl}/api/v1/drafts/$draftId/picks?withDetails=$withDetails'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -388,7 +388,7 @@ class DraftService {
       if (search != null) queryParams['search'] = search;
 
       final uri = Uri.parse(
-              '${ApiConfig.baseUrl}/api/drafts/$draftId/players/available')
+              '${ApiConfig.baseUrl}/api/v1/drafts/$draftId/players/available')
           .replace(queryParameters: queryParams);
 
       final response = await http.get(
@@ -414,7 +414,7 @@ class DraftService {
   ) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/chat?limit=$limit'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/chat?limit=$limit'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -441,7 +441,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/chat'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/chat'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'user_id': userId,
@@ -464,7 +464,7 @@ class DraftService {
   Future<bool> syncPlayers(String token) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/players/sync'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/players/sync'),
         headers: ApiConfig.getAuthHeaders(token),
       );
 
@@ -487,7 +487,7 @@ class DraftService {
       if (team != null) queryParams['team'] = team;
       if (search != null) queryParams['search'] = search;
 
-      final uri = Uri.parse('${ApiConfig.baseUrl}/api/players')
+      final uri = Uri.parse('${ApiConfig.baseUrl}/api/v1/players')
           .replace(queryParameters: queryParams);
 
       final response = await http.get(
@@ -516,7 +516,7 @@ class DraftService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/adjust-time'),
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/drafts/$draftId/adjust-time'),
         headers: ApiConfig.getAuthHeaders(token),
         body: jsonEncode({
           'roster_id': rosterId,
