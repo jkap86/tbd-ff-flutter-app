@@ -84,11 +84,11 @@ class DraftService {
   }
 
   // Get draft by ID
-  Future<Draft?> getDraft(int draftId) async {
+  Future<Draft?> getDraft({required String token, required int draftId}) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {
@@ -154,11 +154,11 @@ class DraftService {
   }
 
   // Get draft order
-  Future<List<DraftOrder>> getDraftOrder(int draftId) async {
+  Future<List<DraftOrder>> getDraftOrder({required String token, required int draftId}) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/order'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {
@@ -344,13 +344,14 @@ class DraftService {
   }
 
   // Get all picks for a draft
-  Future<List<DraftPick>> getDraftPicks(int draftId,
-      {bool withDetails = true}) async {
+  Future<List<DraftPick>> getDraftPicks(
+    {required String token, required int draftId, bool withDetails = true}
+  ) async {
     try {
       final response = await http.get(
         Uri.parse(
             '${ApiConfig.baseUrl}/api/drafts/$draftId/picks?withDetails=$withDetails'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {
@@ -367,11 +368,8 @@ class DraftService {
 
   // Get available players for draft
   Future<List<Player>> getAvailablePlayers(
-    int draftId, {
-    String? position,
-    String? team,
-    String? search,
-  }) async {
+    {required String token, required int draftId, String? position, String? team, String? search}
+  ) async {
     try {
       final queryParams = <String, String>{};
       if (position != null) queryParams['position'] = position;
@@ -384,7 +382,7 @@ class DraftService {
 
       final response = await http.get(
         uri,
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {
@@ -400,12 +398,13 @@ class DraftService {
   }
 
   // Get chat messages
-  Future<List<DraftChatMessage>> getChatMessages(int draftId,
-      {int limit = 100}) async {
+  Future<List<DraftChatMessage>> getChatMessages(
+    {required String token, required int draftId, int limit = 100}
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/api/drafts/$draftId/chat?limit=$limit'),
-        headers: ApiConfig.headers,
+        headers: ApiConfig.getAuthHeaders(token),
       );
 
       if (response.statusCode == 200) {

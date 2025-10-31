@@ -316,12 +316,12 @@ class DraftProvider with ChangeNotifier {
       );
       if (draft != null) {
         _currentDraft = draft;
-        // Load related data
+        // Load related data with token for authentication
         await Future.wait([
-          _loadDraftOrder(draft.id),
-          _loadDraftPicks(draft.id),
-          _loadAvailablePlayers(draft.id),
-          _loadChatMessages(draft.id),
+          _loadDraftOrder(token, draft.id),
+          _loadDraftPicks(token, draft.id),
+          _loadAvailablePlayers(token, draft.id),
+          _loadChatMessages(token, draft.id),
         ]);
         _initializeChessTimerState();
 
@@ -353,23 +353,23 @@ class DraftProvider with ChangeNotifier {
   }
 
   // Load draft order
-  Future<void> _loadDraftOrder(int draftId) async {
-    _draftOrder = await _draftService.getDraftOrder(draftId);
+  Future<void> _loadDraftOrder(String token, int draftId) async {
+    _draftOrder = await _draftService.getDraftOrder(token: token, draftId: draftId);
   }
 
   // Load draft picks
-  Future<void> _loadDraftPicks(int draftId) async {
-    _draftPicks = await _draftService.getDraftPicks(draftId, withDetails: true);
+  Future<void> _loadDraftPicks(String token, int draftId) async {
+    _draftPicks = await _draftService.getDraftPicks(token: token, draftId: draftId, withDetails: true);
   }
 
   // Load available players
-  Future<void> _loadAvailablePlayers(int draftId) async {
-    _availablePlayers = await _draftService.getAvailablePlayers(draftId);
+  Future<void> _loadAvailablePlayers(String token, int draftId) async {
+    _availablePlayers = await _draftService.getAvailablePlayers(token: token, draftId: draftId);
   }
 
   // Load chat messages
-  Future<void> _loadChatMessages(int draftId) async {
-    _chatMessages = await _draftService.getChatMessages(draftId);
+  Future<void> _loadChatMessages(String token, int draftId) async {
+    _chatMessages = await _draftService.getChatMessages(token: token, draftId: draftId);
   }
 
   // Set draft order
