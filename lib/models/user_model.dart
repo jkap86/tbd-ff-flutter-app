@@ -18,9 +18,9 @@ class User {
     return User(
       id: json['id'] as int,
       username: json['username'] as String,
-      email: json['email'] as String,
+      email: json['email'] as String? ?? '',
       phoneNumber: json['phone_number'] as String?,
-      isPhoneVerified: json['is_phone_verified'] as bool,
+      isPhoneVerified: json['is_phone_verified'] as bool? ?? false,
     );
   }
 

@@ -77,14 +77,35 @@ class AuthService {
         // Backend returns { user: {...}, token: "..." } format
         // Convert to expected AuthResponse format
         print('[AuthService] Creating AuthData from response...');
-        final authData = AuthData.fromJson(responseData);
-        print('[AuthService] AuthData created successfully');
 
-        return AuthResponse(
-          success: true,
-          message: 'Login successful',
-          data: authData,
-        );
+        try {
+          // Check if response has the expected structure
+          if (responseData['user'] == null || responseData['token'] == null) {
+            print('[AuthService] Missing user or token in response');
+            return AuthResponse(
+              success: false,
+              message: 'Invalid response format from server',
+            );
+          }
+
+          final authData = AuthData.fromJson(responseData);
+          print('[AuthService] AuthData created successfully');
+
+          return AuthResponse(
+            success: true,
+            message: 'Login successful',
+            data: authData,
+          );
+        } catch (parseError, parseStackTrace) {
+          print('[AuthService] Error parsing response: $parseError');
+          print('[AuthService] Parse stack trace: $parseStackTrace');
+          print('[AuthService] Response data structure: ${responseData.keys}');
+
+          return AuthResponse(
+            success: false,
+            message: 'Error parsing server response: ${parseError.toString()}',
+          );
+        }
       } else {
         // Return error response
         print('[AuthService] Login failed with status ${response.statusCode}');
