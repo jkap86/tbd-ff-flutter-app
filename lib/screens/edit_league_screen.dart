@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/league_provider.dart';
-import '../providers/draft_provider.dart';
 import '../providers/matchup_provider.dart';
 import '../models/league_model.dart';
 import '../models/roster_model.dart';
-import '../services/draft_service.dart';
 import '../services/league_service.dart';
 import '../services/league_median_service.dart';
 import '../widgets/responsive_container.dart';
@@ -36,6 +34,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
   bool _isResetting = false;
 
   // Draft settings
+
+
+
   // Waiver settings
   String _waiverType = 'faab';
   int _faabBudget = 100;
@@ -76,12 +77,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
 
     // Initialize trade notification settings
     _tradeNotificationSetting = widget.league.tradeNotificationSetting;
-    _tradeDetailsSetting = widget.league.tradeDetailsSetting;
-
-    // Initialize draft settings (will be loaded separately)
-    _loadDraftSettings();
-
-    // Load waiver settings
+    _tradeDetailsSetting = widget.league.tradeDetailsSetting;    // Load waiver settings
     _loadWaiverSettings();
 
     // Load league median settings
@@ -132,51 +128,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
         text: (_scoringSettings['receiving_receptions'] ?? 1).toString());
   }
 
-  Future<void> _loadDraftSettings() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
-
-    if (authProvider.token == null) return;
-
-    await draftProvider.loadDraftByLeague(authProvider.token!, widget.league.id);
-
-    if (mounted && draftProvider.currentDraft != null) {
-      final draft = draftProvider.currentDraft!;
-      setState(() {
-        _draftType = draft.draftType;
-        _thirdRoundReversal = draft.thirdRoundReversal;
-        _pickTimeSeconds = draft.pickTimeSeconds;
-        _draftRounds = draft.rounds;
-        _timerMode = draft.timerMode;
-        _teamTimeBudgetMinutes = draft.teamTimeBudgetSeconds != null
-            ? (draft.teamTimeBudgetSeconds! / 60).round()
-            : 60;
-
-        // Load auction-specific settings
-        _startingBudget = draft.startingBudget;
-        _minBid = draft.minBid;
-        _nominationsPerManager = draft.nominationsPerManager;
-        _nominationTimerHours = draft.nominationTimerHours ?? 24;
-        _reserveBudgetPerSlot = draft.reserveBudgetPerSlot;
-
-        // Load overnight pause settings (stored in UTC, convert to local)
-        final settings = draft.settings;
-        if (settings != null) {
-          _autoPauseEnabled = settings['auto_pause_enabled'] == true;
-          if (_autoPauseEnabled) {
-            final startHourUTC = settings['auto_pause_start_hour'] ?? 23;
-            final startMinuteUTC = settings['auto_pause_start_minute'] ?? 0;
-            final endHourUTC = settings['auto_pause_end_hour'] ?? 8;
-            final endMinuteUTC = settings['auto_pause_end_minute'] ?? 0;
-
-            // Convert UTC to local time
-            _autoPauseStartTime = _utcToLocalTimeOfDay(startHourUTC, startMinuteUTC);
-            _autoPauseEndTime = _utcToLocalTimeOfDay(endHourUTC, endMinuteUTC);
-          }
-        }
-      });
-    }
-  }
+  
 
   Future<void> _loadWaiverSettings() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -457,7 +409,9 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     );
   }
 
+  
 
+  
 
   Future<void> _handleResetLeague() async {
     // Show confirmation dialog
@@ -974,7 +928,7 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Section 4: Waiver Settings (Collapsible) - moved from Section 5
+                // Section 5: Waiver Settings (Collapsible)
                 Card(
                   child: ExpansionTile(
                     title: Text(
@@ -1012,18 +966,764 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
                                     child: Text('FAAB (Blind Bidding)'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'waiver',
-                                    child: Text('Waiver Priority'),
+                                    value: 'rolling',
+                                    child: Text('Rolling Waivers'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'free_agent',
-                                    child: Text('Free Agent (First Come)'),
+                                    value: 'none',
+                                    child: Text('Free Agents Only'),
                                   ),
                                 ],
                                 onChanged: (value) {
-                                  setState(() => _waiverType = value!);
+                                  setState(() {
+                                    _waiverType = value!;
+                                  });
                                 },
                               ),
+                              const SizedBox(height: 16),
+
+                              // FAAB Budget (only show if FAAB type)
+                              if (_waiverType == 'faab') ...[
+                                TextFormField(
+                                  initialValue: _faabBudget.toString(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'FAAB Budget',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.attach_money),
+                                    helperText: 'Starting budget for each team',
+                                  ),
+                                  onChanged: (value) {
+                                    final budget = int.tryParse(value);
+                                    if (budget != null && budget >= 0) {
+                                      setState(() {
+                                        _faabBudget = budget;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Waiver Period Days
+                              DropdownButtonFormField<int>(
+                                value: _waiverPeriodDays,
+                                decoration: const InputDecoration(
+                                  labelText: 'Waiver Period',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.timer),
+                                  helperText: 'Days before players become free agents',
+                                ),
+                                items: const [
+                                  DropdownMenuItem(value: 0, child: Text('No Wait (Instant FA)')),
+                                  DropdownMenuItem(value: 1, child: Text('1 Day')),
+                                  DropdownMenuItem(value: 2, child: Text('2 Days')),
+                                  DropdownMenuItem(value: 3, child: Text('3 Days')),
+                                  DropdownMenuItem(value: 4, child: Text('4 Days')),
+                                  DropdownMenuItem(value: 5, child: Text('5 Days')),
+                                  DropdownMenuItem(value: 7, child: Text('1 Week')),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _waiverPeriodDays = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Process Schedule
+                              DropdownButtonFormField<String>(
+                                value: _processSchedule,
+                                decoration: const InputDecoration(
+                                  labelText: 'Processing Schedule',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.schedule),
+                                  helperText: 'When waivers are processed',
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'daily',
+                                    child: Text('Daily (3:00 AM)'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'twice_weekly',
+                                    child: Text('Twice Weekly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'weekly',
+                                    child: Text('Weekly'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'manual',
+                                    child: Text('Manual (Commissioner Only)'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _processSchedule = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Info box
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _waiverType == 'faab'
+                                            ? 'Teams bid on players using their FAAB budget. Highest bid wins.'
+                                            : _waiverType == 'rolling'
+                                            ? 'Teams are assigned waiver priority. Lowest priority team gets first pick.'
+                                            : 'All players are immediately available as free agents.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Save button
+                              FilledButton.icon(
+                                onPressed: _handleSaveWaiverSettings,
+                                icon: const Icon(Icons.save),
+                                label: const Text('Save Waiver Settings'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 6: Trade Notification Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'Trade Notification Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Control trade proposal notifications'),
+                    initiallyExpanded: false,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Notification setting
+                            const Text(
+                              'League Chat Notifications',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'always_off',
+                                  label: Text('Always Off'),
+                                  icon: Icon(Icons.notifications_off, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'proposer_choice',
+                                  label: Text('Proposer Choice'),
+                                  icon: Icon(Icons.people, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'always_on',
+                                  label: Text('Always On'),
+                                  icon: Icon(Icons.notifications_active, size: 18),
+                                ),
+                              ],
+                              selected: {_tradeNotificationSetting},
+                              onSelectionChanged: (Set<String> selection) {
+                                setState(() {
+                                  _tradeNotificationSetting = selection.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                            // Details setting
+                            const Text(
+                              'Show Trade Details',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'always_off',
+                                  label: Text('Always Off'),
+                                  icon: Icon(Icons.visibility_off, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'proposer_choice',
+                                  label: Text('Proposer Choice'),
+                                  icon: Icon(Icons.people, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'always_on',
+                                  label: Text('Always On'),
+                                  icon: Icon(Icons.visibility, size: 18),
+                                ),
+                              ],
+                              selected: {_tradeDetailsSetting},
+                              onSelectionChanged: (Set<String> selection) {
+                                setState(() {
+                                  _tradeDetailsSetting = selection.first;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            // Info text
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'About These Settings:',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    '• Always Off: Trade proposals will never post to league chat',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '• Proposer Choice: Trade proposer can choose whether to notify (default)',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '• Always On: Trade proposals will always post to league chat',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 7: League Median Settings (Collapsible)
+                Card(
+                  child: ExpansionTile(
+                    title: Text(
+                      'League Median Scoring',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    subtitle: const Text('Configure median matchups'),
+                    initiallyExpanded: false,
+                    children: [
+                      if (_isLoadingMedianSettings)
+                        const Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Enable/Disable Toggle
+                              Card(
+                                child: SwitchListTile(
+                                  title: const Text('Enable League Median Scoring'),
+                                  subtitle: const Text(
+                                    'Teams compete against opponent + league median each week',
+                                  ),
+                                  value: _enableLeagueMedian,
+                                  onChanged: (bool value) {
+                                    setState(() {
+                                      _enableLeagueMedian = value;
+                                    });
+                                  },
+                                  secondary: Icon(
+                                    _enableLeagueMedian ? Icons.check_circle : Icons.circle_outlined,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Week Range Pickers (only shown if enabled)
+                              if (_enableLeagueMedian) ...[
+                                ListTile(
+                                  title: const Text('Median Matchup Start Week'),
+                                  trailing: DropdownButton<int>(
+                                    value: _medianMatchupWeekStart,
+                                    hint: const Text('Select Week'),
+                                    items: List.generate(18, (i) => i + 1).map((week) {
+                                      return DropdownMenuItem(
+                                        value: week,
+                                        child: Text('Week $week'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _medianMatchupWeekStart = value;
+                                        // Ensure end week is not before start week
+                                        if (_medianMatchupWeekEnd != null &&
+                                            _medianMatchupWeekEnd! < value!) {
+                                          _medianMatchupWeekEnd = value;
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const Divider(height: 1),
+                                ListTile(
+                                  title: const Text('Median Matchup End Week'),
+                                  trailing: DropdownButton<int>(
+                                    value: _medianMatchupWeekEnd,
+                                    hint: const Text('Select Week'),
+                                    items: List.generate(18, (i) => i + 1)
+                                        .where((week) =>
+                                          _medianMatchupWeekStart == null ||
+                                          week >= _medianMatchupWeekStart!)
+                                        .map((week) {
+                                      return DropdownMenuItem(
+                                        value: week,
+                                        child: Text('Week $week'),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _medianMatchupWeekEnd = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Generate Matchups Button (commissioner only)
+                                Consumer<AuthProvider>(
+                                  builder: (context, authProvider, child) {
+                                    final isCommissioner = widget.league.isUserCommissioner(
+                                      authProvider.user?.id ?? 0,
+                                    );
+
+                                    if (!isCommissioner) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        FilledButton.icon(
+                                          onPressed: _generateMedianMatchups,
+                                          icon: const Icon(Icons.auto_awesome),
+                                          label: const Text('Generate Median Matchups'),
+                                          style: FilledButton.styleFrom(
+                                            minimumSize: const Size.fromHeight(48),
+                                            backgroundColor: Theme.of(context).colorScheme.tertiary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'This will create median matchups for all weeks in the configured range',
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 16),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
+
+                              // Info box
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 20,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _enableLeagueMedian
+                                            ? 'Each team gets 2 matchups per week: one against an opponent and one against the league median score.'
+                                            : 'Enable League Median to give teams an additional matchup against the league median score each week.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Save button
+                              FilledButton.icon(
+                                onPressed: _saveLeagueMedianSettings,
+                                icon: const Icon(Icons.save),
+                                label: const Text('Save League Median Settings'),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(48),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Section 8: Commissioner Settings (Collapsible)
+                Consumer<LeagueProvider>(
+                  builder: (context, leagueProvider, child) {
+                    final rosters = leagueProvider.selectedLeagueRosters;
+                    final authProvider =
+                        Provider.of<AuthProvider>(context, listen: false);
+
+                    return Card(
+                      child: ExpansionTile(
+                        title: Text(
+                          'Commissioner Settings',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        subtitle: const Text('Transfer commissioner role'),
+                        initiallyExpanded: false,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Transfer Commissioner',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Transfer your commissioner role to another league member',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Members list for transfer
+                                if (rosters.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Center(
+                                      child: Text(
+                                        'No other members in league',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: rosters.length,
+                                    itemBuilder: (context, index) {
+                                      final roster = rosters[index];
+                                      final currentUserId = authProvider.user?.id;
+
+                                      // Skip current user
+                                      if (roster.userId == currentUserId) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      return Card(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        child: ListTile(
+                                          leading: CircleAvatar(
+                                            child: Text(
+                                              'R${roster.rosterId}',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          title: Text(
+                                            roster.username ?? 'Unknown User',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                          subtitle: Text(roster.email ?? ''),
+                                          trailing: ElevatedButton.icon(
+                                            onPressed: () {
+                                              _showTransferConfirmation(
+                                                context,
+                                                roster,
+                                                leagueProvider,
+                                                authProvider,
+                                              );
+                                            },
+                                            icon: const Icon(Icons.person,
+                                                size: 16),
+                                            label: const Text('Transfer'),
+                                            style: ElevatedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 8,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Info message
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Note: As the commissioner, you can edit league settings. Some settings may be locked once the season starts.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Save button
+                Consumer<LeagueProvider>(
+                  builder: (context, leagueProvider, child) {
+                    return ElevatedButton(
+                      onPressed: leagueProvider.status == LeagueStatus.loading
+                          ? null
+                          : _handleSaveChanges,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: leagueProvider.status == LeagueStatus.loading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Reset League button (Commissioner only)
+                OutlinedButton(
+                  onPressed: _isResetting ? null : _handleResetLeague,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                  child: _isResetting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.restart_alt),
+                            SizedBox(width: 8),
+                            Text(
+                              'Reset League',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Convert UTC time to local TimeOfDay
+  
+
+  /// Convert local TimeOfDay to UTC
+  
+
+  /// Save all changes in background (non-blocking)
+  void _saveAllChangesInBackground(
+    String token,
+    LeagueProvider leagueProvider,
+    int leagueId,
+    String name,
+    String seasonType,
+    int totalRosters,
+    Map<String, dynamic> settings,
+    Map<String, dynamic> scoringSettings,
+    List<Map<String, dynamic>> rosterPositions,
+    String season,
+    int startWeek,
+    int playoffWeekStart,
+  ) async {
+    debugPrint('[EditLeague] Starting background save...');
+
+    // Step 1: Update league settings
+    final success = await leagueProvider.updateLeagueSettings(
+      token: token,
+      leagueId: leagueId,
+      name: name,
+      seasonType: seasonType,
+      totalRosters: totalRosters,
+      settings: settings,
+      scoringSettings: scoringSettings,
+      rosterPositions: rosterPositions,
+      tradeNotificationSetting: _tradeNotificationSetting,
+      tradeDetailsSetting: _tradeDetailsSetting,
+    );
+
+    if (!success) {
+      debugPrint('[EditLeague] Failed to update league settings');
+      return;
+    }
+
+    debugPrint('[EditLeague] League settings updated');
+    // Step 2: Generate matchups
+
+    // Step 2: Generate matchups
+    _generateMatchupsInBackground(
+      token,
+      leagueId,
+      season,
+      startWeek,
+      playoffWeekStart,
+    );
+  }
+
+  /// Generate matchups in background (non-blocking)
+  void _generateMatchupsInBackground(
+    String token,
+    int leagueId,
+    String season,
+    int startWeek,
+    int playoffWeekStart,
+  ) async {
+    debugPrint('[EditLeague] Auto-generating matchups for weeks $startWeek to ${playoffWeekStart - 1} in background...');
+
+    // Check if widget is still mounted before using context
+    if (!mounted) return;
+
+    final matchupProvider = Provider.of<MatchupProvider>(context, listen: false);
+    final totalWeeks = playoffWeekStart - startWeek;
+
+    int successCount = 0;
+    for (int week = startWeek; week < playoffWeekStart; week++) {
+      final matchupSuccess = await matchupProvider.generateMatchups(
+        token: token,
+        leagueId: leagueId,
+        week: week,
+        season: season,
+      );
+      if (matchupSuccess) {
+        successCount++;
+
+        // Auto-calculate scores for this week
+        debugPrint('[EditLeague] Calculating scores for week $week...');
+        await matchupProvider.updateScores(
+          token: token,
+          leagueId: leagueId,
+          week: week,
+          season: season,
+        );
+      }
+    }
+
+    debugPrint('[EditLeague] Background matchup generation complete: $successCount/$totalWeeks weeks');
+  }
+
+  Widget _buildRosterPositionRow(String positionKey, String positionName) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              positionName,
+              style: const TextStyle(fontSize: 16),
             ),
           ),
           const SizedBox(width: 16),
@@ -1053,6 +1753,8 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
     );
   }
 
+  
 
+  
 
 }

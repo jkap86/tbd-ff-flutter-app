@@ -21,6 +21,9 @@ dependencies:
   # For JSON serialization
   json_annotation: ^4.9.0
 
+  # Date formatting
+  intl: ^0.18.0
+
   # Deep linking
   app_links: ^3.5.1
 

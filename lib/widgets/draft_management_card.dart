@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/league_model.dart';
 import '../models/draft_model.dart';
 import '../models/roster_model.dart';
+import '../providers/auth_provider.dart';
+import '../providers/draft_provider.dart';
 import '../screens/draft_setup_screen.dart';
 import '../screens/draft_room_screen.dart';
 import '../screens/auction_draft_screen.dart';
@@ -66,6 +69,10 @@ class DraftManagementCard extends StatelessWidget {
   }
 
   Widget _buildNoDraftState(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isCommissioner = authProvider.user != null &&
+                          league.isUserCommissioner(authProvider.user!.id);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -75,35 +82,50 @@ class DraftManagementCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Create a draft to begin drafting players for your league',
+          isCommissioner
+              ? 'Create a draft to begin drafting players for your league'
+              : 'The commissioner needs to create a draft',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey,
               ),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          icon: const Icon(Icons.add_circle_outline),
-          label: const Text('Create Draft'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-          ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => DraftSetupScreen(
-                  leagueId: league.id,
-                  leagueName: league.name,
+        if (isCommissioner)
+          FilledButton.icon(
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('Create Draft'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DraftSetupScreen(
+                    leagueId: league.id,
+                    leagueName: league.name,
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
+              );
+              // Reload draft after returning from draft setup
+              if (context.mounted) {
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+                if (authProvider.token != null) {
+                  await draftProvider.loadDraftByLeague(authProvider.token!, league.id);
+                }
+              }
+            },
+          ),
       ],
     );
   }
 
   Widget _buildDraftNotStartedState(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isCommissioner = authProvider.user != null &&
+                          league.isUserCommissioner(authProvider.user!.id);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,14 +188,15 @@ class DraftManagementCard extends StatelessWidget {
               label: const Text('Enter Draft Room'),
               onPressed: () => _navigateToDraftRoom(context),
             ),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete Draft'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
+            if (isCommissioner)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete Draft'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                onPressed: () => _showDeleteDraftDialog(context),
               ),
-              onPressed: () => _showDeleteDraftDialog(context),
-            ),
           ],
         ),
       ],
@@ -364,7 +387,6 @@ class DraftManagementCard extends StatelessWidget {
         draftId: draft!.id,
         leagueId: league.id,
         myRosterId: rosters.first.id,
-        draftName: 'Slow Auction',
       );
     } else {
       // Snake or linear draft

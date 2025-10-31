@@ -1512,9 +1512,11 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
 
   Future<void> _loadAllPlayerStats() async {
-    if (_isLoadingStats) return;
+    if (_isLoadingStats || !mounted) return;
 
-    setState(() => _isLoadingStats = true);
+    if (mounted) {
+      setState(() => _isLoadingStats = true);
+    }
 
     try {
       final draftProvider = Provider.of<DraftProvider>(context, listen: false);
@@ -1522,7 +1524,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       final availablePlayers = draftProvider.availablePlayers;
 
       if (availablePlayers.isEmpty) {
-        setState(() => _isLoadingStats = false);
+        if (mounted) {
+          setState(() => _isLoadingStats = false);
+        }
         return;
       }
 
