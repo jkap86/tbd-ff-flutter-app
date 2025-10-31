@@ -97,16 +97,24 @@ class DraftProvider with ChangeNotifier {
   // Setup WebSocket event listeners
   void _setupSocketListeners() {
     _socketService.onPickMade = (data) {
+      debugPrint('[DraftProvider] onPickMade received: ${data.keys}');
+
       // Update draft and picks
       if (data['draft'] != null) {
         _currentDraft = Draft.fromJson(data['draft']);
+        debugPrint('[DraftProvider] Updated draft: pick ${_currentDraft?.currentPick}, status ${_currentDraft?.status}');
       }
       if (data['pick'] != null) {
         final pick = DraftPick.fromJson(data['pick']);
         _draftPicks.add(pick);
+        debugPrint('[DraftProvider] Added pick: ${pick.playerName} (ID: ${pick.playerId})');
+
         // Remove picked player from available players
+        final beforeCount = _availablePlayers.length;
         _availablePlayers
             .removeWhere((player) => player.id == pick.playerId);
+        final afterCount = _availablePlayers.length;
+        debugPrint('[DraftProvider] Removed player from available list. Before: $beforeCount, After: $afterCount');
       }
 
       // Update deadline if next_deadline is provided
@@ -523,6 +531,8 @@ class DraftProvider with ChangeNotifier {
     required int playerId,
   }) async {
     try {
+      debugPrint('[DraftProvider] makePick called: playerId=$playerId, rosterId=$rosterId');
+
       final result = await _draftService.makePick(
         token: token,
         draftId: draftId,
@@ -531,6 +541,8 @@ class DraftProvider with ChangeNotifier {
       );
 
       if (result != null) {
+        debugPrint('[DraftProvider] makePick successful, result keys: ${result.keys}');
+
         // Don't add the pick here - let the WebSocket handle it
         // The WebSocket pick will have all the extended fields (player_name, etc.)
         // _draftPicks.add(result['pick']);
@@ -539,16 +551,21 @@ class DraftProvider with ChangeNotifier {
         _currentDraft = result['draft'];
 
         // Remove player from available list
+        final beforeCount = _availablePlayers.length;
         _availablePlayers.removeWhere((player) => player.id == playerId);
+        final afterCount = _availablePlayers.length;
+        debugPrint('[DraftProvider] makePick removed player. Before: $beforeCount, After: $afterCount');
 
         // Note: WebSocket will trigger notifyListeners() when pick_made event arrives
         // But we call it here too to update UI immediately with draft state
         notifyListeners();
         return true;
       }
+      debugPrint('[DraftProvider] makePick failed: result is null');
       return false;
     } catch (e) {
       _errorMessage = 'Error making pick: ${e.toString()}';
+      debugPrint('[DraftProvider] makePick error: $e');
       notifyListeners();
       return false;
     }
