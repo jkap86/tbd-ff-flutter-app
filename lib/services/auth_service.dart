@@ -27,8 +27,12 @@ class AuthService {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 201) {
-        // Backend returns { user: {...}, token: "..." } format
-        // Convert to expected AuthResponse format
+        // Check if response uses new format with success/message/data wrapper
+        if (responseData['success'] != null && responseData['data'] != null) {
+          return AuthResponse.fromJson(responseData);
+        }
+
+        // Old format: user and token at root level
         return AuthResponse(
           success: true,
           message: 'Registration successful',
@@ -74,12 +78,19 @@ class AuthService {
       print('[AuthService] Parsed response data: $responseData');
 
       if (response.statusCode == 200) {
-        // Backend returns { user: {...}, token: "..." } format
-        // Convert to expected AuthResponse format
+        // Backend can return two formats:
+        // 1. New format: { success: true, message: "...", data: { user: {...}, token: "..." } }
+        // 2. Old format: { user: {...}, token: "..." }
         print('[AuthService] Creating AuthData from response...');
 
         try {
-          // Check if response has the expected structure
+          // Check if response uses new format with success/message/data wrapper
+          if (responseData['success'] != null && responseData['data'] != null) {
+            print('[AuthService] Using new response format with data wrapper');
+            return AuthResponse.fromJson(responseData);
+          }
+
+          // Old format: user and token at root level
           if (responseData['user'] == null || responseData['token'] == null) {
             print('[AuthService] Missing user or token in response');
             return AuthResponse(
@@ -88,6 +99,7 @@ class AuthService {
             );
           }
 
+          print('[AuthService] Using old response format (user/token at root)');
           final authData = AuthData.fromJson(responseData);
           print('[AuthService] AuthData created successfully');
 
