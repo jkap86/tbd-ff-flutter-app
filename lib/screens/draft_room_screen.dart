@@ -13,6 +13,7 @@ import '../widgets/chess_timer_team_list_widget.dart';
 import '../widgets/draft/draft_status_bar.dart';
 import '../widgets/draft/draft_queue_tab.dart';
 import '../widgets/draft/draft_stats_row.dart';
+import '../widgets/draft/draft_picks_list_widget.dart';
 import '../widgets/common/error_state_widget.dart';
 import '../widgets/common/loading_skeletons.dart';
 import '../services/player_stats_service.dart';
@@ -70,7 +71,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     _tabController = TabController(length: 2, vsync: this);
 
     // Will update drawer tab count after loading draft
-    _drawerTabController = TabController(length: 3, vsync: this); // Players, Queue, and Chat tabs (will add Team Times if chess mode)
+    _drawerTabController = TabController(length: 4, vsync: this); // Players, Queue, Picks, and Chat tabs (will add Team Times if chess mode)
     _timerAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -761,6 +762,33 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                         ),
                                         text: 'Queue',
                                       ),
+                                      Tab(
+                                        icon: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.format_list_numbered, size: 20),
+                                            if (draftProvider.draftPicks.isNotEmpty) ...[
+                                              const SizedBox(width: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  '${draftProvider.draftPicks.length}',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                        text: 'Picks',
+                                      ),
                                       if (draftProvider.isChessTimerMode)
                                         const Tab(
                                           icon: Icon(Icons.hourglass_bottom, size: 20),
@@ -802,13 +830,24 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                               });
                                             },
                                           ),
+                                          _buildCollapsedTab(
+                                            icon: Icons.format_list_numbered,
+                                            label: 'Picks',
+                                            badge: draftProvider.draftPicks.isNotEmpty ? draftProvider.draftPicks.length : null,
+                                            onTap: () {
+                                              setState(() {
+                                                _drawerTabController.index = 2;
+                                                _drawerHeight = 0.5;
+                                              });
+                                            },
+                                          ),
                                           if (draftProvider.isChessTimerMode)
                                             _buildCollapsedTab(
                                               icon: Icons.hourglass_bottom,
                                               label: 'Times',
                                               onTap: () {
                                                 setState(() {
-                                                  _drawerTabController.index = 2;
+                                                  _drawerTabController.index = 3;
                                                   _drawerHeight = 0.5;
                                                 });
                                               },
@@ -818,7 +857,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             label: 'Chat',
                                             onTap: () {
                                               setState(() {
-                                                _drawerTabController.index = draftProvider.isChessTimerMode ? 3 : 2;
+                                                _drawerTabController.index = draftProvider.isChessTimerMode ? 4 : 3;
                                                 _drawerHeight = 0.5;
                                               });
                                             },
@@ -964,6 +1003,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                         ),
                                         // Queue Tab
                                         _buildQueueTab(draftProvider, authProvider),
+                                        // Picks Tab
+                                        DraftPicksListWidget(picks: draftProvider.draftPicks),
                                         // Team Times Tab (chess timer mode only)
                                         if (draftProvider.isChessTimerMode)
                                           const ChessTimerTeamListWidget(),
