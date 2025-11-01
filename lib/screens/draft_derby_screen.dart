@@ -207,7 +207,7 @@ class DraftDerbyContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ...derby.derby.selectionOrder.asMap().entries.map((entry) {
+            ...derby.derby.derbyOrder.asMap().entries.map((entry) {
               final index = entry.key;
               final rosterId = entry.value;
               final isCurrentTurn = derby.derby.currentTurnRosterId == rosterId;
@@ -307,7 +307,7 @@ class DraftDerbyContent extends StatelessWidget {
                   mainAxisSpacing: 8,
                   childAspectRatio: 1,
                 ),
-                itemCount: derby.derby.selectionOrder.length,
+                itemCount: derby.derby.derbyOrder.length,
                 itemBuilder: (context, index) {
                   final position = index + 1;
                   final isAvailable = derby.isPositionAvailable(position);
