@@ -252,31 +252,49 @@ class DraftManagementCard extends StatelessWidget {
         ),
 
         // Action buttons
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Enter Draft Room'),
-              onPressed: () => _navigateToDraftRoom(context),
-            ),
-            if (isCommissioner)
-              OutlinedButton.icon(
-                icon: const Icon(Icons.shuffle),
-                label: const Text('Randomize Order'),
-                onPressed: () => _handleRandomizeDraftOrder(context),
-              ),
-            if (isCommissioner)
-              OutlinedButton.icon(
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete Draft'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
+        Consumer<DraftProvider>(
+          builder: (context, draftProvider, _) {
+            final showStartDerbyButton = isCommissioner &&
+                draft!.derbyEnabled &&
+                draftProvider.draftOrder.isNotEmpty &&
+                !draftProvider.isDerbyActive;
+
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Enter Draft Room'),
+                  onPressed: () => _navigateToDraftRoom(context),
                 ),
-                onPressed: () => _showDeleteDraftDialog(context),
-              ),
-          ],
+                if (isCommissioner)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.shuffle),
+                    label: const Text('Randomize Order'),
+                    onPressed: () => _handleRandomizeDraftOrder(context),
+                  ),
+                if (showStartDerbyButton)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.flag),
+                    label: const Text('Start Derby'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    onPressed: () => _handleStartDerby(context),
+                  ),
+                if (isCommissioner)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete Draft'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    onPressed: () => _showDeleteDraftDialog(context),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -574,6 +592,87 @@ class DraftManagementCard extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to randomize draft order: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleStartDerby(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start Draft Slot Derby?'),
+        content: const Text(
+          'This will begin the derby phase where managers choose their draft positions. '
+          'Are you sure you want to start the derby?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Start Derby'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
+    if (authProvider.token == null || draft == null) return;
+
+    try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Starting derby...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      final success = await draftProvider.startDerby(
+        token: authProvider.token!,
+        draftId: draft!.id,
+      );
+
+      if (context.mounted) {
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Derby started successfully! Managers can now select their draft positions.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+
+          // Navigate to draft room to see derby in action
+          _navigateToDraftRoom(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to start derby. Please try again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting derby: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
