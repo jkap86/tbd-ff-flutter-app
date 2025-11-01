@@ -6,10 +6,12 @@ import '../models/draft_derby_model.dart';
 
 class DraftDerbyScreen extends StatelessWidget {
   final int draftId;
+  final int leagueId;
 
   const DraftDerbyScreen({
     Key? key,
     required this.draftId,
+    required this.leagueId,
   }) : super(key: key);
 
   @override
@@ -18,7 +20,9 @@ class DraftDerbyScreen extends StatelessWidget {
     final token = authProvider.token ?? '';
 
     return ChangeNotifierProvider(
-      create: (_) => DraftProvider()..loadDerby(token: token, draftId: draftId),
+      create: (_) => DraftProvider()
+        ..loadDraftByLeague(token, leagueId)
+        ..loadDerby(token: token, draftId: draftId),
       child: const DraftDerbyContent(),
     );
   }
