@@ -12,6 +12,7 @@ import '../screens/draft_setup_screen.dart';
 import '../screens/draft_room_screen.dart';
 import '../screens/auction_draft_screen.dart';
 import '../screens/slow_auction_draft_screen.dart';
+import '../screens/draft_derby_screen.dart';
 
 // Button sizing constants
 const double _kRandomizeButtonWidth = 180;
@@ -727,13 +728,14 @@ class DraftManagementCard extends StatelessWidget {
           );
 
           // Navigate to derby screen for position selection
-          Navigator.pushNamed(
+          Navigator.push(
             context,
-            '/draft-derby',
-            arguments: {
-              'draftId': draft!.id,
-              'leagueId': league.id,
-            },
+            MaterialPageRoute(
+              builder: (_) => DraftDerbyScreen(
+                draftId: draft!.id,
+                leagueId: league.id,
+              ),
+            ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
