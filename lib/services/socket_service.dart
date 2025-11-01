@@ -391,8 +391,16 @@ class SocketService {
     });
 
     _socket!.on('derby:turn_changed', (data) {
-      debugPrint('Derby turn changed: $data');
-      onDerbyTurnChanged?.call(data);
+      debugPrint('[SocketService] ===== DERBY TURN CHANGED EVENT RECEIVED =====');
+      debugPrint('[SocketService] Event data: $data');
+      debugPrint('[SocketService] Callback exists: ${onDerbyTurnChanged != null}');
+      if (onDerbyTurnChanged != null) {
+        debugPrint('[SocketService] Calling callback...');
+        onDerbyTurnChanged?.call(data);
+        debugPrint('[SocketService] Callback called');
+      } else {
+        debugPrint('[SocketService] WARNING: No callback registered for derby:turn_changed!');
+      }
     });
 
     _socket!.on('derby:completed', (data) {
@@ -405,7 +413,9 @@ class SocketService {
     });
 
     _socket!.on('derby:timeout', (data) {
-      debugPrint('Derby timeout: $data');
+      debugPrint('[SocketService] ===== DERBY TIMEOUT EVENT RECEIVED =====');
+      debugPrint('[SocketService] Event data: $data');
+      debugPrint('[SocketService] Callback exists: ${onDerbyTimeout != null}');
       onDerbyTimeout?.call(data);
     });
   }
