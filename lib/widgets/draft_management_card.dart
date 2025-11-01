@@ -733,7 +733,6 @@ class DraftManagementCard extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => DraftDerbyScreen(
                 draftId: draft!.id,
-                leagueId: league.id,
               ),
             ),
           );
