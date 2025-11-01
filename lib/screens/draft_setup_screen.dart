@@ -40,6 +40,11 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
   int _nominationTimerHours = 24;
   bool _reserveBudgetPerSlot = false;
 
+  // Derby-specific fields
+  bool _derbyEnabled = false;
+  int _derbyTimeLimitSeconds = 120; // 2 minutes default
+  String _derbyTimeoutBehavior = 'auto'; // 'auto' or 'skip'
+
   bool _isCreating = false;
 
   Future<void> _handleCreateDraft() async {
@@ -90,6 +95,10 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       nominationsPerManager: _draftType == 'slow_auction' ? _nominationsPerManager : null,
       nominationTimerHours: _draftType == 'slow_auction' ? _nominationTimerHours : null,
       reserveBudgetPerSlot: (_draftType == 'auction' || _draftType == 'slow_auction') ? _reserveBudgetPerSlot : null,
+      // Derby-specific params
+      derbyEnabled: (_draftType == 'snake' || _draftType == 'linear') ? _derbyEnabled : false,
+      derbyTimeLimitSeconds: _derbyEnabled ? _derbyTimeLimitSeconds : null,
+      derbyTimeoutBehavior: _derbyEnabled ? _derbyTimeoutBehavior : null,
     );
 
     if (mounted) {
@@ -522,6 +531,118 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                 ),
                 const SizedBox(height: 24),
 
+                // Draft Slot Selection Derby (only for snake/linear)
+                if (_draftType == 'snake' || _draftType == 'linear') ...[
+                  Text(
+                    'Draft Slot Selection Derby',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          title: const Text('Enable Derby'),
+                          subtitle: const Text(
+                              'Let managers choose their draft position before the draft starts'),
+                          value: _derbyEnabled,
+                          onChanged: (value) {
+                            setState(() => _derbyEnabled = value);
+                          },
+                        ),
+                        if (_derbyEnabled) ...[
+                          const Divider(height: 1),
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Derby Time Limit
+                                Text(
+                                  'Time Limit Per Selection',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _getDerbyTimerDisplay(),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: Theme.of(context).colorScheme.primary,
+                                          ),
+                                    ),
+                                    Text(
+                                      '${_derbyTimeLimitSeconds}s',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                                Slider(
+                                  value: _derbyTimeLimitSeconds.toDouble(),
+                                  min: 30,
+                                  max: 300,
+                                  divisions: 27,
+                                  label: _getDerbyTimerDisplay(),
+                                  onChanged: (value) {
+                                    setState(() => _derbyTimeLimitSeconds = value.toInt());
+                                  },
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('30s', style: Theme.of(context).textTheme.bodySmall),
+                                    Text('5m', style: Theme.of(context).textTheme.bodySmall),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Timeout Behavior
+                                Text(
+                                  'If Time Expires',
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                                const SizedBox(height: 12),
+                                SegmentedButton<String>(
+                                  segments: const [
+                                    ButtonSegment(
+                                      value: 'auto',
+                                      label: Text('Auto-Assign'),
+                                      icon: Icon(Icons.auto_fix_high),
+                                    ),
+                                    ButtonSegment(
+                                      value: 'skip',
+                                      label: Text('Skip Turn'),
+                                      icon: Icon(Icons.skip_next),
+                                    ),
+                                  ],
+                                  selected: {_derbyTimeoutBehavior},
+                                  onSelectionChanged: (Set<String> selection) {
+                                    setState(() {
+                                      _derbyTimeoutBehavior = selection.first;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _derbyTimeoutBehavior == 'auto'
+                                      ? 'Automatically assign next available slot if time runs out'
+                                      : 'Skip to next manager if time runs out (manager picks from remaining slots later)',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 // Draft Summary
                 Card(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -552,7 +673,12 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
                         if (_autoPauseEnabled)
                           _buildSummaryRow(
                               'Auto-Pause',
-                              '${_autoPauseStartTime.format(context)} - ${_autoPauseEndTime.format(context)}')
+                              '${_autoPauseStartTime.format(context)} - ${_autoPauseEndTime.format(context)}'),
+                        if (_derbyEnabled) ...[
+                          _buildSummaryRow('Derby', 'Enabled'),
+                          _buildSummaryRow('Derby Timer', _getDerbyTimerDisplay()),
+                          _buildSummaryRow('On Timeout', _derbyTimeoutBehavior == 'auto' ? 'Auto-Assign' : 'Skip'),
+                        ],
                       ],
                     ),
                   ),
@@ -646,6 +772,19 @@ class _DraftSetupScreenState extends State<DraftSetupScreen> {
       return '${hours}h';
     } else {
       return '${minutes}m';
+    }
+  }
+
+  String _getDerbyTimerDisplay() {
+    final minutes = _derbyTimeLimitSeconds ~/ 60;
+    final seconds = _derbyTimeLimitSeconds % 60;
+
+    if (minutes > 0 && seconds > 0) {
+      return '$minutes:${seconds.toString().padLeft(2, '0')}';
+    } else if (minutes > 0) {
+      return '${minutes}m';
+    } else {
+      return '${seconds}s';
     }
   }
 

@@ -380,6 +380,10 @@ class DraftProvider with ChangeNotifier {
     int? nominationsPerManager,
     int? nominationTimerHours,
     bool? reserveBudgetPerSlot,
+    // Derby-specific
+    bool? derbyEnabled,
+    int? derbyTimeLimitSeconds,
+    String? derbyTimeoutBehavior,
   }) async {
     _status = DraftStatus.loading;
     _errorMessage = null;
@@ -402,6 +406,10 @@ class DraftProvider with ChangeNotifier {
         nominationsPerManager: nominationsPerManager,
         nominationTimerHours: nominationTimerHours,
         reserveBudgetPerSlot: reserveBudgetPerSlot,
+        // Derby-specific
+        derbyEnabled: derbyEnabled,
+        derbyTimeLimitSeconds: derbyTimeLimitSeconds,
+        derbyTimeoutBehavior: derbyTimeoutBehavior,
       );
 
       if (draft != null) {

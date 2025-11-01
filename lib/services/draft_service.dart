@@ -26,6 +26,10 @@ class DraftService {
     int? nominationsPerManager,
     int? nominationTimerHours,
     bool? reserveBudgetPerSlot,
+    // Derby-specific
+    bool? derbyEnabled,
+    int? derbyTimeLimitSeconds,
+    String? derbyTimeoutBehavior,
   }) async {
     try {
       // Validate chess timer mode
@@ -64,6 +68,17 @@ class DraftService {
       }
       if (reserveBudgetPerSlot != null) {
         body['reserve_budget_per_slot'] = reserveBudgetPerSlot;
+      }
+
+      // Add derby-specific parameters if provided
+      if (derbyEnabled != null) {
+        body['derby_enabled'] = derbyEnabled;
+      }
+      if (derbyTimeLimitSeconds != null) {
+        body['derby_time_limit_seconds'] = derbyTimeLimitSeconds;
+      }
+      if (derbyTimeoutBehavior != null) {
+        body['derby_timeout_behavior'] = derbyTimeoutBehavior;
       }
 
       final response = await http.post(
