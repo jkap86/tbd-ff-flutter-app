@@ -192,4 +192,28 @@ class AuthProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  // Dev tools method for quick user switching (debug mode only)
+  Future<void> setAuthData({
+    required String token,
+    required Map<String, dynamic> userData,
+  }) async {
+    if (!kDebugMode) {
+      debugPrint('[AuthProvider] setAuthData is only available in debug mode');
+      return;
+    }
+
+    _token = token;
+    _user = User.fromJson(userData);
+
+    // Save to local storage
+    await _storageService.saveToken(_token!);
+    await _storageService.saveUserInfo(_user!.id, _user!.username);
+
+    _status = AuthStatus.authenticated;
+    _errorMessage = null;
+    notifyListeners();
+
+    debugPrint('[AuthProvider] Auth data set for user: ${_user!.username}');
+  }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
+import '../config/dev_config.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 
@@ -30,16 +31,32 @@ class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final StorageService _storage = StorageService();
 
-  StreamController<RemoteMessage> _messageController = StreamController.broadcast();
+  late final StreamController<RemoteMessage> _messageController = StreamController.broadcast();
   Stream<RemoteMessage> get messages => _messageController.stream;
+
+  bool _disposed = false;
 
   String? _fcmToken;
   String? get fcmToken => _fcmToken;
 
   /// Initialize push notifications
   Future<void> initialize() async {
+    // Skip entirely if Firebase is disabled for development
+    if (!DevConfig.enableFirebase) {
+      print('[PushNotifications] Skipped - Firebase disabled for local development');
+      return;
+    }
+
     try {
       print('[PushNotifications] Initializing...');
+
+      // Check if Firebase is initialized
+      try {
+        Firebase.app();
+      } catch (e) {
+        print('[PushNotifications] Firebase not initialized, skipping push notifications');
+        return;
+      }
 
       // Request permissions (iOS only)
       await _requestPermissions();
@@ -51,11 +68,15 @@ class PushNotificationService {
       _setupMessageHandlers();
 
       // Configure foreground presentation options (iOS)
-      await _messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      try {
+        await _messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      } catch (e) {
+        print('[PushNotifications] Error setting presentation options: $e');
+      }
 
       print('[PushNotifications] Initialization complete');
     } catch (e) {
@@ -65,22 +86,26 @@ class PushNotificationService {
 
   /// Request notification permissions (iOS only)
   Future<void> _requestPermissions() async {
-    if (Platform.isIOS) {
-      NotificationSettings settings = await _messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
+    try {
+      if (Platform.isIOS) {
+        NotificationSettings settings = await _messaging.requestPermission(
+          alert: true,
+          announcement: false,
+          badge: true,
+          carPlay: false,
+          criticalAlert: false,
+          provisional: false,
+          sound: true,
+        );
 
-      print('[PushNotifications] Permission status: ${settings.authorizationStatus}');
+        print('[PushNotifications] Permission status: ${settings.authorizationStatus}');
 
-      if (settings.authorizationStatus == AuthorizationStatus.denied) {
-        print('[PushNotifications] User denied permissions');
+        if (settings.authorizationStatus == AuthorizationStatus.denied) {
+          print('[PushNotifications] User denied permissions');
+        }
       }
+    } catch (e) {
+      print('[PushNotifications] Error requesting permissions: $e');
     }
   }
 
@@ -155,45 +180,55 @@ class PushNotificationService {
 
   /// Set up message handlers
   void _setupMessageHandlers() {
-    // Handle messages when app is in foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('[PushNotifications] Foreground message received:');
-      print('Title: ${message.notification?.title}');
-      print('Body: ${message.notification?.body}');
-      print('Data: ${message.data}');
+    try {
+      // Handle messages when app is in foreground
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('[PushNotifications] Foreground message received:');
+        print('Title: ${message.notification?.title}');
+        print('Body: ${message.notification?.body}');
+        print('Data: ${message.data}');
 
-      // Emit to stream for UI to handle
-      _messageController.add(message);
+        // Emit to stream for UI to handle (only if not disposed)
+        if (!_disposed && !_messageController.isClosed) {
+          _messageController.add(message);
+        }
 
-      // You can show a local notification here or handle in UI
-      _showInAppNotification(message);
-    });
+        // You can show a local notification here or handle in UI
+        _showInAppNotification(message);
+      });
 
-    // Handle message tap when app is in background
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('[PushNotifications] Background message tapped:');
-      print('Data: ${message.data}');
+      // Handle message tap when app is in background
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('[PushNotifications] Background message tapped:');
+        print('Data: ${message.data}');
 
-      // Navigate based on notification type
-      _handleNotificationTap(message);
-    });
+        // Navigate based on notification type
+        _handleNotificationTap(message);
+      });
 
-    // Check if app was opened from terminated state via notification
-    _checkInitialMessage();
+      // Check if app was opened from terminated state via notification
+      _checkInitialMessage();
+    } catch (e) {
+      print('[PushNotifications] Error setting up message handlers: $e');
+    }
   }
 
   /// Check if app was opened from notification
   Future<void> _checkInitialMessage() async {
-    RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+    try {
+      RemoteMessage? initialMessage = await _messaging.getInitialMessage();
 
-    if (initialMessage != null) {
-      print('[PushNotifications] App opened from notification:');
-      print('Data: ${initialMessage.data}');
+      if (initialMessage != null) {
+        print('[PushNotifications] App opened from notification:');
+        print('Data: ${initialMessage.data}');
 
-      // Handle navigation after small delay to ensure app is ready
-      Future.delayed(Duration(seconds: 1), () {
-        _handleNotificationTap(initialMessage);
-      });
+        // Handle navigation after small delay to ensure app is ready
+        Future.delayed(Duration(seconds: 1), () {
+          _handleNotificationTap(initialMessage);
+        });
+      }
+    } catch (e) {
+      print('[PushNotifications] Error checking initial message: $e');
     }
   }
 
@@ -327,8 +362,27 @@ class PushNotificationService {
     }
   }
 
-  /// Clean up
-  void dispose() {
-    _messageController.close();
+  /// Clean up resources
+  /// For singleton pattern: should be called during app shutdown or when services are being cleaned up
+  Future<void> dispose() async {
+    if (_disposed) {
+      print('[PushNotifications] Already disposed');
+      return;
+    }
+
+    try {
+      print('[PushNotifications] Disposing...');
+
+      // Close the message stream controller if not already closed
+      if (!_messageController.isClosed) {
+        await _messageController.close();
+      }
+
+      _disposed = true;
+      print('[PushNotifications] Disposed successfully');
+    } catch (e) {
+      print('[PushNotifications] Error during dispose: $e');
+      _disposed = true;
+    }
   }
 }

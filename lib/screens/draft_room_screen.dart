@@ -22,6 +22,132 @@ import '../services/player_stats_service.dart';
 import '../services/nfl_service.dart';
 import '../utils/debounce.dart';
 
+// Drawer layout constants
+const double _kDrawerMinHeight = 0.1;
+const double _kDrawerMidHeight = 0.5;
+const double _kDrawerMaxHeight = 0.9;
+const double _kDrawerInitialHeight = 0.3;
+
+// Debounce timing constants (milliseconds)
+// 200ms provides optimal balance between UX responsiveness and server load
+// during time-sensitive draft operations
+const int _kSearchDebounceMs = 200;
+
+/// Represents a cached stats entry with TTL and access tracking for LRU
+class _CachedStatsEntry {
+  final Map<String, dynamic> stats;
+  final DateTime timestamp;
+  DateTime lastAccessed;
+
+  _CachedStatsEntry({
+    required this.stats,
+    required this.timestamp,
+  }) : lastAccessed = DateTime.now();
+
+  /// Check if this cache entry has expired (5 minute TTL)
+  bool isExpired() {
+    final now = DateTime.now();
+    final ttlDuration = Duration(minutes: 5);
+    return now.difference(timestamp) > ttlDuration;
+  }
+
+  /// Update last accessed time for LRU tracking
+  void updateAccessTime() {
+    lastAccessed = DateTime.now();
+  }
+}
+
+/// LRU Cache with TTL for player stats
+class _StatsCache {
+  static const int maxEntries = 100;
+  final Map<String, _CachedStatsEntry> _cache = {};
+
+  /// Get cached stats if valid, returns null if expired or not found
+  Map<String, dynamic>? get(String key) {
+    final entry = _cache[key];
+    if (entry == null) return null;
+
+    // Check if expired
+    if (entry.isExpired()) {
+      _cache.remove(key);
+      return null;
+    }
+
+    // Update access time for LRU tracking
+    entry.updateAccessTime();
+    return entry.stats;
+  }
+
+  /// Store stats in cache with timestamp
+  void set(String key, Map<String, dynamic> stats) {
+    // Remove expired entries first
+    _cleanupExpiredEntries();
+
+    // If we're at capacity, evict LRU entry
+    if (_cache.length >= maxEntries && !_cache.containsKey(key)) {
+      _evictLRU();
+    }
+
+    _cache[key] = _CachedStatsEntry(
+      stats: stats,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  /// Remove expired cache entries
+  void _cleanupExpiredEntries() {
+    final expiredKeys = <String>[];
+    for (final entry in _cache.entries) {
+      if (entry.value.isExpired()) {
+        expiredKeys.add(entry.key);
+      }
+    }
+    for (final key in expiredKeys) {
+      _cache.remove(key);
+    }
+  }
+
+  /// Evict the least recently used entry
+  void _evictLRU() {
+    if (_cache.isEmpty) return;
+
+    String? lruKey;
+    DateTime? oldestAccessTime;
+
+    for (final entry in _cache.entries) {
+      if (oldestAccessTime == null || entry.value.lastAccessed.isBefore(oldestAccessTime)) {
+        oldestAccessTime = entry.value.lastAccessed;
+        lruKey = entry.key;
+      }
+    }
+
+    if (lruKey != null) {
+      _cache.remove(lruKey);
+      debugPrint('[StatsCache] Evicted LRU entry: $lruKey');
+    }
+  }
+
+  /// Clear all cache entries
+  void clear() {
+    _cache.clear();
+  }
+
+  /// Get cache statistics for debugging
+  Map<String, dynamic> getStats() {
+    int expiredCount = 0;
+    for (final entry in _cache.values) {
+      if (entry.isExpired()) {
+        expiredCount++;
+      }
+    }
+    return {
+      'total_entries': _cache.length,
+      'expired_entries': expiredCount,
+      'max_entries': maxEntries,
+    };
+  }
+}
+
 class DraftRoomScreen extends StatefulWidget {
   final int leagueId;
   final String leagueName;
@@ -48,13 +174,13 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   final List<Player> _draftQueue = [];
   List<String> _positions = [];
   int? _lastAutoPickNumber; // Track which pick number we last auto-picked for
-  double _drawerHeight = 0.3; // Start at 30% (reduced from 50% for better draft board visibility)
+  double _drawerHeight = _kDrawerInitialHeight; // Start at 30% (reduced from 50% for better draft board visibility)
 
   // Stats view mode
   String _statsMode = 'current_season'; // 'current_season', 'projections', 'previous_season'
   final PlayerStatsService _statsService = PlayerStatsService();
   final NflService _nflService = NflService();
-  final Map<String, Map<String, dynamic>> _playerStats = {}; // Cache stats by playerId
+  late final _StatsCache _playerStats; // TTL cache with LRU eviction
   bool _isLoadingStats = false;
   int? _currentWeek;
 
@@ -64,16 +190,22 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   bool _isSorting = false; // Track if we're currently sorting
 
   // Scroll controllers for stats rows
-  final Map<String, ScrollController> _statsScrollControllers = {};
+  late final Map<String, ScrollController> _statsScrollControllers;
   double _currentStatsScrollOffset = 0.0; // Track current scroll position for all rows
   bool _isScrolling = false; // Prevent concurrent scroll operations
+  bool _areControllersInitialized = false; // Flag to ensure controllers are initialized once
 
-  // Debouncer for search (reduced to 150ms for faster response during time-sensitive picks)
-  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: 150));
+  // Debouncer for search (200ms balanced for responsiveness and server load)
+  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: _kSearchDebounceMs));
+  Timer? _cacheCleanupTimer;
 
   @override
   void initState() {
     super.initState();
+    // Initialize scroll controllers map in initState to prevent race conditions
+    _statsScrollControllers = {};
+    _areControllersInitialized = true;
+
     _tabController = TabController(length: 2, vsync: this);
 
     // Will update drawer tab count after loading draft
@@ -82,6 +214,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat();
+
+    // Initialize stats cache
+    _playerStats = _StatsCache();
+
+    // Start periodic cache cleanup (every 2 minutes)
+    _startCacheCleanupTimer();
 
     // Load stats in background
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -103,6 +241,19 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         });
       });
     });
+  }
+
+  void _startCacheCleanupTimer() {
+    _cacheCleanupTimer?.cancel();
+    _cacheCleanupTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) {
+        // Log cache statistics
+        final stats = _playerStats.getStats();
+        debugPrint('[StatsCache] Cleanup check - ${stats['total_entries']} entries, '
+            '${stats['expired_entries']} expired');
+      },
+    );
   }
 
   void _initializePositionFilters() {
@@ -169,11 +320,27 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     _searchController.dispose();
     _timerAnimationController.dispose();
 
-    // Dispose all scroll controllers
-    for (final controller in _statsScrollControllers.values) {
-      controller.dispose();
+    // Cancel cache cleanup timer
+    _cacheCleanupTimer?.cancel();
+
+    // Clear stats cache
+    _playerStats.clear();
+
+    // Dispose all scroll controllers safely
+    if (_areControllersInitialized) {
+      for (final controller in _statsScrollControllers.values) {
+        try {
+          if (!controller.hasListeners) {
+            controller.dispose();
+          } else {
+            controller.dispose();
+          }
+        } catch (e) {
+          debugPrint('Error disposing scroll controller: $e');
+        }
+      }
+      _statsScrollControllers.clear();
     }
-    _statsScrollControllers.clear();
 
     final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -559,7 +726,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       // Pre-compute sort values to avoid repeated lookups during sort
       final sortValues = <String, double>{};
       for (final player in players) {
-        final stats = _playerStats['${player.playerId}_$_statsMode'];
+        final cacheKey = '${player.playerId}_$_statsMode';
+        final stats = _playerStats.get(cacheKey);
         sortValues[player.playerId] = _getStatValueForSorting(stats, _sortBy!, player.position);
       }
 
@@ -740,18 +908,18 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                           setState(() {
                             final screenHeight = MediaQuery.of(context).size.height;
                             _drawerHeight -= details.delta.dy / screenHeight;
-                            _drawerHeight = _drawerHeight.clamp(0.1, 0.9);
+                            _drawerHeight = _drawerHeight.clamp(_kDrawerMinHeight, _kDrawerMaxHeight);
                           });
                         },
                         onVerticalDragEnd: (details) {
                           // Snap to nearest position
                           setState(() {
                             if (_drawerHeight < 0.3) {
-                              _drawerHeight = 0.1;
+                              _drawerHeight = _kDrawerMinHeight;
                             } else if (_drawerHeight < 0.7) {
-                              _drawerHeight = 0.5;
+                              _drawerHeight = _kDrawerMidHeight;
                             } else {
-                              _drawerHeight = 0.9;
+                              _drawerHeight = _kDrawerMaxHeight;
                             }
                           });
                         },
@@ -871,7 +1039,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             onTap: () {
                                               setState(() {
                                                 _drawerTabController.index = 0;
-                                                _drawerHeight = 0.5;
+                                                _drawerHeight = _kDrawerMidHeight;
                                               });
                                             },
                                           ),
@@ -882,7 +1050,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             onTap: () {
                                               setState(() {
                                                 _drawerTabController.index = 1;
-                                                _drawerHeight = 0.5;
+                                                _drawerHeight = _kDrawerMidHeight;
                                               });
                                             },
                                           ),
@@ -893,7 +1061,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             onTap: () {
                                               setState(() {
                                                 _drawerTabController.index = 2;
-                                                _drawerHeight = 0.5;
+                                                _drawerHeight = _kDrawerMidHeight;
                                               });
                                             },
                                           ),
@@ -904,7 +1072,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                               onTap: () {
                                                 setState(() {
                                                   _drawerTabController.index = 3;
-                                                  _drawerHeight = 0.5;
+                                                  _drawerHeight = _kDrawerMidHeight;
                                                 });
                                               },
                                             ),
@@ -914,7 +1082,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
                                             onTap: () {
                                               setState(() {
                                                 _drawerTabController.index = draftProvider.isChessTimerMode ? 4 : 3;
-                                                _drawerHeight = 0.5;
+                                                _drawerHeight = _kDrawerMidHeight;
                                               });
                                             },
                                           ),
@@ -1365,22 +1533,40 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
   Widget _buildPlayerStatsRow(Player player) {
     final cacheKey = '${player.playerId}_$_statsMode';
-    final stats = _playerStats[cacheKey];
+    final stats = _playerStats.get(cacheKey);
 
-    // Get or create scroll controller for this player
+    // Get or create scroll controller for this player (with null check)
     final scrollKey = player.playerId;
-    if (!_statsScrollControllers.containsKey(scrollKey)) {
-      // Create new controller with initial scroll position
-      _statsScrollControllers[scrollKey] = ScrollController(
-        initialScrollOffset: _currentStatsScrollOffset,
-      );
+
+    // Ensure controllers map is initialized before accessing
+    if (!_areControllersInitialized) {
+      debugPrint('Warning: Controllers not initialized in _buildPlayerStatsRow');
+      return const SizedBox.shrink();
     }
 
-    // Ensure the controller syncs after being attached
-    final controller = _statsScrollControllers[scrollKey]!;
+    // Create controller only if it doesn't exist (prevent race condition)
+    if (!_statsScrollControllers.containsKey(scrollKey)) {
+      try {
+        _statsScrollControllers[scrollKey] = ScrollController(
+          initialScrollOffset: _currentStatsScrollOffset,
+        );
+      } catch (e) {
+        debugPrint('Error creating scroll controller: $e');
+        return const SizedBox.shrink();
+      }
+    }
+
+    // Get controller safely with null check
+    final controller = _statsScrollControllers[scrollKey];
+    if (controller == null) {
+      debugPrint('Error: Could not retrieve scroll controller for $scrollKey');
+      return const SizedBox.shrink();
+    }
+
+    // Sync controller position after frame is complete (one-time, not on every build)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.hasClients &&
-          controller.offset != _currentStatsScrollOffset) {
+      // Only sync if widget is still mounted and controller is ready
+      if (mounted && !controller.hasListeners && controller.hasClients) {
         try {
           if (_currentStatsScrollOffset <= controller.position.maxScrollExtent) {
             controller.jumpTo(_currentStatsScrollOffset);
@@ -1388,7 +1574,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
             controller.jumpTo(controller.position.maxScrollExtent);
           }
         } catch (e) {
-          // Ignore if controller isn't ready
+          // Ignore if controller isn't ready yet
+          debugPrint('Could not sync scroll position: $e');
         }
       }
     });
@@ -1470,6 +1657,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
     _isScrolling = true;
 
     try {
+      // Ensure controllers are initialized
+      if (!_areControllersInitialized) {
+        debugPrint('Cannot scroll: controllers not initialized');
+        return;
+      }
+
       // Calculate scroll position (same for all players now)
       double scrollOffset = 0.0;
 
@@ -1492,25 +1685,33 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
         }
       }
 
-      // Store the current scroll offset for new controllers
+      // Store the current scroll offset for new controllers (before scrolling)
       _currentStatsScrollOffset = scrollOffset;
 
       // Scroll all existing player rows to the same position
       // Use jumpTo instead of animateTo for better performance with many controllers
+      final controllersToScroll = <ScrollController>[];
       for (final controller in _statsScrollControllers.values) {
-        if (controller.hasClients) {
-          try {
-            // Check if we can scroll to this position
-            if (scrollOffset <= controller.position.maxScrollExtent) {
-              controller.jumpTo(scrollOffset);
-            } else {
-              // Scroll to max if target is beyond scroll extent
-              controller.jumpTo(controller.position.maxScrollExtent);
-            }
-          } catch (e) {
-            // Controller might not be fully initialized, skip it
-            // It will use _currentStatsScrollOffset when initialized
+        if (controller.hasClients && !controller.hasListeners) {
+          controllersToScroll.add(controller);
+        }
+      }
+
+      // Perform all scroll operations safely
+      for (final controller in controllersToScroll) {
+        if (!mounted) break;
+        try {
+          // Check if we can scroll to this position
+          if (scrollOffset <= controller.position.maxScrollExtent) {
+            controller.jumpTo(scrollOffset);
+          } else {
+            // Scroll to max if target is beyond scroll extent
+            controller.jumpTo(controller.position.maxScrollExtent);
           }
+        } catch (e) {
+          // Controller might not be fully initialized, skip it
+          debugPrint('Could not scroll to column: $e');
+          // It will use _currentStatsScrollOffset when initialized
         }
       }
     } finally {
@@ -1595,19 +1796,19 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       // Cache all the results
       if (currentStats != null) {
         for (var entry in currentStats.entries) {
-          _playerStats['${entry.key}_current_season'] = entry.value;
+          _playerStats.set('${entry.key}_current_season', entry.value);
         }
       }
 
       if (previousStats != null) {
         for (var entry in previousStats.entries) {
-          _playerStats['${entry.key}_previous_season'] = entry.value;
+          _playerStats.set('${entry.key}_previous_season', entry.value);
         }
       }
 
       if (projections != null) {
         for (var entry in projections.entries) {
-          _playerStats['${entry.key}_projections'] = entry.value;
+          _playerStats.set('${entry.key}_projections', entry.value);
         }
       }
 

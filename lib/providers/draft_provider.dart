@@ -449,6 +449,7 @@ class DraftProvider with ChangeNotifier {
 
       if (draft != null) {
         _currentDraft = draft;
+        debugPrint('[DraftProvider] Draft loaded - derbyEnabled=${draft.derbyEnabled}, id=${draft.id}');
         // Load related data with token for authentication
         await Future.wait([
           _loadDraftOrder(token, draft.id),

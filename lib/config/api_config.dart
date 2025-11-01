@@ -45,27 +45,27 @@ class ApiConfig {
   static String get effectiveBaseUrl => overrideBaseUrl ?? baseUrl;
 
   // API endpoints - Auth
-  static String get register => '$effectiveBaseUrl/api/v1/auth/register';
-  static String get login => '$effectiveBaseUrl/api/v1/auth/login';
-  static String get profile => '$effectiveBaseUrl/api/v1/profile';
+  static String get register => '$effectiveBaseUrl/api/auth/register';
+  static String get login => '$effectiveBaseUrl/api/auth/login';
+  static String get profile => '$effectiveBaseUrl/api/profile';
 
   // API endpoints - Leagues
-  static String get leaguesCreate => '$effectiveBaseUrl/api/v1/leagues/create';
-  static String get leaguesPublic => '$effectiveBaseUrl/api/v1/leagues/public';
-  static String get leaguesUser => '$effectiveBaseUrl/api/v1/leagues/user';
-  static String get leaguesDetail => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesJoin => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesUpdate => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesIsCommissioner => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesTransferCommissioner => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesRemoveMember => '$effectiveBaseUrl/api/v1/leagues';
-  static String get leaguesStats => '$effectiveBaseUrl/api/v1/leagues';
+  static String get leaguesCreate => '$effectiveBaseUrl/api/leagues/create';
+  static String get leaguesPublic => '$effectiveBaseUrl/api/leagues/public';
+  static String get leaguesUser => '$effectiveBaseUrl/api/leagues/user';
+  static String get leaguesDetail => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesJoin => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesUpdate => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesIsCommissioner => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesTransferCommissioner => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesRemoveMember => '$effectiveBaseUrl/api/leagues';
+  static String get leaguesStats => '$effectiveBaseUrl/api/leagues';
 
   // API endpoints - Invites
-  static String get invitesSend => '$effectiveBaseUrl/api/v1/invites/send';
-  static String get invitesUser => '$effectiveBaseUrl/api/v1/invites/user';
-  static String get invitesAccept => '$effectiveBaseUrl/api/v1/invites';
-  static String get invitesDecline => '$effectiveBaseUrl/api/v1/invites';
+  static String get invitesSend => '$effectiveBaseUrl/api/invites/send';
+  static String get invitesUser => '$effectiveBaseUrl/api/invites/user';
+  static String get invitesAccept => '$effectiveBaseUrl/api/invites';
+  static String get invitesDecline => '$effectiveBaseUrl/api/invites';
 
   // Headers
   static Map<String, String> get headers => {

@@ -5,6 +5,8 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
+import 'config/dev_config.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
@@ -27,6 +29,11 @@ import 'theme/app_theme.dart';
 // Background message handler - must be top level
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Skip in debug mode
+  if (kDebugMode) {
+    print('[Background] Firebase handler skipped in debug mode');
+    return;
+  }
   await Firebase.initializeApp();
   print('[Background] Message: ${message.notification?.title}');
 }
@@ -35,15 +42,22 @@ void main() async {
   // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  try {
-    await Firebase.initializeApp();
-    print('[Firebase] Initialized successfully');
+  // Initialize Firebase only if enabled (not in debug/web mode)
+  if (DevConfig.enableFirebase) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print('[Firebase] Initialized successfully');
 
-    // Set up background message handler
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  } catch (e) {
-    print('[Firebase] Initialization error: $e');
+      // Set up background message handler
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      print('[Firebase] Initialization error: $e');
+      print('[Firebase] Continuing without Firebase');
+    }
+  } else {
+    print('[Firebase] Disabled for local development (debug mode or web platform)');
   }
 
   // Print API configuration in debug mode

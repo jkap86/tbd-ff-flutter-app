@@ -9,6 +9,7 @@ import '../models/league_chat_message_model.dart';
 import '../widgets/responsive_container.dart';
 import '../widgets/common/error_state_widget.dart';
 import '../widgets/draft_management_card.dart';
+import '../widgets/dev_tools_widget.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
 import 'invite_members_screen.dart';
@@ -891,6 +892,11 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
                                 onDraftDeleted: _loadLeagueDetails,
                               );
                             },
+                          ),
+                          // Dev Tools Widget (only in debug mode)
+                          DevToolsWidget(
+                            league: league,
+                            onUsersAdded: _loadLeagueDetails,
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),

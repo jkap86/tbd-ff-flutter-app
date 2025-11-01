@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/league_model.dart';
@@ -11,6 +12,10 @@ import '../screens/draft_setup_screen.dart';
 import '../screens/draft_room_screen.dart';
 import '../screens/auction_draft_screen.dart';
 import '../screens/slow_auction_draft_screen.dart';
+
+// Button sizing constants
+const double _kRandomizeButtonWidth = 180;
+const double _kActionButtonHeight = 48;
 
 class DraftManagementCard extends StatelessWidget {
   final League league;
@@ -96,7 +101,7 @@ class DraftManagementCard extends StatelessWidget {
             icon: const Icon(Icons.add_circle_outline),
             label: const Text('Create Draft'),
             style: FilledButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
+              minimumSize: const Size(double.infinity, _kActionButtonHeight),
             ),
             onPressed: () async {
               await Navigator.push(
@@ -322,10 +327,13 @@ class DraftManagementCard extends StatelessWidget {
                 if (isCommissioner && draftProvider.draftOrder.isEmpty)
                   FilledButton.icon(
                     icon: const Icon(Icons.shuffle),
-                    label: const Text('Randomize Order'),
+                    label: Text((() {
+                      debugPrint('[DraftManagementCard] draft.derbyEnabled=${draft?.derbyEnabled}');
+                      return draft?.derbyEnabled == true ? 'Randomize Derby Order' : 'Randomize Draft Order';
+                    })()),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange,
-                      minimumSize: const Size(180, 48),
+                      minimumSize: const Size(_kRandomizeButtonWidth, _kActionButtonHeight),
                     ),
                     onPressed: () => _handleRandomizeDraftOrder(context),
                   ),
@@ -429,7 +437,7 @@ class DraftManagementCard extends StatelessWidget {
           label: const Text('Enter Draft Room'),
           style: FilledButton.styleFrom(
             backgroundColor: Colors.orange,
-            minimumSize: const Size(double.infinity, 48),
+            minimumSize: const Size(double.infinity, _kActionButtonHeight),
           ),
           onPressed: () => _navigateToDraftRoom(context),
         ),
@@ -476,7 +484,7 @@ class DraftManagementCard extends StatelessWidget {
           icon: const Icon(Icons.visibility),
           label: const Text('View Draft Results'),
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
+            minimumSize: const Size(double.infinity, _kActionButtonHeight),
           ),
           onPressed: () => _navigateToDraftRoom(context),
         ),

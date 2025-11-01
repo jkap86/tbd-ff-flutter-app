@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -18,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final PushNotificationService _pushService = PushNotificationService();
+  PushNotificationService? _pushService;
 
   @override
   void initState() {
@@ -29,8 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializePushNotifications() async {
     try {
-      await _pushService.initialize();
-      print('[HomeScreen] Push notifications initialized');
+      // Skip push notifications in debug mode for local testing
+      if (!kDebugMode) {
+        _pushService = PushNotificationService();
+        await _pushService!.initialize();
+        print('[HomeScreen] Push notifications initialized');
+      } else {
+        print('[HomeScreen] Skipping push notifications in debug mode - not creating service');
+      }
     } catch (e) {
       print('[HomeScreen] Error initializing push notifications: $e');
     }

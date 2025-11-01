@@ -6,6 +6,16 @@ import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
 import '../utils/burst_throttle.dart';
 
+// Message constraints
+const int _kMaxMessageLength = 500;
+
+// Burst throttle parameters for chat rate limiting
+const int _kMaxBurstMessages = 3;
+const int _kBurstWindowSeconds = 3;
+
+// Chat UI constants
+const double _kChatWidgetHeight = 400;
+
 class LeagueChatWidget extends StatefulWidget {
   final int leagueId;
 
@@ -23,8 +33,9 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   final SocketService _socketService = SocketService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  // Allow burst of 3 messages in 3 seconds for more natural chat flow
-  final _sendThrottler = BurstThrottler(maxActions: 3, window: Duration(seconds: 3));
+  // Allow burst of messages in specified window for more natural chat flow
+  final _sendThrottler =
+      BurstThrottler(maxActions: _kMaxBurstMessages, window: Duration(seconds: _kBurstWindowSeconds));
 
   List<LeagueChatMessage> _messages = [];
   bool _isLoading = true;
@@ -90,9 +101,11 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
       return;
     }
 
-    debugPrint('[LeagueChat] Setting up callback for league ${widget.leagueId}');
+    debugPrint(
+        '[LeagueChat] Setting up callback for league ${widget.leagueId}');
     _socketService.onLeagueChatMessage = (message) {
-      debugPrint('[LeagueChat] Message received via socket: ${message.message}');
+      debugPrint(
+          '[LeagueChat] Message received via socket: ${message.message}');
       if (mounted) {
         setState(() {
           _messages.add(message);
@@ -101,14 +114,16 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
       }
     };
 
-    debugPrint('[LeagueChat] Joining league ${widget.leagueId} as user ${authProvider.user!.id}');
+    debugPrint(
+        '[LeagueChat] Joining league ${widget.leagueId} as user ${authProvider.user!.id}');
     _socketService.joinLeague(
       leagueId: widget.leagueId,
       userId: authProvider.user!.id,
       username: authProvider.user!.username,
     );
 
-    debugPrint('[LeagueChat] Socket listener set up for league ${widget.leagueId}');
+    debugPrint(
+        '[LeagueChat] Socket listener set up for league ${widget.leagueId}');
   }
 
   void _scrollToBottom() {
@@ -123,16 +138,66 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
     });
   }
 
+  String _sanitizeMessage(String input) {
+    // Trim whitespace
+    String sanitized = input.trim();
+
+    // Remove HTML and script tags using regex
+    // This regex matches opening and closing tags like <tag>, </tag>, <tag/>
+    sanitized = sanitized.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    // Remove script content if it somehow gets through
+    sanitized = sanitized.replaceAll(RegExp(r'(?i)javascript:'), '');
+    sanitized = sanitized.replaceAll(RegExp(r'(?i)on\w+\s*='), '');
+
+    return sanitized;
+  }
+
+  bool _validateMessage(String message) {
+    // Check if message is empty after sanitization
+    if (message.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message cannot be empty'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return false;
+    }
+
+    // Validate message length
+    if (message.length > _kMaxMessageLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Message is too long (${message.length}/$_kMaxMessageLength characters)'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   void _sendMessage() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (_messageController.text.trim().isEmpty || authProvider.user == null) {
       return;
     }
 
-    final message = _messageController.text.trim();
+    // Sanitize the message
+    String message = _sanitizeMessage(_messageController.text);
+
+    // Validate the sanitized message
+    if (!_validateMessage(message)) {
+      _messageController.clear();
+      return;
+    }
+
     _messageController.clear();
 
-    debugPrint('[LeagueChat] Sending message: $message');
+    debugPrint('[LeagueChat] Sending sanitized message: $message');
 
     _sendThrottler.call(
       () {
@@ -150,7 +215,7 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
         // Show friendly message when throttled
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Slow down! You\'re chatting too fast 😅'),
+            content: Text('Slow down! You\'re chatting too fast'),
             duration: Duration(seconds: 1),
           ),
         );
@@ -179,7 +244,7 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
         elevation: 8,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 400,
+          height: _kChatWidgetHeight,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
@@ -191,7 +256,8 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                 ),
                 child: Row(
                   children: [
@@ -237,7 +303,8 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(bottom: Radius.circular(12)),
                 ),
                 child: Row(
                   children: [
@@ -261,7 +328,8 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
                       icon: const Icon(Icons.send),
                       style: IconButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
                       ),
                     ),
                   ],
@@ -278,7 +346,8 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMe) ...[
@@ -345,8 +414,14 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
                         Icons.access_time,
                         size: 10,
                         color: isMe
-                            ? Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.6)
-                            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            ? Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer
+                                .withValues(alpha: 0.6)
+                            : Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -354,8 +429,14 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               fontSize: 11,
                               color: isMe
-                                  ? Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.7)
-                                  : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer
+                                      .withValues(alpha: 0.7)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                      .withValues(alpha: 0.7),
                             ),
                       ),
                     ],
@@ -399,13 +480,15 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
     }
     // Today but more than 1 hour
     else if (messageDate == today) {
-      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final hour =
+          time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
       final period = time.hour >= 12 ? 'PM' : 'AM';
       return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
     }
     // Yesterday
     else if (diff.inDays == 1) {
-      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final hour =
+          time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
       final period = time.hour >= 12 ? 'PM' : 'AM';
       return 'Yesterday $hour:${time.minute.toString().padLeft(2, '0')} $period';
     }
@@ -413,13 +496,27 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
     else if (diff.inDays < 7) {
       final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       final weekday = weekdays[time.weekday - 1];
-      final hour = time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
+      final hour =
+          time.hour > 12 ? time.hour - 12 : (time.hour == 0 ? 12 : time.hour);
       final period = time.hour >= 12 ? 'PM' : 'AM';
       return '$weekday $hour:${time.minute.toString().padLeft(2, '0')} $period';
     }
     // Older
     else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       final month = months[time.month - 1];
       return '$month ${time.day}';
     }
