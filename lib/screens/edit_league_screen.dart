@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
 import '../providers/matchup_provider.dart';
 import '../models/league_model.dart';
