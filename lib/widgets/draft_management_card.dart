@@ -187,6 +187,52 @@ class DraftManagementCard extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Ready to Start Banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.green,
+                        width: 2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '✓ Draft Order Set! Ready to Start',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (isCommissioner)
+                                const Text(
+                                  'Enter the draft room and click "Start Draft" to begin',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   Text(
                     'Draft Order',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -283,10 +329,14 @@ class DraftManagementCard extends StatelessWidget {
                   label: const Text('Enter Draft Room'),
                   onPressed: () => _navigateToDraftRoom(context),
                 ),
-                if (isCommissioner)
-                  OutlinedButton.icon(
+                if (isCommissioner && draftProvider.draftOrder.isEmpty)
+                  FilledButton.icon(
                     icon: const Icon(Icons.shuffle),
                     label: const Text('Randomize Order'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      minimumSize: const Size(180, 48),
+                    ),
                     onPressed: () => _handleRandomizeDraftOrder(context),
                   ),
                 if (showStartDerbyButton)

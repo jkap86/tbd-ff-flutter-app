@@ -48,7 +48,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   final List<Player> _draftQueue = [];
   List<String> _positions = [];
   int? _lastAutoPickNumber; // Track which pick number we last auto-picked for
-  double _drawerHeight = 0.5; // Start at 50% (players drawer)
+  double _drawerHeight = 0.3; // Start at 30% (reduced from 50% for better draft board visibility)
 
   // Stats view mode
   String _statsMode = 'current_season'; // 'current_season', 'projections', 'previous_season'
@@ -68,8 +68,8 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   double _currentStatsScrollOffset = 0.0; // Track current scroll position for all rows
   bool _isScrolling = false; // Prevent concurrent scroll operations
 
-  // Debouncer for search
-  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: 250));
+  // Debouncer for search (reduced to 150ms for faster response during time-sensitive picks)
+  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: 150));
 
   @override
   void initState() {

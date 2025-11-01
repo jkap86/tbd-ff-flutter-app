@@ -4,7 +4,7 @@ import '../providers/auth_provider.dart';
 import '../models/league_chat_message_model.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
-import '../utils/throttle.dart';
+import '../utils/burst_throttle.dart';
 
 class LeagueChatWidget extends StatefulWidget {
   final int leagueId;
@@ -23,7 +23,8 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   final SocketService _socketService = SocketService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final _sendThrottler = Throttler(delay: Duration(milliseconds: 1000));
+  // Allow burst of 3 messages in 3 seconds for more natural chat flow
+  final _sendThrottler = BurstThrottler(maxActions: 3, window: Duration(seconds: 3));
 
   List<LeagueChatMessage> _messages = [];
   bool _isLoading = true;
@@ -133,17 +134,28 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
 
     debugPrint('[LeagueChat] Sending message: $message');
 
-    _sendThrottler(() {
-      debugPrint('[LeagueChat] Throttler allowed send for: $message');
-      // Send via socket for real-time
-      // The WebSocket will broadcast to all users including sender
-      _socketService.sendLeagueChatMessage(
-        leagueId: widget.leagueId,
-        userId: authProvider.user!.id,
-        username: authProvider.user!.username,
-        message: message,
-      );
-    });
+    _sendThrottler.call(
+      () {
+        debugPrint('[LeagueChat] Throttler allowed send for: $message');
+        // Send via socket for real-time
+        // The WebSocket will broadcast to all users including sender
+        _socketService.sendLeagueChatMessage(
+          leagueId: widget.leagueId,
+          userId: authProvider.user!.id,
+          username: authProvider.user!.username,
+          message: message,
+        );
+      },
+      onThrottled: () {
+        // Show friendly message when throttled
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Slow down! You\'re chatting too fast 😅'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+    );
   }
 
   @override
