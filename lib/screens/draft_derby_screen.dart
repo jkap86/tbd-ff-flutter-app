@@ -17,8 +17,23 @@ class DraftDerbyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
     final token = authProvider.token ?? '';
     final user = authProvider.user;
+
+    // Join draft room to receive socket events
+    if (user != null) {
+      draftProvider.joinDraftRoom(
+        draftId: draftId,
+        userId: user.id,
+        username: user.username,
+      );
+    }
+
+    // Load derby data if not already loaded
+    if (draftProvider.currentDerby == null) {
+      draftProvider.loadDerby(token: token, draftId: draftId);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -29,23 +44,7 @@ class DraftDerbyScreen extends StatelessWidget {
         title: const Text('Draft Slot Selection Derby'),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ),
-      body: ChangeNotifierProvider(
-        create: (_) {
-          final provider = DraftProvider();
-          // Join draft room to receive socket events
-          if (user != null) {
-            provider.joinDraftRoom(
-              draftId: draftId,
-              userId: user.id,
-              username: user.username,
-            );
-          }
-          provider.loadDraftByLeague(token, leagueId);
-          provider.loadDerby(token: token, draftId: draftId);
-          return provider;
-        },
-        child: const DraftDerbyContent(),
-      ),
+      body: const DraftDerbyContent(),
     );
   }
 }
