@@ -305,20 +305,10 @@ class DraftManagementCard extends StatelessWidget {
             // 2. Derby is enabled on the draft
             // 3. Draft order has been randomized
             // 4. Draft hasn't started yet (status is 'not_started')
-
-            // Debug logging
-            debugPrint('[DraftManagementCard] Button visibility check:');
-            debugPrint('  isCommissioner: $isCommissioner');
-            debugPrint('  draft.derbyEnabled: ${draft!.derbyEnabled}');
-            debugPrint('  draftOrder.length: ${draftProvider.draftOrder.length}');
-            debugPrint('  draft.status: ${draft!.status}');
-
             final showStartDerbyButton = isCommissioner &&
                 draft!.derbyEnabled &&
                 draftProvider.draftOrder.isNotEmpty &&
                 draft!.status == 'not_started';
-
-            debugPrint('  showStartDerbyButton: $showStartDerbyButton');
 
             return Wrap(
               spacing: 8,
