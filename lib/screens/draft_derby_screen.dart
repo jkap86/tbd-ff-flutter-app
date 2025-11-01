@@ -204,10 +204,16 @@ class DraftDerbyContent extends StatelessWidget {
 
   Widget _buildTimerCard(BuildContext context, DraftProvider draftProvider) {
     final timeRemaining = draftProvider.derbyTimeRemaining;
-    if (timeRemaining == null) return const SizedBox.shrink();
+    debugPrint('[DerbyTimer Widget] Building timer, timeRemaining: $timeRemaining');
+
+    if (timeRemaining == null) {
+      debugPrint('[DerbyTimer Widget] No time remaining, hiding timer');
+      return const SizedBox.shrink();
+    }
 
     final minutes = timeRemaining.inMinutes;
     final seconds = timeRemaining.inSeconds % 60;
+    debugPrint('[DerbyTimer Widget] Displaying: $minutes:${seconds.toString().padLeft(2, '0')}');
 
     return Card(
       color: timeRemaining.inSeconds < 30

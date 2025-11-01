@@ -307,23 +307,37 @@ class DraftManagementCard extends StatelessWidget {
         Consumer<DraftProvider>(
           builder: (context, draftProvider, _) {
             final isDerbyEnabled = draft?.derbyEnabled ?? false;
+            final isDerbyActive = draftProvider.isDerbyActive;
+            final isDerbyCompleted = draftProvider.isDerbyCompleted;
+            final hasDraftOrder = draftProvider.draftOrder.isNotEmpty;
+
+            debugPrint('[DraftManagement] isDerbyEnabled=$isDerbyEnabled, isDerbyActive=$isDerbyActive, isDerbyCompleted=$isDerbyCompleted, hasDraftOrder=$hasDraftOrder, isCommissioner=$isCommissioner, status=${draft?.status}');
 
             // Show Start Derby button if:
             // 1. User is commissioner
             // 2. Derby is enabled on the draft
             // 3. Draft hasn't started yet (status is 'not_started')
-            // Note: No need to check draft order - Start Derby will create it
+            // 4. Derby is not already active
+            // Note: Start Derby will create the derby and randomize selection order
             final showStartDerbyButton = isCommissioner &&
                 isDerbyEnabled &&
-                draft!.status == 'not_started';
+                draft!.status == 'not_started' &&
+                !isDerbyActive &&
+                !isDerbyCompleted;
 
             // Show Randomize Draft Order button if:
             // 1. User is commissioner
-            // 2. Draft order is empty
-            // 3. Derby is NOT enabled (if derby enabled, use Start Derby instead)
+            // 2. No derby (derby not enabled)
+            // 3. Draft order is empty
             final showRandomizeButton = isCommissioner &&
-                draftProvider.draftOrder.isEmpty &&
-                !isDerbyEnabled;
+                !isDerbyEnabled &&
+                !hasDraftOrder;
+
+            // Show Join Derby button when derby is active (for ALL users including commissioner)
+            final showJoinDerbyButton = isDerbyEnabled &&
+                isDerbyActive &&
+                !isDerbyCompleted &&
+                draft!.status == 'not_started';
 
             return Wrap(
               spacing: 8,
@@ -353,6 +367,16 @@ class DraftManagementCard extends StatelessWidget {
                       minimumSize: const Size(_kRandomizeButtonWidth, _kActionButtonHeight),
                     ),
                     onPressed: () => _handleStartDerby(context),
+                  ),
+                if (showJoinDerbyButton)
+                  FilledButton.icon(
+                    icon: const Icon(Icons.sports),
+                    label: const Text('Join Derby'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      minimumSize: const Size(_kRandomizeButtonWidth, _kActionButtonHeight),
+                    ),
+                    onPressed: () => _navigateToDerbyScreen(context),
                   ),
                 if (isCommissioner)
                   OutlinedButton.icon(
@@ -537,6 +561,20 @@ class DraftManagementCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return DateFormat('MMM d, y \'at\' h:mm a').format(date);
+  }
+
+  void _navigateToDerbyScreen(BuildContext context) {
+    if (draft == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DraftDerbyScreen(
+          draftId: draft!.id,
+          leagueId: league.id,
+        ),
+      ),
+    );
   }
 
   void _navigateToDraftRoom(BuildContext context) {

@@ -166,8 +166,8 @@ class DraftDerbyService {
           'Authorization': 'Bearer $token',
         },
         body: json.encode({
-          'roster_id': rosterId,
-          'draft_position': position,
+          'rosterId': rosterId,
+          'draftPosition': position,
         }),
       );
 

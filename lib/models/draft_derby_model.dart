@@ -120,15 +120,40 @@ class DraftDerbySelection {
   }
 }
 
+class DraftDerbyRoster {
+  final int rosterId;
+  final int userId;
+  final String username;
+  final String? teamName;
+
+  DraftDerbyRoster({
+    required this.rosterId,
+    required this.userId,
+    required this.username,
+    this.teamName,
+  });
+
+  factory DraftDerbyRoster.fromJson(Map<String, dynamic> json) {
+    return DraftDerbyRoster(
+      rosterId: json['roster_id'] as int,
+      userId: json['user_id'] as int,
+      username: json['username'] as String,
+      teamName: json['team_name'] as String?,
+    );
+  }
+}
+
 class DraftDerbyWithDetails {
   final DraftDerby derby;
   final List<DraftDerbySelection> selections;
   final List<int> availablePositions;
+  final List<DraftDerbyRoster> rosters;
 
   DraftDerbyWithDetails({
     required this.derby,
     required this.selections,
     required this.availablePositions,
+    this.rosters = const [],
   });
 
   factory DraftDerbyWithDetails.fromJson(Map<String, dynamic> json) {
@@ -140,6 +165,10 @@ class DraftDerbyWithDetails {
           [],
       availablePositions: (json['available_positions'] as List<dynamic>?)
               ?.map((e) => e as int)
+              .toList() ??
+          [],
+      rosters: (json['rosters'] as List<dynamic>?)
+              ?.map((e) => DraftDerbyRoster.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
     );

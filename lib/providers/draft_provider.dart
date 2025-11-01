@@ -331,19 +331,27 @@ class DraftProvider with ChangeNotifier {
     };
 
     _socketService.onDerbyTurnChanged = (data) {
-      debugPrint('[DraftProvider] Derby turn changed: $data');
+      debugPrint('[DraftProvider] ===== Derby turn changed event received =====');
+      debugPrint('[DraftProvider] Event data: $data');
 
       // Update derby deadline from event FIRST for immediate UI update
       if (data['turnDeadline'] != null) {
-        _derbyTurnDeadline = DateTime.parse(data['turnDeadline']);
+        final newDeadline = DateTime.parse(data['turnDeadline']);
+        debugPrint('[DraftProvider] Old deadline: $_derbyTurnDeadline');
+        debugPrint('[DraftProvider] New deadline: $newDeadline');
+
+        _derbyTurnDeadline = newDeadline;
         _derbyServerTime = DateTime.now(); // Estimate server time
         _derbyLastSyncTime = DateTime.now();
         _startDerbyTimerUI(); // Restart timer for new turn
+
+        debugPrint('[DraftProvider] Calling notifyListeners() for immediate UI update');
         notifyListeners(); // Notify immediately so timer updates
       }
 
       // Reload derby data to get full updated state
       if (_authToken != null && _currentDraft != null) {
+        debugPrint('[DraftProvider] Reloading derby data...');
         loadDerby(token: _authToken!, draftId: _currentDraft!.id);
       }
     };
