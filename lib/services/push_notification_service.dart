@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/api_service.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 // Background message handler - must be top level function
 @pragma('vm:entry-point')
@@ -25,8 +28,7 @@ class PushNotificationService {
   PushNotificationService._internal();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final AuthService _authService = AuthService();
-  final ApiService _apiService = ApiService();
+  final StorageService _storage = StorageService();
 
   StreamController<RemoteMessage> _messageController = StreamController.broadcast();
   Stream<RemoteMessage> get messages => _messageController.stream;
@@ -108,13 +110,8 @@ class PushNotificationService {
   /// Register FCM token with backend
   Future<void> _registerTokenWithBackend(String token) async {
     try {
-      final user = await _authService.getCurrentUser();
-      if (user == null) {
-        print('[PushNotifications] No user logged in, skipping token registration');
-        return;
-      }
-
-      final authToken = await _authService.getToken();
+      // Get auth token from storage
+      final authToken = await _storage.getToken();
       if (authToken == null) {
         print('[PushNotifications] No auth token, skipping FCM registration');
         return;
@@ -132,17 +129,25 @@ class PushNotificationService {
       }
 
       // Register with backend
-      await _apiService.post(
-        '/api/notifications/register-token',
-        {
+      final url = Uri.parse('${ApiConfig.baseUrl}/notifications/register-token');
+      final response = await http.post(
+        url,
+        headers: {
+          ...ApiConfig.headers,
+          'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode({
           'token': token,
           'device_type': deviceType,
           'device_id': deviceId,
-        },
-        headers: {'Authorization': 'Bearer $authToken'},
+        }),
       );
 
-      print('[PushNotifications] Token registered with backend');
+      if (response.statusCode == 200) {
+        print('[PushNotifications] Token registered with backend');
+      } else {
+        print('[PushNotifications] Failed to register token: ${response.body}');
+      }
     } catch (e) {
       print('[PushNotifications] Error registering token: $e');
     }
@@ -241,16 +246,24 @@ class PushNotificationService {
   /// Update notification preferences
   Future<void> updateNotificationPreferences(Map<String, bool> preferences) async {
     try {
-      final authToken = await _authService.getToken();
+      final authToken = await _storage.getToken();
       if (authToken == null) return;
 
-      await _apiService.put(
-        '/api/notifications/preferences',
-        preferences,
-        headers: {'Authorization': 'Bearer $authToken'},
+      final url = Uri.parse('${ApiConfig.baseUrl}/notifications/preferences');
+      final response = await http.put(
+        url,
+        headers: {
+          ...ApiConfig.headers,
+          'Authorization': 'Bearer $authToken',
+        },
+        body: jsonEncode(preferences),
       );
 
-      print('[PushNotifications] Preferences updated');
+      if (response.statusCode == 200) {
+        print('[PushNotifications] Preferences updated');
+      } else {
+        print('[PushNotifications] Failed to update preferences: ${response.body}');
+      }
     } catch (e) {
       print('[PushNotifications] Error updating preferences: $e');
     }
@@ -259,15 +272,24 @@ class PushNotificationService {
   /// Get notification preferences
   Future<Map<String, dynamic>> getNotificationPreferences() async {
     try {
-      final authToken = await _authService.getToken();
+      final authToken = await _storage.getToken();
       if (authToken == null) return {};
 
-      final response = await _apiService.get(
-        '/api/notifications/preferences',
-        headers: {'Authorization': 'Bearer $authToken'},
+      final url = Uri.parse('${ApiConfig.baseUrl}/notifications/preferences');
+      final response = await http.get(
+        url,
+        headers: {
+          ...ApiConfig.headers,
+          'Authorization': 'Bearer $authToken',
+        },
       );
 
-      return response;
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('[PushNotifications] Failed to get preferences: ${response.body}');
+        return {};
+      }
     } catch (e) {
       print('[PushNotifications] Error getting preferences: $e');
       return {};
@@ -277,21 +299,29 @@ class PushNotificationService {
   /// Deactivate push notifications (on logout)
   Future<void> deactivate() async {
     try {
-      final authToken = await _authService.getToken();
+      final authToken = await _storage.getToken();
       if (authToken == null) return;
 
       final prefs = await SharedPreferences.getInstance();
       final deviceId = prefs.getString('device_id');
 
       if (deviceId != null) {
-        await _apiService.post(
-          '/api/notifications/deactivate',
-          {'device_id': deviceId},
-          headers: {'Authorization': 'Bearer $authToken'},
+        final url = Uri.parse('${ApiConfig.baseUrl}/notifications/deactivate');
+        final response = await http.post(
+          url,
+          headers: {
+            ...ApiConfig.headers,
+            'Authorization': 'Bearer $authToken',
+          },
+          body: jsonEncode({'device_id': deviceId}),
         );
-      }
 
-      print('[PushNotifications] Deactivated');
+        if (response.statusCode == 200) {
+          print('[PushNotifications] Deactivated');
+        } else {
+          print('[PushNotifications] Failed to deactivate: ${response.body}');
+        }
+      }
     } catch (e) {
       print('[PushNotifications] Error deactivating: $e');
     }
