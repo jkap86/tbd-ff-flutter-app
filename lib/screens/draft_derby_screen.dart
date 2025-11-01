@@ -18,12 +18,34 @@ class DraftDerbyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final token = authProvider.token ?? '';
+    final user = authProvider.user;
 
-    return ChangeNotifierProvider(
-      create: (_) => DraftProvider()
-        ..loadDraftByLeague(token, leagueId)
-        ..loadDerby(token: token, draftId: draftId),
-      child: const DraftDerbyContent(),
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Draft Slot Selection Derby'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+      ),
+      body: ChangeNotifierProvider(
+        create: (_) {
+          final provider = DraftProvider();
+          // Join draft room to receive socket events
+          if (user != null) {
+            provider.joinDraftRoom(
+              draftId: draftId,
+              userId: user.id,
+              username: user.username,
+            );
+          }
+          provider.loadDraftByLeague(token, leagueId);
+          provider.loadDerby(token: token, draftId: draftId);
+          return provider;
+        },
+        child: const DraftDerbyContent(),
+      ),
     );
   }
 }
@@ -37,15 +59,11 @@ class DraftDerbyContent extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final derby = draftProvider.currentDerby;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Draft Slot Selection Derby'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-      ),
-      body: derby == null
-          ? const Center(child: CircularProgressIndicator())
-          : _buildDerbyContent(context, draftProvider, authProvider, derby),
-    );
+    if (derby == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return _buildDerbyContent(context, draftProvider, authProvider, derby);
   }
 
   Widget _buildDerbyContent(
@@ -54,14 +72,37 @@ class DraftDerbyContent extends StatelessWidget {
     AuthProvider authProvider,
     DraftDerbyWithDetails derby,
   ) {
-    // Get user's roster ID from draft orders
+    // Get user's roster ID from derby rosters
     final userId = authProvider.user?.id;
-    final userRosterId = draftProvider.draftOrder
-        ?.firstWhere(
-          (order) => order.userId == userId,
-          orElse: () => draftProvider.draftOrder!.first,
-        )
-        .rosterId;
+
+    // Find user's roster from the derby rosters data
+    int? userRosterId;
+    try {
+      final userRoster = derby.rosters.firstWhere(
+        (roster) => roster.userId == userId,
+      );
+      userRosterId = userRoster.rosterId;
+    } catch (e) {
+      debugPrint('[DraftDerby] User roster not found, userId=$userId');
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'Unable to find your roster for this draft',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'User ID: $userId',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
 
     final isMyTurn = derby.derby.currentTurnRosterId == userRosterId;
     final hasSelected = derby.hasRosterSelected(userRosterId ?? 0);
@@ -75,8 +116,8 @@ class DraftDerbyContent extends StatelessWidget {
           _buildStatusCard(context, derby, isMyTurn, hasSelected),
           const SizedBox(height: 16),
 
-          // Timer (if active)
-          if (isMyTurn && draftProvider.isDerbyActive)
+          // Timer (if active) - show for everyone to see current player's time
+          if (draftProvider.isDerbyActive && !derby.derby.isCompleted)
             _buildTimerCard(context, draftProvider),
 
           // Selection Order
@@ -218,8 +259,28 @@ class DraftDerbyContent extends StatelessWidget {
               final hasSelected = derby.hasRosterSelected(rosterId);
               final isUser = rosterId == userRosterId;
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
+              // Find roster info for this roster ID
+              final rosterInfo = derby.rosters.firstWhere(
+                (r) => r.rosterId == rosterId,
+                orElse: () => derby.rosters.first,
+              );
+              final displayName = rosterInfo.username;
+
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 4.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 8.0,
+                ),
+                decoration: BoxDecoration(
+                  color: isCurrentTurn
+                      ? Colors.orange.withOpacity(0.15)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isCurrentTurn
+                      ? Border.all(color: Colors.orange, width: 2)
+                      : null,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -244,13 +305,25 @@ class DraftDerbyContent extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'Team ${rosterId}${isUser ? ' (You)' : ''}',
-                      style: TextStyle(
-                        fontWeight: isUser ? FontWeight.bold : FontWeight.normal,
+                    Expanded(
+                      child: Text(
+                        '${displayName}${isUser ? ' (You)' : ''}',
+                        style: TextStyle(
+                          fontWeight:
+                              isCurrentTurn || isUser ? FontWeight.bold : FontWeight.normal,
+                          fontSize: isCurrentTurn ? 16 : 14,
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    if (isCurrentTurn && !hasSelected)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8.0),
+                        child: Icon(
+                          Icons.arrow_forward,
+                          color: Colors.orange,
+                          size: 20,
+                        ),
+                      ),
                     if (hasSelected)
                       Container(
                         padding: const EdgeInsets.symmetric(
