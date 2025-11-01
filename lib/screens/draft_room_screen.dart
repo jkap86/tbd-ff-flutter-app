@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
+import 'dart:async';
 import '../providers/auth_provider.dart';
 import '../providers/draft_provider.dart';
 import '../providers/league_provider.dart';
@@ -19,6 +20,7 @@ import '../widgets/common/error_state_widget.dart';
 import '../widgets/common/loading_skeletons.dart';
 import '../services/player_stats_service.dart';
 import '../services/nfl_service.dart';
+import '../utils/debounce.dart';
 
 class DraftRoomScreen extends StatefulWidget {
   final int leagueId;
@@ -66,6 +68,9 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
   double _currentStatsScrollOffset = 0.0; // Track current scroll position for all rows
   bool _isScrolling = false; // Prevent concurrent scroll operations
 
+  // Debouncer for search
+  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: 250));
+
   @override
   void initState() {
     super.initState();
@@ -90,10 +95,12 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
       _setupDraftListener();
     });
 
-    // Listen to search changes
+    // Listen to search changes with debouncing
     _searchController.addListener(() {
-      setState(() {
-        _filterPlayers();
+      _searchDebouncer(() {
+        setState(() {
+          _filterPlayers();
+        });
       });
     });
   }
@@ -156,6 +163,7 @@ class _DraftRoomScreenState extends State<DraftRoomScreen>
 
   @override
   void dispose() {
+    _searchDebouncer.dispose();
     _tabController.dispose();
     _drawerTabController.dispose();
     _searchController.dispose();

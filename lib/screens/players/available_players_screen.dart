@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../providers/auth_provider.dart';
@@ -9,6 +10,7 @@ import '../../widgets/common/empty_state_widget.dart';
 import '../../config/api_config.dart';
 import '../../widgets/waiver/submit_claim_dialog.dart';
 import '../../widgets/injury_badge_widget.dart';
+import '../../utils/debounce.dart';
 
 class AvailablePlayersScreen extends StatefulWidget {
   final int leagueId;
@@ -31,11 +33,18 @@ class _AvailablePlayersScreenState extends State<AvailablePlayersScreen> {
   String? _error;
   String _searchQuery = '';
   String _positionFilter = 'ALL';
+  final _searchDebouncer = Debouncer(delay: Duration(milliseconds: 300));
 
   @override
   void initState() {
     super.initState();
     _loadPlayers();
+  }
+
+  @override
+  void dispose() {
+    _searchDebouncer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPlayers() async {
@@ -291,8 +300,10 @@ class _AvailablePlayersScreenState extends State<AvailablePlayersScreen> {
                     fillColor: Theme.of(context).cardColor,
                   ),
                   onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
+                    _searchDebouncer(() {
+                      setState(() {
+                        _searchQuery = value;
+                      });
                     });
                   },
                 ),

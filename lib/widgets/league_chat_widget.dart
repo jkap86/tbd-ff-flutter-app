@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../models/league_chat_message_model.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
+import '../utils/throttle.dart';
 
 class LeagueChatWidget extends StatefulWidget {
   final int leagueId;
@@ -22,6 +23,7 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   final SocketService _socketService = SocketService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final _sendThrottler = Throttler(delay: Duration(milliseconds: 1000));
 
   List<LeagueChatMessage> _messages = [];
   bool _isLoading = true;
@@ -38,6 +40,7 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _sendThrottler.dispose();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user != null) {
       _socketService.leaveLeague(
@@ -98,22 +101,24 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   }
 
   void _sendMessage() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (_messageController.text.trim().isEmpty || authProvider.user == null) {
-      return;
-    }
+    _sendThrottler(() {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      if (_messageController.text.trim().isEmpty || authProvider.user == null) {
+        return;
+      }
 
-    final message = _messageController.text.trim();
-    _messageController.clear();
+      final message = _messageController.text.trim();
+      _messageController.clear();
 
-    // Send via socket for real-time
-    // The WebSocket will broadcast to all users including sender
-    _socketService.sendLeagueChatMessage(
-      leagueId: widget.leagueId,
-      userId: authProvider.user!.id,
-      username: authProvider.user!.username,
-      message: message,
-    );
+      // Send via socket for real-time
+      // The WebSocket will broadcast to all users including sender
+      _socketService.sendLeagueChatMessage(
+        leagueId: widget.leagueId,
+        userId: authProvider.user!.id,
+        username: authProvider.user!.username,
+        message: message,
+      );
+    });
   }
 
   @override

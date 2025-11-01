@@ -7,6 +7,7 @@ import '../models/draft_chat_message_model.dart';
 import '../models/player_model.dart';
 import '../services/draft_service.dart';
 import '../services/socket_service.dart';
+import '../utils/debounce.dart';
 
 enum DraftStatus {
   initial,
@@ -18,6 +19,7 @@ enum DraftStatus {
 class DraftProvider with ChangeNotifier {
   final DraftService _draftService = DraftService();
   final SocketService _socketService = SocketService();
+  final _filterDebouncer = Debouncer(delay: Duration(milliseconds: 300));
 
   DraftStatus _status = DraftStatus.initial;
   Draft? _currentDraft;
@@ -599,14 +601,16 @@ class DraftProvider with ChangeNotifier {
   }) async {
     if (_currentDraft == null) return;
 
-    _availablePlayers = await _draftService.getAvailablePlayers(
-      token: token,
-      draftId: _currentDraft!.id,
-      position: position,
-      team: team,
-      search: search,
-    );
-    notifyListeners();
+    _filterDebouncer(() async {
+      _availablePlayers = await _draftService.getAvailablePlayers(
+        token: token,
+        draftId: _currentDraft!.id,
+        position: position,
+        team: team,
+        search: search,
+      );
+      notifyListeners();
+    });
   }
 
   // Send chat message
@@ -710,6 +714,7 @@ class DraftProvider with ChangeNotifier {
   @override
   void dispose() {
     _stopTimer();
+    _filterDebouncer.dispose();
     _socketService.disconnect();
     _socketService.clearCallbacks();
     super.dispose();
