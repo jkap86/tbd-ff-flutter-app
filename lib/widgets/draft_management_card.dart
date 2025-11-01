@@ -566,12 +566,22 @@ class DraftManagementCard extends StatelessWidget {
   void _navigateToDerbyScreen(BuildContext context) {
     if (draft == null) return;
 
+    // Get the existing providers to pass to the new route
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => DraftDerbyScreen(
-          draftId: draft!.id,
-          leagueId: league.id,
+        builder: (context) => MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: authProvider),
+            ChangeNotifierProvider.value(value: draftProvider),
+          ],
+          child: DraftDerbyScreen(
+            draftId: draft!.id,
+            leagueId: league.id,
+          ),
         ),
       ),
     );
@@ -769,9 +779,15 @@ class DraftManagementCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => DraftDerbyScreen(
-                draftId: draft!.id,
-                leagueId: league.id,
+              builder: (context) => MultiProvider(
+                providers: [
+                  ChangeNotifierProvider.value(value: authProvider),
+                  ChangeNotifierProvider.value(value: draftProvider),
+                ],
+                child: DraftDerbyScreen(
+                  draftId: draft!.id,
+                  leagueId: league.id,
+                ),
               ),
             ),
           );
