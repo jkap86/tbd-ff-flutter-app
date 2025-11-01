@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../config/api_config.dart';
@@ -8,6 +9,11 @@ import '../models/league_chat_message_model.dart';
 import 'storage_service.dart';
 
 class SocketService {
+  // Singleton pattern
+  static final SocketService _instance = SocketService._internal();
+  factory SocketService() => _instance;
+  SocketService._internal();
+
   IO.Socket? _socket;
   int? _currentDraftId;
   int? _currentLeagueId;
@@ -86,7 +92,11 @@ class SocketService {
     }
 
     try {
-      debugPrint('[SocketService] Connecting with token...');
+      debugPrint('[SocketService] Connecting with token (length: ${token.length})...');
+
+      // Create a completer to wait for connection
+      final completer = Completer<void>();
+
       _socket = IO.io(
         ApiConfig.baseUrl,
         IO.OptionBuilder()
@@ -96,23 +106,43 @@ class SocketService {
             .build(),
       );
 
-      _socket!.connect();
-
       _socket!.onConnect((_) {
-        debugPrint('Socket connected');
+        debugPrint('[SocketService] ✅ Socket connected successfully');
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
       });
 
       _socket!.onDisconnect((_) {
-        debugPrint('Socket disconnected');
+        debugPrint('[SocketService] ⚠️ Socket disconnected');
       });
 
       _socket!.onError((error) {
-        debugPrint('Socket error: $error');
+        debugPrint('[SocketService] ❌ Socket error: $error');
         onError?.call(error.toString());
+      });
+
+      _socket!.onConnectError((error) {
+        debugPrint('[SocketService] ❌ Socket connect error: $error');
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
       });
 
       // Listen for draft events
       _setupEventListeners();
+
+      // Start connection
+      _socket!.connect();
+
+      // Wait for connection to complete (with timeout)
+      await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('[SocketService] Connection timeout');
+          throw TimeoutException('Socket connection timeout');
+        },
+      );
     } catch (e) {
       debugPrint('[SocketService] Connection error: $e');
       onError?.call('Socket connection failed');
@@ -457,15 +487,17 @@ class SocketService {
     required int leagueId,
     required int userId,
     required String username,
-  }) {
+  }) async {
     if (_socket == null || !_socket!.connected) {
       debugPrint('Socket not connected, connecting now...');
-      connect();
+      await connect();
 
-      // Wait for connection before joining
-      _socket!.onConnect((_) {
+      // After connect completes, socket should be ready
+      if (_socket != null && _socket!.connected) {
         _emitJoinLeague(leagueId, userId, username);
-      });
+      } else {
+        debugPrint('[SocketService] ERROR: Socket still not connected after connect()');
+      }
     } else {
       _emitJoinLeague(leagueId, userId, username);
     }
@@ -473,12 +505,12 @@ class SocketService {
 
   void _emitJoinLeague(int leagueId, int userId, String username) {
     _currentLeagueId = leagueId;
+    debugPrint('[SocketService] Emitting join_league for league $leagueId, user $userId ($username)');
     _socket!.emit('join_league', {
       'league_id': leagueId,
       'user_id': userId,
       'username': username,
     });
-    debugPrint('Emitted join_league for league $leagueId');
   }
 
   // Leave a league room
@@ -505,8 +537,13 @@ class SocketService {
     required String username,
     required String message,
   }) {
-    if (_socket == null || !_socket!.connected) return;
+    debugPrint('[SocketService] sendLeagueChatMessage called - socket: ${_socket != null ? "exists" : "null"}, connected: ${_socket?.connected}');
+    if (_socket == null || !_socket!.connected) {
+      debugPrint('[SocketService] ERROR: Cannot send message - socket not connected');
+      return;
+    }
 
+    debugPrint('[SocketService] Emitting send_league_chat_message: $message');
     _socket!.emit('send_league_chat_message', {
       'league_id': leagueId,
       'user_id': userId,

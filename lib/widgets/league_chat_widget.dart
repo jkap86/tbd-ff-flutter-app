@@ -33,7 +33,18 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   void initState() {
     super.initState();
     _loadMessages();
-    _setupSocket();
+    _initSocket();
+  }
+
+  Future<void> _initSocket() async {
+    debugPrint('[LeagueChat] _initSocket() called');
+    await _socketService.connect();
+    debugPrint('[LeagueChat] Socket connection completed, setting up...');
+    if (mounted) {
+      _setupSocket();
+    } else {
+      debugPrint('[LeagueChat] Widget not mounted, skipping setup');
+    }
   }
 
   @override
@@ -71,21 +82,32 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   }
 
   void _setupSocket() {
+    debugPrint('[LeagueChat] _setupSocket() called');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.user == null) return;
+    if (authProvider.user == null) {
+      debugPrint('[LeagueChat] ERROR: No user found, cannot set up socket');
+      return;
+    }
 
+    debugPrint('[LeagueChat] Setting up callback for league ${widget.leagueId}');
     _socketService.onLeagueChatMessage = (message) {
-      setState(() {
-        _messages.add(message);
-      });
-      _scrollToBottom();
+      debugPrint('[LeagueChat] Message received via socket: ${message.message}');
+      if (mounted) {
+        setState(() {
+          _messages.add(message);
+        });
+        _scrollToBottom();
+      }
     };
 
+    debugPrint('[LeagueChat] Joining league ${widget.leagueId} as user ${authProvider.user!.id}');
     _socketService.joinLeague(
       leagueId: widget.leagueId,
       userId: authProvider.user!.id,
       username: authProvider.user!.username,
     );
+
+    debugPrint('[LeagueChat] Socket listener set up for league ${widget.leagueId}');
   }
 
   void _scrollToBottom() {
@@ -101,15 +123,18 @@ class _LeagueChatWidgetState extends State<LeagueChatWidget> {
   }
 
   void _sendMessage() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (_messageController.text.trim().isEmpty || authProvider.user == null) {
+      return;
+    }
+
+    final message = _messageController.text.trim();
+    _messageController.clear();
+
+    debugPrint('[LeagueChat] Sending message: $message');
+
     _sendThrottler(() {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (_messageController.text.trim().isEmpty || authProvider.user == null) {
-        return;
-      }
-
-      final message = _messageController.text.trim();
-      _messageController.clear();
-
+      debugPrint('[LeagueChat] Throttler allowed send for: $message');
       // Send via socket for real-time
       // The WebSocket will broadcast to all users including sender
       _socketService.sendLeagueChatMessage(

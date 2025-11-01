@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../models/league_chat_message_model.dart';
 import '../services/socket_service.dart';
 import '../services/league_chat_service.dart';
+import '../utils/throttle.dart';
 
 class LeagueChatTabWidget extends StatefulWidget {
   final int leagueId;
@@ -22,6 +23,7 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
   final SocketService _socketService = SocketService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final _sendThrottler = Throttler(delay: Duration(milliseconds: 1000));
 
   List<LeagueChatMessage> _messages = [];
   bool _isLoading = true;
@@ -37,6 +39,7 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _sendThrottler.dispose();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.user != null) {
       _socketService.leaveLeague(
@@ -94,6 +97,25 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
     });
   }
 
+  void _sendMessage() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (_messageController.text.trim().isEmpty || authProvider.user == null) {
+      return;
+    }
+
+    final message = _messageController.text.trim();
+    _messageController.clear();
+
+    _sendThrottler(() {
+      _socketService.sendLeagueChatMessage(
+        leagueId: widget.leagueId,
+        userId: authProvider.user!.id,
+        username: authProvider.user!.username,
+        message: message,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -144,6 +166,45 @@ class _LeagueChatTabWidgetState extends State<LeagueChatTabWidget> {
                         ),
                       ),
                     ),
+        ),
+        // Input field
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: const InputDecoration(
+                    hintText: 'Type a message...',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: _sendMessage,
+                icon: const Icon(Icons.send),
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

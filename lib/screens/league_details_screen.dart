@@ -130,16 +130,25 @@ class _LeagueDetailsScreenState extends State<LeagueDetailsScreen>
   }
 
   void _setupSocket() {
+    debugPrint('[LeagueDetails] _setupSocket() called');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.user == null) return;
+    if (authProvider.user == null) {
+      debugPrint('[LeagueDetails] ERROR: No user found');
+      return;
+    }
 
+    debugPrint('[LeagueDetails] Setting up callback');
     _socketService.onLeagueChatMessage = (message) {
-      setState(() {
-        _messages.add(message);
-      });
-      _scrollToBottom();
+      debugPrint('[LeagueDetails] Message received: ${message.message}');
+      if (mounted) {
+        setState(() {
+          _messages.add(message);
+        });
+        _scrollToBottom();
+      }
     };
 
+    debugPrint('[LeagueDetails] Joining league ${widget.leagueId}');
     _socketService.joinLeague(
       leagueId: widget.leagueId,
       userId: authProvider.user!.id,
