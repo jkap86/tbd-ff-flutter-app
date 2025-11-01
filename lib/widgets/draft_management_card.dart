@@ -305,15 +305,24 @@ class DraftManagementCard extends StatelessWidget {
         // Action buttons
         Consumer<DraftProvider>(
           builder: (context, draftProvider, _) {
+            final isDerbyEnabled = draft?.derbyEnabled ?? false;
+
             // Show Start Derby button if:
             // 1. User is commissioner
             // 2. Derby is enabled on the draft
-            // 3. Draft order has been randomized
-            // 4. Draft hasn't started yet (status is 'not_started')
+            // 3. Draft hasn't started yet (status is 'not_started')
+            // Note: No need to check draft order - Start Derby will create it
             final showStartDerbyButton = isCommissioner &&
-                draft!.derbyEnabled &&
-                draftProvider.draftOrder.isNotEmpty &&
+                isDerbyEnabled &&
                 draft!.status == 'not_started';
+
+            // Show Randomize Draft Order button if:
+            // 1. User is commissioner
+            // 2. Draft order is empty
+            // 3. Derby is NOT enabled (if derby enabled, use Start Derby instead)
+            final showRandomizeButton = isCommissioner &&
+                draftProvider.draftOrder.isEmpty &&
+                !isDerbyEnabled;
 
             return Wrap(
               spacing: 8,
@@ -324,13 +333,10 @@ class DraftManagementCard extends StatelessWidget {
                   label: const Text('Enter Draft Room'),
                   onPressed: () => _navigateToDraftRoom(context),
                 ),
-                if (isCommissioner && draftProvider.draftOrder.isEmpty)
+                if (showRandomizeButton)
                   FilledButton.icon(
                     icon: const Icon(Icons.shuffle),
-                    label: Text((() {
-                      debugPrint('[DraftManagementCard] draft.derbyEnabled=${draft?.derbyEnabled}');
-                      return draft?.derbyEnabled == true ? 'Randomize Derby Order' : 'Randomize Draft Order';
-                    })()),
+                    label: const Text('Randomize Draft Order'),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange,
                       minimumSize: const Size(_kRandomizeButtonWidth, _kActionButtonHeight),
@@ -343,6 +349,7 @@ class DraftManagementCard extends StatelessWidget {
                     label: const Text('Start Derby'),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.orange,
+                      minimumSize: const Size(_kRandomizeButtonWidth, _kActionButtonHeight),
                     ),
                     onPressed: () => _handleStartDerby(context),
                   ),
