@@ -334,24 +334,43 @@ class DraftProvider with ChangeNotifier {
       debugPrint('[DraftProvider] ===== Derby turn changed event received =====');
       debugPrint('[DraftProvider] Event data: $data');
 
-      // Update derby deadline from event FIRST for immediate UI update
-      if (data['turnDeadline'] != null) {
-        final newDeadline = DateTime.parse(data['turnDeadline']);
-        debugPrint('[DraftProvider] Old deadline: $_derbyTurnDeadline');
-        debugPrint('[DraftProvider] New deadline: $newDeadline');
+      // Update derby state immediately from socket event for instant UI update
+      if (_currentDerby != null) {
+        // Update current turn and roster ID from event data
+        if (data['currentTurn'] != null) {
+          _currentDerby = DraftDerbyWithDetails(
+            derby: DraftDerby(
+              id: _currentDerby!.derby.id,
+              draftId: _currentDerby!.derby.draftId,
+              status: _currentDerby!.derby.status,
+              derbyOrder: _currentDerby!.derby.derbyOrder,
+              currentTurn: data['currentTurn'] as int,
+              currentTurnRosterId: data['currentRosterId'] as int?,
+              turnDeadline: data['turnDeadline'] != null
+                ? DateTime.parse(data['turnDeadline'])
+                : null,
+              createdAt: _currentDerby!.derby.createdAt,
+              updatedAt: DateTime.now(),
+            ),
+            rosters: _currentDerby!.rosters,
+            selections: _currentDerby!.selections,
+          );
+        }
 
-        _derbyTurnDeadline = newDeadline;
-        _derbyServerTime = DateTime.now(); // Estimate server time
-        _derbyLastSyncTime = DateTime.now();
-        _startDerbyTimerUI(); // Restart timer for new turn
+        // Update timer deadline
+        if (data['turnDeadline'] != null) {
+          _derbyTurnDeadline = DateTime.parse(data['turnDeadline']);
+          _derbyServerTime = DateTime.now();
+          _derbyLastSyncTime = DateTime.now();
+          _startDerbyTimerUI();
+        }
 
-        debugPrint('[DraftProvider] Calling notifyListeners() for immediate UI update');
-        notifyListeners(); // Notify immediately so timer updates
+        debugPrint('[DraftProvider] Derby state updated immediately, calling notifyListeners()');
+        notifyListeners(); // Update UI immediately with new state
       }
 
-      // Reload derby data to get full updated state
+      // Reload full derby data in background to ensure consistency
       if (_authToken != null && _currentDraft != null) {
-        debugPrint('[DraftProvider] Reloading derby data...');
         loadDerby(token: _authToken!, draftId: _currentDraft!.id);
       }
     };
@@ -376,11 +395,37 @@ class DraftProvider with ChangeNotifier {
 
     _socketService.onDerbyTimeout = (data) {
       debugPrint('[DraftProvider] Derby timeout: $data');
-      // Refresh derby state to see auto-assigned or skipped result
+
+      // If auto-assigned, add the selection immediately to the derby state
+      if (_currentDerby != null && data['autoAssignedPosition'] != null) {
+        final rosterId = data['rosterId'] as int;
+        final position = data['autoAssignedPosition'] as int;
+
+        // Create new selection
+        final newSelection = DraftDerbySelection(
+          id: 0, // Temporary ID, will be updated on reload
+          derbyId: _currentDerby!.derby.id,
+          rosterId: rosterId,
+          draftPosition: position,
+          selectedAt: DateTime.now(),
+        );
+
+        // Add to selections list
+        final updatedSelections = [..._currentDerby!.selections, newSelection];
+
+        _currentDerby = DraftDerbyWithDetails(
+          derby: _currentDerby!.derby,
+          rosters: _currentDerby!.rosters,
+          selections: updatedSelections,
+        );
+
+        debugPrint('[DraftProvider] Added auto-assigned selection immediately');
+        notifyListeners();
+      }
+
+      // Reload full derby data in background to ensure consistency
       if (_authToken != null && _currentDraft != null) {
-        loadDerby(token: _authToken!, draftId: _currentDraft!.id).then((_) {
-          notifyListeners(); // Ensure UI updates after loading
-        });
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
       }
     };
   }
