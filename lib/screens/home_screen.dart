@@ -6,11 +6,35 @@ import '../widgets/responsive_container.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/themed_components.dart';
 import '../widgets/chatbot/chatbot_widget.dart';
+import '../services/push_notification_service.dart';
 import 'profile_screen.dart';
 import 'leagues_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final PushNotificationService _pushService = PushNotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize push notifications when home screen loads
+    _initializePushNotifications();
+  }
+
+  Future<void> _initializePushNotifications() async {
+    try {
+      await _pushService.initialize();
+      print('[HomeScreen] Push notifications initialized');
+    } catch (e) {
+      print('[HomeScreen] Error initializing push notifications: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

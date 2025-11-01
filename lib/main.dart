@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/league_provider.dart';
@@ -14,6 +16,7 @@ import 'providers/waiver_provider.dart';
 import 'providers/trade_provider.dart';
 import 'providers/chatbot_provider.dart';
 import 'services/chatbot_service.dart';
+import 'services/push_notification_service.dart';
 import 'data/chatbot_knowledge.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -21,7 +24,28 @@ import 'screens/reset_password_screen.dart';
 import 'config/api_config.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+// Background message handler - must be top level
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('[Background] Message: ${message.notification?.title}');
+}
+
+void main() async {
+  // Ensure Flutter bindings are initialized
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  try {
+    await Firebase.initializeApp();
+    print('[Firebase] Initialized successfully');
+
+    // Set up background message handler
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    print('[Firebase] Initialization error: $e');
+  }
+
   // Print API configuration in debug mode
   ApiConfig.printConfig();
 
