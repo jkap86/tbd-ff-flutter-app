@@ -254,10 +254,15 @@ class DraftManagementCard extends StatelessWidget {
         // Action buttons
         Consumer<DraftProvider>(
           builder: (context, draftProvider, _) {
+            // Show Start Derby button if:
+            // 1. User is commissioner
+            // 2. Derby is enabled on the draft
+            // 3. Draft order has been randomized
+            // 4. Draft hasn't started yet (status is 'not_started')
             final showStartDerbyButton = isCommissioner &&
                 draft!.derbyEnabled &&
                 draftProvider.draftOrder.isNotEmpty &&
-                !draftProvider.isDerbyActive;
+                draft!.status == 'not_started';
 
             return Wrap(
               spacing: 8,
