@@ -55,6 +55,14 @@ class SocketService {
   Function(Map<String, dynamic>)? onNominationDeadlineUpdated;
   Function(Map<String, dynamic>)? onTurnChanged;
 
+  // Derby event callbacks
+  Function(Map<String, dynamic>)? onDerbyUpdate;
+  Function(Map<String, dynamic>)? onDerbySelectionMade;
+  Function(Map<String, dynamic>)? onDerbyTurnChanged;
+  Function(Map<String, dynamic>)? onDerbyCompleted;
+  Function(Map<String, dynamic>)? onDerbyTimerUpdate;
+  Function(Map<String, dynamic>)? onDerbyTimeout;
+
   bool get isConnected => _socket?.connected ?? false;
 
   // Initialize socket with authentication token
@@ -340,6 +348,36 @@ class SocketService {
       debugPrint('Turn changed: $data');
       onTurnChanged?.call(data);
     });
+
+    // Derby event listeners
+    _socket!.on('derby:update', (data) {
+      debugPrint('Derby update: $data');
+      onDerbyUpdate?.call(data);
+    });
+
+    _socket!.on('derby:selection_made', (data) {
+      debugPrint('Derby selection made: $data');
+      onDerbySelectionMade?.call(data);
+    });
+
+    _socket!.on('derby:turn_changed', (data) {
+      debugPrint('Derby turn changed: $data');
+      onDerbyTurnChanged?.call(data);
+    });
+
+    _socket!.on('derby:completed', (data) {
+      debugPrint('Derby completed: $data');
+      onDerbyCompleted?.call(data);
+    });
+
+    _socket!.on('derby:timer_update', (data) {
+      onDerbyTimerUpdate?.call(data);
+    });
+
+    _socket!.on('derby:timeout', (data) {
+      debugPrint('Derby timeout: $data');
+      onDerbyTimeout?.call(data);
+    });
   }
 
   // Join a draft room
@@ -619,5 +657,11 @@ class SocketService {
     onBudgetUpdated = null;
     onNominationDeadlineUpdated = null;
     onTurnChanged = null;
+    onDerbyUpdate = null;
+    onDerbySelectionMade = null;
+    onDerbyTurnChanged = null;
+    onDerbyCompleted = null;
+    onDerbyTimerUpdate = null;
+    onDerbyTimeout = null;
   }
 }

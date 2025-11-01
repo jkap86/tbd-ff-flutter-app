@@ -4,8 +4,10 @@ import '../models/draft_model.dart';
 import '../models/draft_pick_model.dart';
 import '../models/draft_order_model.dart';
 import '../models/draft_chat_message_model.dart';
+import '../models/draft_derby_model.dart';
 import '../models/player_model.dart';
 import '../services/draft_service.dart';
+import '../services/draft_derby_service.dart';
 import '../services/socket_service.dart';
 import '../utils/debounce.dart';
 
@@ -18,6 +20,7 @@ enum DraftStatus {
 
 class DraftProvider with ChangeNotifier {
   final DraftService _draftService = DraftService();
+  final DraftDerbyService _derbyService = DraftDerbyService();
   final SocketService _socketService = SocketService();
   final _filterDebouncer = Debouncer(delay: Duration(milliseconds: 300));
 
@@ -38,6 +41,14 @@ class DraftProvider with ChangeNotifier {
 
   // Chess timer state - tracks remaining time for each roster
   Map<int, int> _rosterTimeRemaining = {};
+
+  // Derby state
+  DraftDerbyWithDetails? _currentDerby;
+  bool _derbyLoading = false;
+  String? _derbyError;
+  DateTime? _derbyTurnDeadline;
+  DateTime? _derbyServerTime;
+  DateTime? _derbyLastSyncTime;
 
   // Getters
   DraftStatus get status => _status;
@@ -65,8 +76,36 @@ class DraftProvider with ChangeNotifier {
   // Check if chess timer mode is enabled
   bool get isChessTimerMode => _currentDraft?.isChessTimer ?? false;
 
+  // Derby getters
+  DraftDerbyWithDetails? get currentDerby => _currentDerby;
+  bool get derbyLoading => _derbyLoading;
+  String? get derbyError => _derbyError;
+  bool get isDerbyActive => _currentDerby?.derby.isInProgress ?? false;
+  bool get isDerbyCompleted => _currentDerby?.derby.isCompleted ?? false;
+  bool get isDerbyEnabled => _currentDraft?.derbyEnabled ?? false;
+
+  // Calculate derby time remaining
+  Duration? get derbyTimeRemaining {
+    if (_derbyTurnDeadline == null) return null;
+
+    final now = _estimateDerbyServerTime();
+    final remaining = _derbyTurnDeadline!.difference(now);
+
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
   DraftProvider() {
     _setupSocketListeners();
+  }
+
+  // Estimate current derby server time
+  DateTime _estimateDerbyServerTime() {
+    if (_derbyServerTime == null || _derbyLastSyncTime == null) {
+      return DateTime.now();
+    }
+
+    final localElapsed = DateTime.now().difference(_derbyLastSyncTime!);
+    return _derbyServerTime!.add(localElapsed);
   }
 
   // Estimate current server time accounting for client clock drift
@@ -267,6 +306,60 @@ class DraftProvider with ChangeNotifier {
       }).toList();
 
       notifyListeners();
+    };
+
+    // Derby socket listeners
+    _socketService.onDerbyUpdate = (data) {
+      debugPrint('[DraftProvider] Derby update: $data');
+      if (data['derby'] != null) {
+        try {
+          _currentDerby = DraftDerbyWithDetails.fromJson(data['derby']);
+          notifyListeners();
+        } catch (e) {
+          debugPrint('[DraftProvider] Error parsing derby update: $e');
+        }
+      }
+    };
+
+    _socketService.onDerbySelectionMade = (data) {
+      debugPrint('[DraftProvider] Derby selection made: $data');
+      // Refresh derby state
+      if (_authToken != null && _currentDraft != null) {
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
+      }
+    };
+
+    _socketService.onDerbyTurnChanged = (data) {
+      debugPrint('[DraftProvider] Derby turn changed: $data');
+      if (_authToken != null && _currentDraft != null) {
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
+      }
+    };
+
+    _socketService.onDerbyCompleted = (data) {
+      debugPrint('[DraftProvider] Derby completed: $data');
+      // Refresh derby and draft state
+      if (_authToken != null && _currentDraft != null) {
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
+        loadDraftByLeague(_authToken!, _currentDraft!.leagueId);
+      }
+    };
+
+    _socketService.onDerbyTimerUpdate = (data) {
+      if (data['deadline'] != null && data['server_time'] != null) {
+        _derbyTurnDeadline = DateTime.parse(data['deadline']);
+        _derbyServerTime = DateTime.parse(data['server_time']);
+        _derbyLastSyncTime = DateTime.now();
+        notifyListeners();
+      }
+    };
+
+    _socketService.onDerbyTimeout = (data) {
+      debugPrint('[DraftProvider] Derby timeout: $data');
+      // Refresh derby state to see auto-assigned or skipped result
+      if (_authToken != null && _currentDraft != null) {
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
+      }
     };
   }
 
@@ -790,5 +883,176 @@ class DraftProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  // Derby Methods
+
+  /// Load derby state for a draft
+  Future<void> loadDerby({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      _derbyLoading = true;
+      _derbyError = null;
+      notifyListeners();
+
+      final derby = await _derbyService.getDerby(
+        token: token,
+        draftId: draftId,
+      );
+
+      _currentDerby = derby;
+      _derbyLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _derbyError = 'Error loading derby: ${e.toString()}';
+      _derbyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Create a new derby (commissioner only)
+  Future<bool> createDerby({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      _derbyLoading = true;
+      _derbyError = null;
+      notifyListeners();
+
+      final derby = await _derbyService.createDerby(
+        token: token,
+        draftId: draftId,
+      );
+
+      if (derby != null) {
+        // Reload full derby details
+        await loadDerby(token: token, draftId: draftId);
+        return true;
+      }
+
+      _derbyError = 'Failed to create derby';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _derbyError = 'Error creating derby: ${e.toString()}';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Start the derby (commissioner only)
+  Future<bool> startDerby({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      _derbyLoading = true;
+      _derbyError = null;
+      notifyListeners();
+
+      final derby = await _derbyService.startDerby(
+        token: token,
+        draftId: draftId,
+      );
+
+      if (derby != null) {
+        // Reload full derby details
+        await loadDerby(token: token, draftId: draftId);
+        return true;
+      }
+
+      _derbyError = 'Failed to start derby';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _derbyError = 'Error starting derby: ${e.toString()}';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Make a derby selection
+  Future<bool> makeDerbySelection({
+    required String token,
+    required int draftId,
+    required int rosterId,
+    required int draftPosition,
+  }) async {
+    try {
+      _derbyLoading = true;
+      _derbyError = null;
+      notifyListeners();
+
+      final result = await _derbyService.makeSelection(
+        token: token,
+        draftId: draftId,
+        rosterId: rosterId,
+        draftPosition: draftPosition,
+      );
+
+      if (result != null) {
+        _currentDerby = result['derby'] as DraftDerbyWithDetails;
+        _derbyLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      _derbyError = 'Failed to make selection';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _derbyError = e.toString().replaceAll('Exception: ', '');
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Skip current turn (for timeout or commissioner action)
+  Future<bool> skipDerbyTurn({
+    required String token,
+    required int draftId,
+  }) async {
+    try {
+      _derbyLoading = true;
+      _derbyError = null;
+      notifyListeners();
+
+      final derby = await _derbyService.skipTurn(
+        token: token,
+        draftId: draftId,
+      );
+
+      if (derby != null) {
+        _currentDerby = derby;
+        _derbyLoading = false;
+        notifyListeners();
+        return true;
+      }
+
+      _derbyError = 'Failed to skip turn';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _derbyError = 'Error skipping turn: ${e.toString()}';
+      _derbyLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Clear derby error
+  void clearDerbyError() {
+    _derbyError = null;
+    notifyListeners();
   }
 }

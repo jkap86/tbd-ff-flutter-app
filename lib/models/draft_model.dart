@@ -25,6 +25,11 @@ class Draft {
   final int? nominationTimerHours;
   final bool reserveBudgetPerSlot;
 
+  // Derby-specific fields
+  final bool derbyEnabled;
+  final int? derbyTimeLimitSeconds;
+  final String? derbyTimeoutBehavior; // 'auto' or 'skip'
+
   Draft({
     required this.id,
     required this.leagueId,
@@ -50,6 +55,10 @@ class Draft {
     this.nominationsPerManager = 3,
     this.nominationTimerHours,
     this.reserveBudgetPerSlot = false,
+    // Derby-specific params
+    this.derbyEnabled = false,
+    this.derbyTimeLimitSeconds,
+    this.derbyTimeoutBehavior,
   });
 
   factory Draft.fromJson(Map<String, dynamic> json) {
@@ -84,6 +93,10 @@ class Draft {
       nominationsPerManager: json['nominations_per_manager'] as int? ?? 3,
       nominationTimerHours: json['nomination_timer_hours'] as int?,
       reserveBudgetPerSlot: json['reserve_budget_per_slot'] as bool? ?? false,
+      // Derby-specific fields
+      derbyEnabled: json['derby_enabled'] as bool? ?? false,
+      derbyTimeLimitSeconds: json['derby_time_limit_seconds'] as int?,
+      derbyTimeoutBehavior: json['derby_timeout_behavior'] as String?,
     );
   }
 
@@ -113,6 +126,10 @@ class Draft {
       'nominations_per_manager': nominationsPerManager,
       'nomination_timer_hours': nominationTimerHours,
       'reserve_budget_per_slot': reserveBudgetPerSlot,
+      // Derby-specific fields
+      'derby_enabled': derbyEnabled,
+      'derby_time_limit_seconds': derbyTimeLimitSeconds,
+      'derby_timeout_behavior': derbyTimeoutBehavior,
     };
   }
 
@@ -165,6 +182,9 @@ class Draft {
     int? nominationsPerManager,
     int? nominationTimerHours,
     bool? reserveBudgetPerSlot,
+    bool? derbyEnabled,
+    int? derbyTimeLimitSeconds,
+    String? derbyTimeoutBehavior,
   }) {
     return Draft(
       id: id ?? this.id,
@@ -190,6 +210,9 @@ class Draft {
       nominationsPerManager: nominationsPerManager ?? this.nominationsPerManager,
       nominationTimerHours: nominationTimerHours ?? this.nominationTimerHours,
       reserveBudgetPerSlot: reserveBudgetPerSlot ?? this.reserveBudgetPerSlot,
+      derbyEnabled: derbyEnabled ?? this.derbyEnabled,
+      derbyTimeLimitSeconds: derbyTimeLimitSeconds ?? this.derbyTimeLimitSeconds,
+      derbyTimeoutBehavior: derbyTimeoutBehavior ?? this.derbyTimeoutBehavior,
     );
   }
 }
