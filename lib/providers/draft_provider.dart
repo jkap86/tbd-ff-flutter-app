@@ -49,6 +49,7 @@ class DraftProvider with ChangeNotifier {
   DateTime? _derbyTurnDeadline;
   DateTime? _derbyServerTime;
   DateTime? _derbyLastSyncTime;
+  Timer? _derbyTimer;
 
   // Getters
   DraftStatus get status => _status;
@@ -331,6 +332,17 @@ class DraftProvider with ChangeNotifier {
 
     _socketService.onDerbyTurnChanged = (data) {
       debugPrint('[DraftProvider] Derby turn changed: $data');
+
+      // Update derby deadline from event FIRST for immediate UI update
+      if (data['turnDeadline'] != null) {
+        _derbyTurnDeadline = DateTime.parse(data['turnDeadline']);
+        _derbyServerTime = DateTime.now(); // Estimate server time
+        _derbyLastSyncTime = DateTime.now();
+        _startDerbyTimerUI(); // Restart timer for new turn
+        notifyListeners(); // Notify immediately so timer updates
+      }
+
+      // Reload derby data to get full updated state
       if (_authToken != null && _currentDraft != null) {
         loadDerby(token: _authToken!, draftId: _currentDraft!.id);
       }
@@ -358,7 +370,9 @@ class DraftProvider with ChangeNotifier {
       debugPrint('[DraftProvider] Derby timeout: $data');
       // Refresh derby state to see auto-assigned or skipped result
       if (_authToken != null && _currentDraft != null) {
-        loadDerby(token: _authToken!, draftId: _currentDraft!.id);
+        loadDerby(token: _authToken!, draftId: _currentDraft!.id).then((_) {
+          notifyListeners(); // Ensure UI updates after loading
+        });
       }
     };
   }
@@ -459,6 +473,11 @@ class DraftProvider with ChangeNotifier {
         ]);
         _initializeChessTimerState();
 
+        // Load derby data if derby is enabled
+        if (draft.derbyEnabled) {
+          await _loadDerbyData(token, draft.id);
+        }
+
         // Initialize deadline from draft if in progress
         if (draft.isInProgress && draft.pickDeadline != null) {
           _currentPickDeadline = draft.pickDeadline;
@@ -507,6 +526,29 @@ class DraftProvider with ChangeNotifier {
   // Load chat messages
   Future<void> _loadChatMessages(String token, int draftId) async {
     _chatMessages = await _draftService.getChatMessages(token: token, draftId: draftId);
+  }
+
+  // Load derby data (silently fails if derby doesn't exist)
+  Future<void> _loadDerbyData(String token, int draftId) async {
+    try {
+      final derby = await _derbyService.getDerby(
+        token: token,
+        draftId: draftId,
+      );
+      _currentDerby = derby;
+
+      // Initialize derby timer if derby is in progress
+      if (derby != null && derby.derby.isInProgress && derby.derby.turnDeadline != null) {
+        _derbyTurnDeadline = derby.derby.turnDeadline;
+        _derbyServerTime = DateTime.now();
+        _derbyLastSyncTime = DateTime.now();
+        _startDerbyTimerUI();
+      }
+    } catch (e) {
+      // Derby doesn't exist yet - this is OK, it will be created when commissioner starts it
+      debugPrint('[DraftProvider] Derby not found (this is normal if not started yet): $e');
+      _currentDerby = null;
+    }
   }
 
   // Set draft order
@@ -812,10 +854,34 @@ class DraftProvider with ChangeNotifier {
     _timer = null;
   }
 
+  // Derby timer management - UI timer that updates every second
+  void _startDerbyTimerUI() {
+    _stopDerbyTimer();
+
+    if (_derbyTurnDeadline == null) {
+      debugPrint('[DerbyTimer] No deadline set, not starting UI timer');
+      return;
+    }
+
+    debugPrint('[DerbyTimer] Starting UI timer with deadline: $_derbyTurnDeadline');
+
+    // Update UI every second (calculation uses deadline)
+    _derbyTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Recalculate time remaining on each tick
+      notifyListeners();
+    });
+  }
+
+  void _stopDerbyTimer() {
+    _derbyTimer?.cancel();
+    _derbyTimer = null;
+  }
+
   // Cleanup
   @override
   void dispose() {
     _stopTimer();
+    _stopDerbyTimer();
     _filterDebouncer.dispose();
     _socketService.disconnect();
     _socketService.clearCallbacks();
@@ -912,6 +978,15 @@ class DraftProvider with ChangeNotifier {
       );
 
       _currentDerby = derby;
+
+      // Initialize derby timer if derby is in progress
+      if (derby != null && derby.derby.isInProgress && derby.derby.turnDeadline != null) {
+        _derbyTurnDeadline = derby.derby.turnDeadline;
+        _derbyServerTime = DateTime.now();
+        _derbyLastSyncTime = DateTime.now();
+        _startDerbyTimerUI(); // Start UI timer for countdown
+      }
+
       _derbyLoading = false;
       notifyListeners();
     } catch (e) {
