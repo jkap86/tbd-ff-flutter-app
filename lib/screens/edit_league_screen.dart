@@ -470,8 +470,12 @@ class _EditLeagueScreenState extends State<EditLeagueScreen> {
       setState(() => _isResetting = false);
 
       if (success) {
-        // Reload league data
+        // Reload league data and draft data
         await leagueProvider.loadLeagueDetails(authProvider.token!, widget.league.id);
+
+        // Also reload draft data to clear the stale draft from UI
+        final draftProvider = Provider.of<DraftProvider>(context, listen: false);
+        await draftProvider.loadDraftByLeague(authProvider.token!, widget.league.id);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
