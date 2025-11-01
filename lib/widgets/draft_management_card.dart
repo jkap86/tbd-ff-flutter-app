@@ -726,8 +726,15 @@ class DraftManagementCard extends StatelessWidget {
             ),
           );
 
-          // Navigate to draft room to see derby in action
-          _navigateToDraftRoom(context);
+          // Navigate to derby screen for position selection
+          Navigator.pushNamed(
+            context,
+            '/draft-derby',
+            arguments: {
+              'draftId': draft!.id,
+              'leagueId': league.id,
+            },
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
